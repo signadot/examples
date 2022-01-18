@@ -29,7 +29,7 @@ public class RouteServiceTest {
 
     @BeforeSuite
     public void createWorkspace() throws ApiException, InterruptedException {
-        apiClient = new ApiClient().addDefaultHeader("Accept-Version", "20211220");
+        apiClient = new ApiClient();
         apiClient.setApiKey(SIGNADOT_API_KEY);
         workspacesApi = new WorkspacesApi(apiClient);
 
