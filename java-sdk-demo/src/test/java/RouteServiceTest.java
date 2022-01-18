@@ -38,13 +38,13 @@ public class RouteServiceTest {
                 .forkOf(new ForkOf().kind("Deployment").namespace(HOTROD).name("route"))
                 .customizations(new WorkspaceCustomizations()
                         .addEnvItem(new EnvOp().name("abc").value("def").operation("upsert"))
-                        .addImagesItem(new Image().image("signadot/hotrod-route-staging:1296f5870bc23674c2750258aea77d0981e07f77")))
-                .addEndpointsItem(new ForkEndpoint().name("route").port(8083).protocol("http"));
+                        .addImagesItem(new Image().image("signadot/hotrod-route:540fadfd2fe619e20b794d56ce404761ce2b45a3")))
+                .addEndpointsItem(new ForkEndpoint().name("hotrod-route").port(8083).protocol("http"));
 
         CreateWorkspaceRequest request = new CreateWorkspaceRequest()
-                .cluster("signadot-staging")
+                .cluster("demo")
                 .name(workspaceName)
-                .description("test workspace created using signadot-sdk")
+                .description("test workspace created using java-sdk")
                 .addForksItem(routeFork);
 
         response = workspacesApi.createNewWorkspace(ORG_NAME, request);
@@ -61,7 +61,7 @@ public class RouteServiceTest {
 
         PreviewEndpoint endpoint = null;
         for (PreviewEndpoint ep: endpoints) {
-            if ("route".equals(ep.getName())) {
+            if ("hotrod-route".equals(ep.getName())) {
                 endpoint = ep;
                 break;
             }
