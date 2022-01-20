@@ -3,7 +3,9 @@ import com.signadot.ApiException;
 import com.signadot.api.WorkspacesApi;
 import com.signadot.model.*;
 import io.restassured.RestAssured;
+import io.restassured.builder.RequestSpecBuilder;
 import io.restassured.http.ContentType;
+import io.restassured.specification.RequestSpecification;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeSuite;
@@ -21,6 +23,7 @@ public class RouteServiceTest {
     public static final String ORG_NAME = "signadot";
     public static final String HOTROD = "hotrod";
     public static final String SIGNADOT_API_KEY = System.getenv("SIGNADOT_API_KEY");
+    private static RequestSpecification requestSpec;
 
     ApiClient apiClient;
     WorkspacesApi workspacesApi;
@@ -73,6 +76,12 @@ public class RouteServiceTest {
         // set the base URL for tests
         RestAssured.baseURI = endpoint.getPreviewURL();
 
+        RequestSpecBuilder builder = new RequestSpecBuilder();
+        builder.setBaseUri(endpoint.getPreviewURL());
+        builder.addHeader("signadot-api-key", SIGNADOT_API_KEY);
+
+        requestSpec = builder.build();
+
         // Check for workspace readiness
         while (!workspacesApi.getWorkspaceReady(ORG_NAME, workspaceID).isReady()) {
             Thread.sleep(5000);
@@ -82,7 +91,7 @@ public class RouteServiceTest {
     @Test
     public void testETANotNegative() {
         given().
-                header("signadot-api-key", SIGNADOT_API_KEY).
+                spec(requestSpec).
                 when().
                 get("/route?pickup=123&dropoff=456").
                 then().
@@ -93,7 +102,7 @@ public class RouteServiceTest {
     @Test
     public void testPickupDropOffHasValue() {
         given().
-                header("signadot-api-key", SIGNADOT_API_KEY).
+                spec(requestSpec).
                 when().
                 get("/route?pickup=123&dropoff=456").
                 then().
@@ -106,7 +115,7 @@ public class RouteServiceTest {
     @Test
     public void testStatusCode200() {
         given().
-                header("signadot-api-key", SIGNADOT_API_KEY).
+                spec(requestSpec).
                 when().
                 get("/route?pickup=123&dropoff=456").
                 then().
@@ -116,7 +125,7 @@ public class RouteServiceTest {
     @Test
     public void testNoQueryParams() {
         given().
-                header("signadot-api-key", SIGNADOT_API_KEY).
+                spec(requestSpec).
                 when().
                 get("/route").
                 then().
@@ -128,7 +137,7 @@ public class RouteServiceTest {
     @Test
     public void testRequirePickupQueryParam() {
         given().
-                header("signadot-api-key", SIGNADOT_API_KEY).
+                spec(requestSpec).
                 when().
                 get("/route?dropoff=456").
                 then().
@@ -140,7 +149,7 @@ public class RouteServiceTest {
     @Test
     public void testRequireDropoffQueryParam() {
         given().
-                header("signadot-api-key", SIGNADOT_API_KEY).
+                spec(requestSpec).
                 when().
                 get("/route?pickup=577,322").
                 then().
