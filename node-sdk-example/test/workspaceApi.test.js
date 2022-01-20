@@ -18,6 +18,11 @@ const nanoid = customAlphabet('1234567890abcdef', 5);
 let previewURL;
 const SIGNADOT_ORG = 'signadot'; // Enter your Signadot org name here
 const SIGNADOT_API_KEY = process.env.SIGNADOT_API_KEY; // passed from command line
+const options = {
+    headers: {
+        'signadot-api-key': SIGNADOT_API_KEY
+    }
+};
 
 describe('Test Signadot SDK', () => {
     let workspacesApi, workspaceID;
@@ -87,12 +92,7 @@ describe('Test Signadot SDK', () => {
 
     it('Route service preview', () => {
         const serviceURL = `${previewURL}/route?pickup=123&dropoff=456`
-
-        axios.get(serviceURL, {
-            headers: {
-                'signadot-api-key': SIGNADOT_API_KEY
-            }
-        })
+        axios.get(serviceURL, options)
             .then((response) => {
                 expect(response.status).to.equal(200);
 
@@ -105,7 +105,6 @@ describe('Test Signadot SDK', () => {
     });
 
     after(() => {
-        console.log("Tests complete. Deleting workspace");
         return workspacesApi.deleteWorkspaceById(SIGNADOT_ORG, workspaceID);
     });
 });
