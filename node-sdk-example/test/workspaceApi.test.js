@@ -60,7 +60,6 @@ describe('Test Signadot SDK', () => {
                     name: `test-ws-${nanoid()}`,
                     description: 'created using @signadot/signadot-sdk',
                     cluster: 'demo',
-                    namespace: 'hotrod',
                     forks: [ routeFork ]
                 });
 

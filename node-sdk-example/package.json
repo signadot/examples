@@ -1,21 +1,14 @@
 {
-  "name": "workspaces-demo-nodejs",
+  "name": "node-sdk-example",
   "version": "1.0.0",
-  "description": "Signadot workspaces JS SDK demo",
+  "description": "Signadot workspaces JS SDK example",
   "main": "index.js",
   "scripts": {
     "test": "mocha --timeout 60000"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/signadot/workspaces-demo-nodejs.git"
-  },
   "author": "",
   "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/signadot/workspaces-demo-nodejs/issues"
-  },
-  "homepage": "https://github.com/signadot/workspaces-demo-nodejs#readme",
+  "homepage": "https://docs.signadot.com/docs/java-sdk",
   "devDependencies": {
     "@babel/core": "^7.16.7",
     "@babel/node": "^7.16.8",

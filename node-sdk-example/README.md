@@ -1,5 +1,5 @@
-## Signadot Node SDK Demo
-This demo application uses Signadot's Node SDK to create a workspace and test the preview URL in the context of Integration Testing with workspaces.
+## Signadot Node SDK Example
+This sample application uses Signadot's Node SDK to create a workspace and test the preview URL in the context of Integration Testing with workspaces.
 
 ## Installation
 
@@ -15,7 +15,7 @@ npm install @signadot/signadot-sdk --save
 yarn add @signadot/signadot-sdk
 ```
 
-## Running the demo
+## Running the example
 Install the npm dependencies.
 ```shell
 npm install
