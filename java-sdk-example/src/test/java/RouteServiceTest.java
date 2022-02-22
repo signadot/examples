@@ -1,6 +1,6 @@
 import com.signadot.ApiClient;
 import com.signadot.ApiException;
-import com.signadot.api.WorkspacesApi;
+import com.signadot.api.SandboxesApi;
 import com.signadot.model.*;
 import io.restassured.RestAssured;
 import io.restassured.builder.RequestSpecBuilder;
@@ -26,35 +26,35 @@ public class RouteServiceTest {
     private static RequestSpecification requestSpec;
 
     ApiClient apiClient;
-    WorkspacesApi workspacesApi;
-    CreateWorkspaceResponse response;
-    String workspaceID;
+    SandboxesApi sandboxesApi;
+    CreateSandboxResponse response;
+    String sandboxID;
 
     @BeforeSuite
-    public void createWorkspace() throws ApiException, InterruptedException {
+    public void createSandbox() throws ApiException, InterruptedException {
         apiClient = new ApiClient();
         apiClient.setApiKey(SIGNADOT_API_KEY);
-        workspacesApi = new WorkspacesApi(apiClient);
+        sandboxesApi = new SandboxesApi(apiClient);
 
-        String workspaceName = String.format("test-ws-%s", RandomStringUtils.randomAlphanumeric(5));
-        WorkspaceFork routeFork = new WorkspaceFork()
+        String sandboxName = String.format("test-ws-%s", RandomStringUtils.randomAlphanumeric(5));
+        SandboxFork routeFork = new SandboxFork()
                 .forkOf(new ForkOf().kind("Deployment").namespace(HOTROD).name("route"))
-                .customizations(new WorkspaceCustomizations()
+                .customizations(new SandboxCustomizations()
                         .addEnvItem(new EnvOp().name("abc").value("def").operation("upsert"))
                         .addImagesItem(new Image().image("signadot/hotrod-route:540fadfd2fe619e20b794d56ce404761ce2b45a3")))
                 .addEndpointsItem(new ForkEndpoint().name("hotrod-route").port(8083).protocol("http"));
 
-        CreateWorkspaceRequest request = new CreateWorkspaceRequest()
+        CreateSandboxRequest request = new CreateSandboxRequest()
                 .cluster("demo")
-                .name(workspaceName)
-                .description("test workspace created using java-sdk")
+                .name(sandboxName)
+                .description("test sandbox created using java-sdk")
                 .addForksItem(routeFork);
 
-        response = workspacesApi.createNewWorkspace(ORG_NAME, request);
+        response = sandboxesApi.createNewSandbox(ORG_NAME, request);
 
-        workspaceID = response.getWorkspaceID();
-        if (workspaceID == null || workspaceID == "") {
-            throw new RuntimeException("Workspace ID not set in API response");
+        sandboxID = response.getSandboxID();
+        if (sandboxID == null || sandboxID == "") {
+            throw new RuntimeException("Sandbox ID not set in API response");
         }
 
         List<PreviewEndpoint> endpoints = response.getPreviewEndpoints();
@@ -82,8 +82,8 @@ public class RouteServiceTest {
 
         requestSpec = builder.build();
 
-        // Check for workspace readiness
-        while (!workspacesApi.getWorkspaceReady(ORG_NAME, workspaceID).isReady()) {
+        // Check for sandbox readiness
+        while (!sandboxesApi.getSandboxReady(ORG_NAME, sandboxID).isReady()) {
             Thread.sleep(5000);
         };
     }
@@ -159,7 +159,7 @@ public class RouteServiceTest {
     }
 
     @AfterSuite
-    public void deleteWorkspace() throws ApiException {
-        workspacesApi.deleteWorkspaceById(ORG_NAME, workspaceID);
+    public void deleteSandbox() throws ApiException {
+        sandboxesApi.deleteSandboxById(ORG_NAME, sandboxID);
     }
 }
