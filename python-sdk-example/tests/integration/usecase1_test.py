@@ -24,11 +24,11 @@ Preview Flow:
                       \
                        *---> [forkOf Svc-B]
 
-To set up for that use-case, we will be creating a workspace with a fork of the Route service, along with an endpoint to
-the frontend service. The Frontend service endpoint URL can then be used to verify that the changes as the workspaces
+To set up for that use-case, we will be creating a sandbox with a fork of the Route service, along with an endpoint to
+the frontend service. The Frontend service endpoint URL can then be used to verify that the changes as the sandboxes
 routes the call to the fork of Route service instead of the baseline Route service.
 
-The below code is scoped to creating a workspace with the above setup, and printing out the preview endpoint URL to
+The below code is scoped to creating a sandbox with the above setup, and printing out the preview endpoint URL to
 the frontend service to verify the change. Using a UI testing setup to test out the change on the UI is not covered here.
 
 Sample command to run this test:
@@ -49,15 +49,15 @@ class TestUseCase1(unittest.TestCase):
     configuration = signadot_sdk.Configuration()
     configuration.api_key['signadot-api-key'] = SIGNADOT_API_KEY
 
-    workspaces_api = signadot_sdk.WorkspacesApi(signadot_sdk.ApiClient(configuration))
-    workspace_id = None
+    sandboxes_api = signadot_sdk.SandboxesApi(signadot_sdk.ApiClient(configuration))
+    sandbox_id = None
     preview_url = None
     headers_dict = {"signadot-api-key": SIGNADOT_API_KEY}
 
     @classmethod
     def setUpClass(cls):
         # Define the spec for the fork of route service
-        route_fork = signadot_sdk.WorkspaceFork(
+        route_fork = signadot_sdk.SandboxFork(
             # This tells the application to create a fork of route service/deployment in hotrod namespace.
             fork_of=signadot_sdk.ForkOf(
                 kind="Deployment",
@@ -65,7 +65,7 @@ class TestUseCase1(unittest.TestCase):
                 namespace="hotrod"
             ),
             # Define the various customizations we want to apply on the fork
-            customizations=signadot_sdk.WorkspaceCustomizations(
+            customizations=signadot_sdk.SandboxCustomizations(
                 # The image(s) we want to apply on the fork. This assumes that the updated Route service code has been
                 # packaged as an image and published to docker.
                 # Sample value: signadot/hotrod-route:540fadfd2fe619e20b794d56ce404761ce2b45a3
@@ -85,31 +85,31 @@ class TestUseCase1(unittest.TestCase):
 
         # Define an additional endpoint to the frontend service as we're interested in testing the Route service
         # changes through the frontend service.
-        frontend_endpoint = signadot_sdk.WorkspaceEndpoint(
+        frontend_endpoint = signadot_sdk.SandboxEndpoint(
             host="frontend.hotrod.svc",  # Host for frontend service
             name="hotrod-frontend",  # Name for the endpoint
             port=8080,  # Frontend service operates on port 8080
             protocol="http"  # Frontend service uses HTTP protocol
         )
 
-        # Specification for the workspace. We will pass the spec for the fork of route service and the additional
+        # Specification for the sandbox. We will pass the spec for the fork of route service and the additional
         # endpoint to frontend service.
-        request = signadot_sdk.CreateWorkspaceRequest(
+        request = signadot_sdk.CreateSandboxRequest(
             name="test-ws-{}".format(get_random_string(5)),
-            description="Sample workspace created using Python SDK",
+            description="Sample sandbox created using Python SDK",
             cluster="demo",
             forks=[route_fork],
             endpoints=[frontend_endpoint]
         )
 
         try:
-            # API call to create a new workspace
-            api_response = cls.workspaces_api.create_new_workspace(cls.org_name, request)
+            # API call to create a new sandbox
+            api_response = cls.sandboxes_api.create_new_sandbox(cls.org_name, request)
         except ApiException as e:
-            print("Exception creating a workspace: %s\n" % e)
+            print("Exception creating a sandbox: %s\n" % e)
 
-        # Workspace ID for the created workspace
-        cls.workspace_id = api_response.workspace_id
+        # Sandbox ID for the created sandbox
+        cls.sandbox_id = api_response.sandbox_id
 
         # Filtering out the endpoint to the frontend service by name.
         filtered_frontend = filter_endpoint(api_response, "hotrod-frontend")
@@ -119,20 +119,20 @@ class TestUseCase1(unittest.TestCase):
         cls.preview_url = frontend_preview_endpoint.preview_url
         print("Frontend Service endpoint URL: {}".format(cls.preview_url))
 
-        # Code block to wait until workspace is ready
-        workspace_ready = False
+        # Code block to wait until sandbox is ready
+        sandbox_ready = False
         max_attempts = 10
-        print("Checking workspace readiness")
+        print("Checking sandbox readiness")
         for i in range(1, max_attempts):
             print("Attempt: {}/{}".format(i, max_attempts))
-            workspace_ready = cls.workspaces_api.get_workspace_ready(cls.org_name, cls.workspace_id).ready
-            if workspace_ready:
-                print("Workspace is ready!")
+            sandbox_ready = cls.sandboxes_api.get_sandbox_ready(cls.org_name, cls.sandbox_id).ready
+            if sandbox_ready:
+                print("Sandbox is ready!")
                 break
             time.sleep(5)
 
-        if not workspace_ready:
-            raise RuntimeError("Workspace didn't get to Ready state")
+        if not sandbox_ready:
+            raise RuntimeError("Sandbox didn't get to Ready state")
 
     def test_frontend(self):
         # Run tests on the updated frontend service using the endpoint URL
@@ -140,8 +140,8 @@ class TestUseCase1(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        # Tear down the workspace
-        cls.workspaces_api.delete_workspace_by_id(cls.org_name, cls.workspace_id)
+        # Tear down the sandbox
+        cls.sandboxes_api.delete_sandbox_by_id(cls.org_name, cls.sandbox_id)
 
 
 def get_random_string(length):

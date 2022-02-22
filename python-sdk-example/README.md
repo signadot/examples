@@ -1,7 +1,7 @@
 # Signadot Python SDK Example
 
 ## Introduction
-This sample application uses Signadot's Node SDK to create a workspace and test the preview URL in the context of Integration Testing with workspaces.
+This sample application uses Signadot's Node SDK to create a sandbox and test the preview URL in the context of Integration Testing with sandboxes.
 
 ## Setup
 
@@ -12,7 +12,7 @@ This sample application uses Signadot's Node SDK to create a workspace and test 
 5. Create a cluster in the [Signadot Dashboard](https://app.signadot.com/) and make sure to copy the token generated for it for the next step.
 6. Run the following commands:
     1. `helm repo add signadot https://charts.signadot.com`
-    2. `helm install signadot-workspaces signadot/workspaces`
+    2. `helm install signadot-sandboxes signadot/sandboxes`
     3. `kubectl -n signadot create secret generic cluster-agent --from-literal=token=...` where the `...` is replaced with the token you copied when creating the cluster in the Signadot Dashboard.
 
 ## Installation
