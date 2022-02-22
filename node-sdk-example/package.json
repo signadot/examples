@@ -1,7 +1,7 @@
 {
   "name": "node-sdk-example",
   "version": "1.0.0",
-  "description": "Signadot workspaces JS SDK example",
+  "description": "Signadot sandboxes JS SDK example",
   "main": "index.js",
   "scripts": {
     "test": "mocha --timeout 60000"
@@ -19,7 +19,7 @@
   },
   "type": "module",
   "dependencies": {
-    "@signadot/signadot-sdk": "^0.1.2",
+    "@signadot/signadot-sdk": "^0.2.0",
     "axios": "^0.24.0",
     "nanoid": "^3.1.32"
   }

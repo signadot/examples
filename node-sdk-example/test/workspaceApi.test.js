@@ -1,13 +1,13 @@
 import {
     ApiClient,
-    CreateWorkspaceRequest,
+    CreateSandboxRequest,
     EnvOp,
     ForkEndpoint,
     ForkOf,
     Image,
-    WorkspaceCustomizations,
-    WorkspaceFork,
-    WorkspacesApi
+    SandboxCustomizations,
+    SandboxFork,
+    SandboxesApi
 } from '@signadot/signadot-sdk';
 import axios from 'axios';
 import {customAlphabet} from 'nanoid';
@@ -25,21 +25,21 @@ const options = {
 };
 
 describe('Test Signadot SDK', () => {
-    let workspacesApi, workspaceID;
+    let sandboxesApi, sandboxID;
     before(async () => {
         return new Promise(async (resolve, reject) => {
             try {
                 const apiClient = new ApiClient();
                 apiClient.authentications.ApiKeyAuth.apiKey = SIGNADOT_API_KEY;
-                workspacesApi = new WorkspacesApi(apiClient);
+                sandboxesApi = new SandboxesApi(apiClient);
 
-                const routeFork = WorkspaceFork.constructFromObject({
+                const routeFork = SandboxFork.constructFromObject({
                     forkOf: ForkOf.constructFromObject({
                         kind: 'Deployment',
                         name: 'route',
                         namespace: 'hotrod'
                     }),
-                    customizations: WorkspaceCustomizations.constructFromObject({
+                    customizations: SandboxCustomizations.constructFromObject({
                         images: [
                             Image.constructFromObject({
                                 image: 'signadot/hotrod-route:540fadfd2fe619e20b794d56ce404761ce2b45a3'
@@ -61,15 +61,15 @@ describe('Test Signadot SDK', () => {
                     ]
                 });
 
-                const request = CreateWorkspaceRequest.constructFromObject({
+                const request = CreateSandboxRequest.constructFromObject({
                     name: `test-ws-${nanoid()}`,
                     description: 'created using @signadot/signadot-sdk',
                     cluster: 'demo',
                     forks: [ routeFork ]
                 });
 
-                const response = await workspacesApi.createNewWorkspace(SIGNADOT_ORG, request);
-                workspaceID = response.workspaceID;
+                const response = await sandboxesApi.createNewSandbox(SIGNADOT_ORG, request);
+                sandboxID = response.sandboxID;
 
                 const filteredEndpoints = response.previewEndpoints.filter(ep => ep.name === 'hotrod-route');
                 if (filteredEndpoints.length == 0) {
@@ -78,7 +78,7 @@ describe('Test Signadot SDK', () => {
                 previewURL = filteredEndpoints[0].previewURL;
 
                 const readyStateInterval = setInterval(async () => {
-                    const readyState = await workspacesApi.getWorkspaceReady(SIGNADOT_ORG, workspaceID);
+                    const readyState = await sandboxesApi.getSandboxReady(SIGNADOT_ORG, sandboxID);
                     if (readyState.ready) {
                         clearInterval(readyStateInterval);
                         resolve();
@@ -105,6 +105,6 @@ describe('Test Signadot SDK', () => {
     });
 
     after(() => {
-        return workspacesApi.deleteWorkspaceById(SIGNADOT_ORG, workspaceID);
+        return sandboxesApi.deleteSandboxById(SIGNADOT_ORG, sandboxID);
     });
 });
