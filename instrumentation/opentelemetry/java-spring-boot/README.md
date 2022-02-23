@@ -3,7 +3,7 @@
 This is a minimal example of adding OpenTelemetry auto-instrumentation to a Spring Boot app.
 In contrast to the examples in the official [OpenTelemetry docs](https://opentelemetry.io/docs/instrumentation/java/examples/),
 we skip over all the distributed tracing aspects since the only thing that matters
-for Signadot Workspaces is context propagation.
+for Signadot Sandboxes is context propagation.
 
 The directories `apiserver` and `backend` contain simple Hello World style servers.
 
@@ -35,8 +35,8 @@ Then send a request to the API server that includes a `baggage` header, which is
 the standard OpenTelemetry header for arbitrary context propagation:
 
 ```console
-$ curl localhost:8081 -H 'baggage: sd-workspace=abcdef'
-Baggage header seen by API server: sd-workspace=abcdef
+$ curl localhost:8081 -H 'baggage: sd-sandbox=abcdef'
+Baggage header seen by API server: sd-sandbox=abcdef
 Baggage header seen by backend server: null
 ```
 
@@ -75,9 +75,9 @@ Started DemoApplication in 1.553 seconds (JVM running for 2.8)
 Now send the request to the API server again:
 
 ```console
-$ curl localhost:8081 -H 'baggage: sd-workspace=abcdef'
-Baggage header seen by API server: sd-workspace=abcdef
-Baggage header seen by backend server: sd-workspace=abcdef
+$ curl localhost:8081 -H 'baggage: sd-sandbox=abcdef'
+Baggage header seen by API server: sd-sandbox=abcdef
+Baggage header seen by backend server: sd-sandbox=abcdef
 ```
 
 Notice that the `baggage` header has now been propagated all the way to the

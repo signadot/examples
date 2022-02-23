@@ -3,7 +3,7 @@
 This is a minimal example of adding OpenTelemetry auto-instrumentation to a Node.js app.
 In contrast to the examples in the official [OpenTelemetry docs](https://opentelemetry.io/docs/instrumentation/js/getting-started/nodejs/),
 we skip over all the distributed tracing aspects since the only thing that matters
-for Signadot Workspaces is context propagation.
+for Signadot Sandboxes is context propagation.
 
 The files `apiserver.js` and `backend.js` are simple Hello World style Node.js servers.
 
@@ -30,8 +30,8 @@ Then send a request to the API server that includes a `baggage` header, which is
 the standard OpenTelemetry header for arbitrary context propagation:
 
 ```console
-$ curl localhost:3000 -H 'baggage: sd-workspace=abcdef'
-Baggage header seen by API server: sd-workspace=abcdef
+$ curl localhost:3000 -H 'baggage: sd-sandbox=abcdef'
+Baggage header seen by API server: sd-sandbox=abcdef
 Baggage header seen by backend server: undefined
 ```
 
@@ -58,9 +58,9 @@ Backend server running at http://127.0.0.1:3001/
 Now send the request to the API server again:
 
 ```console
-$ curl localhost:3000 -H 'baggage: sd-workspace=abcdef'
-Baggage header seen by API server: sd-workspace=abcdef
-Baggage header seen by backend server: sd-workspace=abcdef
+$ curl localhost:3000 -H 'baggage: sd-sandbox=abcdef'
+Baggage header seen by API server: sd-sandbox=abcdef
+Baggage header seen by backend server: sd-sandbox=abcdef
 ```
 
 Notice that the `baggage` header has now been propagated all the way to the
