@@ -19,7 +19,7 @@
   },
   "type": "module",
   "dependencies": {
-    "@signadot/signadot-sdk": "^0.2.1",
+    "@signadot/signadot-sdk": "^0.2.2",
     "axios": "^0.24.0",
     "nanoid": "^3.1.32"
   }
