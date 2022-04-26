@@ -24,7 +24,7 @@ const options = {
     }
 };
 
-describe('Test Signadot SDK', () => {
+describe('Test a service using sandbox', () => {
     let sandboxesApi, sandboxID;
     before(async () => {
         return new Promise(async (resolve, reject) => {
