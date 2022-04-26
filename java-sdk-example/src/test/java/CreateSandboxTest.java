@@ -16,9 +16,7 @@ import java.util.List;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
 
-// This test uses the -SNAPSHOT version of the sdk and is running against the staging environment. Update this to use
-// the release version and run against prod after the release (0.1.4)
-public class RouteServiceTest {
+public class CreateSandboxTest {
 
     public static final String ORG_NAME = "signadot";
     public static final String HOTROD = "hotrod";
@@ -47,7 +45,7 @@ public class RouteServiceTest {
         CreateSandboxRequest request = new CreateSandboxRequest()
                 .cluster("demo")
                 .name(sandboxName)
-                .description("test sandbox created using java-sdk")
+                .description("Java SDK: sandbox creation example")
                 .addForksItem(routeFork);
 
         response = sandboxesApi.createNewSandbox(ORG_NAME, request);
