@@ -28,7 +28,9 @@ def get_random_string(length):
 # Once the sandbox is created with the resource, we are testing the customer service endpoint to ensure that the
 # new customer (ID=999) is obtained as expected.
 class TestWithResources(unittest.TestCase):
-    org_name = 'signadot'
+    SIGNADOT_ORG = os.getenv('SIGNADOT_ORG')
+    if SIGNADOT_ORG is None:
+        raise OSError('SIGNADOT_ORG is not set')
 
     SIGNADOT_API_KEY = os.getenv('SIGNADOT_API_KEY')
     if SIGNADOT_API_KEY is None:
@@ -84,7 +86,7 @@ class TestWithResources(unittest.TestCase):
         )
 
         try:
-            api_response = cls.sandboxes_api.create_new_sandbox(cls.org_name, request)
+            api_response = cls.sandboxes_api.create_new_sandbox(cls.SIGNADOT_ORG, request)
         except ApiException as e:
             print("Exception creating a sandbox: %s\n" % e)
 
@@ -101,7 +103,7 @@ class TestWithResources(unittest.TestCase):
         print("Checking sandbox readiness")
         for i in range(1, max_attempts):
             print("Attempt: {}/{}".format(i, max_attempts))
-            sandbox_ready = cls.sandboxes_api.get_sandbox_ready(cls.org_name, cls.sandbox_id).ready
+            sandbox_ready = cls.sandboxes_api.get_sandbox_ready(cls.SIGNADOT_ORG, cls.sandbox_id).ready
             if sandbox_ready:
                 print("Sandbox is ready!")
                 break
@@ -122,7 +124,7 @@ class TestWithResources(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        cls.sandboxes_api.delete_sandbox_by_id(cls.org_name, cls.sandbox_id)
+        cls.sandboxes_api.delete_sandbox_by_id(cls.SIGNADOT_ORG, cls.sandbox_id)
 
 if __name__ == '__main__':
     unittest.main()

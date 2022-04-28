@@ -37,7 +37,7 @@ import static org.hamcrest.Matchers.*;
  */
 public class ResourcesTest {
 
-  public static final String ORG_NAME = "signadot";
+  public static final String ORG_NAME = System.getenv("SIGNADOT_ORG");
   public static final String HOTROD = "hotrod";
   public static final String SIGNADOT_API_KEY = System.getenv("SIGNADOT_API_KEY");
   private static RequestSpecification requestSpec;
