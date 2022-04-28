@@ -100,7 +100,7 @@ class TestUseCase2(unittest.TestCase):
             customizations=signadot_sdk.SandboxCustomizations(
                 # The image(s) we want to apply on the fork. This assumes that the updated Route service code has been
                 # packaged as an image and published to docker.
-                # Sample value: signadot/hotrod-frontend:5069b62ddc2625244c8504c3bca6602650494879
+                # Sample value: signadot/hotrod:0ed0bdadaa3af1e4f1e6f3bb6b7d19504aa9b1bd
                 images=[
                     signadot_sdk.Image(image=cls.FRONTEND_IMAGE)
                 ],

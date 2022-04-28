@@ -33,7 +33,7 @@ the frontend service to verify the change. Using a UI testing setup to test out 
 
 Sample command to run this test:
 cd examples/python-sdk-example
-SIGNADOT_API_KEY=<signadot-api-key> ROUTE_IMAGE=signadot/hotrod-route:540fadfd2fe619e20b794d56ce404761ce2b45a3 python3 tests/integration/usecase1_test.py
+SIGNADOT_API_KEY=<signadot-api-key> ROUTE_IMAGE=signadot/hotrod:0ed0bdadaa3af1e4f1e6f3bb6b7d19504aa9b1bd python3 tests/integration/usecase1_test.py
 """
 class TestUseCase1(unittest.TestCase):
     org_name = 'signadot'
@@ -68,7 +68,7 @@ class TestUseCase1(unittest.TestCase):
             customizations=signadot_sdk.SandboxCustomizations(
                 # The image(s) we want to apply on the fork. This assumes that the updated Route service code has been
                 # packaged as an image and published to docker.
-                # Sample value: signadot/hotrod-route:540fadfd2fe619e20b794d56ce404761ce2b45a3
+                # Sample value: signadot/hotrod:latest
                 images=[
                     signadot_sdk.Image(image=cls.ROUTE_IMAGE)
                 ],

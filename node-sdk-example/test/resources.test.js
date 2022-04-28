@@ -60,7 +60,7 @@ describe('Sandbox test using resources', () => {
           customizations: SandboxCustomizations.constructFromObject({
             images: [
               Image.constructFromObject({
-                image: 'signadot/hotrod:cace2c797082481ac0238cc1310b7816980e3244'
+                image: 'signadot/hotrod:0ed0bdadaa3af1e4f1e6f3bb6b7d19504aa9b1bd'
               })
             ],
             env: [
