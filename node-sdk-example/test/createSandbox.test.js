@@ -42,7 +42,7 @@ describe('Test a service using sandbox', () => {
                     customizations: SandboxCustomizations.constructFromObject({
                         images: [
                             Image.constructFromObject({
-                                image: 'signadot/hotrod-route:540fadfd2fe619e20b794d56ce404761ce2b45a3'
+                                image: 'signadot/hotrod:0ed0bdadaa3af1e4f1e6f3bb6b7d19504aa9b1bd'
                             })
                         ],
                         env: [
