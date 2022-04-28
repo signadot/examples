@@ -16,5 +16,5 @@ This example application uses Signadot's Java SDK to create a sandbox and test t
 The test creates a sandbox in the setup phase, runs tests against it and deletes the sandbox upon completion of the tests. Heres' the command to run it:
 
 ```
-SIGNADOT_API_KEY=<SIGNADOT_API_KEY_HERE> gradle clean test
+SIGNADOT_ORG=<your-signadot-org> SIGNADOT_API_KEY=<SIGNADOT_API_KEY_HERE> gradle clean test
 ```

@@ -20,5 +20,5 @@ pip3 install -r test-requirements.txt
 ## Run test(s)
 Plug in Signadot API Key from Signadot dashboard and run the command below:
 ```shell
-SIGNADOT_API_KEY=<signadot-api-key> python3 tests/integration/create_sandbox_test.py
+SIGNADOT_ORG=<your-signadot-org> SIGNADOT_API_KEY=<signadot-api-key> python3 tests/integration/create_sandbox_test.py
 ```
