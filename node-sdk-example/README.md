@@ -34,5 +34,6 @@ npm install
 
 Run the tests with the below command. Supply SIGNADOT_API_KEY from Signadot dashboard.
 ```shell
-SIGNADOT_API_KEY=<supply-signadot-api-key-here> npm run test
+export SIGNADOT_API_KEY=...
+./run-tests.sh
 ```

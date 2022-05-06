@@ -4,7 +4,7 @@
   "description": "Signadot sandboxes JS SDK example",
   "main": "index.js",
   "scripts": {
-    "test": "mocha --timeout 60000"
+    "test": "mocha --timeout 120000"
   },
   "author": "",
   "license": "ISC",
