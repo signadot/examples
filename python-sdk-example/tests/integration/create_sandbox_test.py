@@ -29,6 +29,31 @@ class TestBasic(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        frontend_fork = signadot_sdk.SandboxFork(
+            fork_of=signadot_sdk.ForkOf(
+                kind="Deployment",
+                name="frontend",
+                namespace="hotrod"
+            ),
+            customizations=signadot_sdk.SandboxCustomizations(
+                images=[
+                    signadot_sdk.Image(image="signadot/frontend:latest")
+                ],
+                env=[
+                    signadot_sdk.EnvOp(
+                        name="ROUTE_ADDR",
+                        valueFrom=signadot_sdk.EnvValueFrom(
+                            fork=signadot_sdk.ForkOf(
+                                kind="Deployment",
+                                name="route",
+                                namespace="hotrod"
+                            ),
+                            expression="{{ .Service.Host }}:{{ .Service.Port }}"
+                        )
+                    )
+                ]
+            )
+        )
         route_fork = signadot_sdk.SandboxFork(
             fork_of=signadot_sdk.ForkOf(
                 kind="Deployment",
@@ -41,7 +66,20 @@ class TestBasic(unittest.TestCase):
                 ],
                 env=[
                     signadot_sdk.EnvOp(name="abc", value="xyz", operation="upsert")
-                ]
+                ],
+                patch=signadot_sdk.CustomPatch(
+                    type="strategic",
+                    value="""
+                    spec:
+                      template:
+                        spec:
+                          containers:
+                          - name: hotrod
+                            env:
+                            - name: TEST
+                              value: foo
+                    """
+                )
             ),
             endpoints=[
                 signadot_sdk.ForkEndpoint(
@@ -55,7 +93,7 @@ class TestBasic(unittest.TestCase):
             name="test-ws-{}".format(get_random_string(5)),
             description="Sample sandbox created using Python SDK",
             cluster="demo",
-            forks=[route_fork]
+            forks=[route_fork, frontend_fork]
         )
 
         try:

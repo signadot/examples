@@ -35,18 +35,45 @@ public class CreateSandboxTest {
         sandboxesApi = new SandboxesApi(apiClient);
 
         String sandboxName = String.format("test-ws-%s", RandomStringUtils.randomAlphanumeric(5));
+
+        SandboxFork frontendFork = new SandboxFork()
+            .forkOf(new ForkOf().kind("Deployment").namespace(HOTROD).name("frontend"))
+            .customizations(new SandboxCustomizations()
+                .addImagesItem(new Image().image("signadot/frontend:latest"))
+                .addEnvItem(new EnvOp().name("ROUTE_ADDR").valueFrom(
+                    new EnvValueFrom().fork(
+                        new ForkOf()
+                            .kind("Deployment")
+                            .namespace("hotrod")
+                            .name("route")
+                    ).expression("{{ .Service.Host }}:{{ .Service.Port }}")
+                ))
+                .addEndpointsItem(new ForkEndpoint().name("hotrod-frontend").port(8080).protocol("http"))
+            );
+
         SandboxFork routeFork = new SandboxFork()
                 .forkOf(new ForkOf().kind("Deployment").namespace(HOTROD).name("route"))
                 .customizations(new SandboxCustomizations()
                         .addEnvItem(new EnvOp().name("abc").value("def").operation("upsert"))
-                        .addImagesItem(new Image().image("signadot/hotrod:0ed0bdadaa3af1e4f1e6f3bb6b7d19504aa9b1bd")))
+                        .addImagesItem(new Image().image("signadot/hotrod:0ed0bdadaa3af1e4f1e6f3bb6b7d19504aa9b1bd"))
+                        .patch(new CustomPatch().type("strategic").value("""
+                            spec:
+                              template:
+                                spec:
+                                  containers:
+                                  - name: hotrod
+                                    env:
+                                    - name: TEST
+                                      value: foo
+                            """)))
                 .addEndpointsItem(new ForkEndpoint().name("hotrod-route").port(8083).protocol("http"));
 
         CreateSandboxRequest request = new CreateSandboxRequest()
                 .cluster("demo")
                 .name(sandboxName)
                 .description("Java SDK: sandbox creation example")
-                .addForksItem(routeFork);
+                .addForksItem(routeFork)
+                .addForksItem(frontendFork);
 
         response = sandboxesApi.createNewSandbox(ORG_NAME, request);
 

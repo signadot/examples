@@ -1,7 +1,9 @@
 import {
     ApiClient,
     CreateSandboxRequest,
+    CustomPatch,
     EnvOp,
+    EnvValueFrom,
     ForkEndpoint,
     ForkOf,
     Image,
@@ -33,6 +35,34 @@ describe('Test a service using sandbox', () => {
                 apiClient.authentications.ApiKeyAuth.apiKey = SIGNADOT_API_KEY;
                 sandboxesApi = new SandboxesApi(apiClient);
 
+                const sandboxFork = SandboxFork.constructFromObject({
+                    forkOf: ForkOf.constructFromObject({
+                        kind: 'Deployment',
+                        name: 'frontend',
+                        namespace: 'hotrod',
+                    }),
+                    customizations: SandboxCustomizations.constructFromObject({
+                        images: [
+                            Image.constructFromObject({
+                                image: "signadot/frontend:latest"
+                            })
+                        ],
+                        env: [
+                            EnvOp.constructFromObject({
+                                name: 'ROUTE_ADDR',
+                                valueFrom: EnvValueFrom.constructFromObject({
+                                    fork: ForKOf.constructFromObject({
+                                        kind: 'Deployment',
+                                        namespace: 'hotrod',
+                                        name: 'route'
+                                    }),
+                                    expression: '{{ .Service.Host }}:{{ .Service.Port }}',
+                                }),
+                            })
+                        ],
+                    }),
+                });
+
                 const routeFork = SandboxFork.constructFromObject({
                     forkOf: ForkOf.constructFromObject({
                         kind: 'Deployment',
@@ -50,7 +80,20 @@ describe('Test a service using sandbox', () => {
                                 name: 'abc',
                                 value: 'def'
                             })
-                        ]
+                        ],
+                        patch: CustomPatch.constructFromObject({
+                            type: 'strategic',
+                            value: `
+                            spec:
+                              template:
+                                spec:
+                                  containers:
+                                  - name: hotrod
+                                    env:
+                                    - name: TEST
+                                      value: foo
+                            `,
+                        }),
                     }),
                     endpoints: [
                         ForkEndpoint.constructFromObject({
@@ -65,7 +108,7 @@ describe('Test a service using sandbox', () => {
                     name: `test-ws-${nanoid()}`,
                     description: 'created using @signadot/signadot-sdk',
                     cluster: 'demo',
-                    forks: [ routeFork ]
+                    forks: [ routeFork, sandboxFork ]
                 });
 
                 const response = await sandboxesApi.createNewSandbox(SIGNADOT_ORG, request);
