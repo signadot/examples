@@ -1,3 +1,3 @@
 #!/bin/bash
 
-npm run test
+yarn run test
