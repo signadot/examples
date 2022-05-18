@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -ex
+
 cd `dirname $0`
 
 python3 -m pip install -r test-requirements.txt
