@@ -37,9 +37,10 @@ import static org.hamcrest.Matchers.*;
  */
 public class ResourcesTest {
 
-  public static final String ORG_NAME = "signadot";
   public static final String HOTROD = "hotrod";
+  public static final String ORG_NAME = System.getenv("SIGNADOT_ORG");
   public static final String SIGNADOT_API_KEY = System.getenv("SIGNADOT_API_KEY");
+  public static final String CLUSTER_NAME = System.getenv("SIGNADOT_CLUSTER_NAME");
   private static RequestSpecification requestSpec;
 
   ApiClient apiClient;
@@ -74,7 +75,7 @@ public class ResourcesTest {
         .addEndpointsItem(new ForkEndpoint().name("customer-svc-endpoint").port(8081).protocol("http"));
 
       CreateSandboxRequest request = new CreateSandboxRequest()
-        .cluster("demo")
+        .cluster(CLUSTER_NAME)
         .name(sandboxName)
         .description("Java SDK: Create sandbox with ephemeral db resource spun up using hotrod-mariadb plugin")
         .addResourcesItem(

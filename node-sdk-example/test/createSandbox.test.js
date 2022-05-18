@@ -16,8 +16,10 @@ import {expect} from 'chai';
 const nanoid = customAlphabet('1234567890abcdef', 5);
 
 let previewURL;
-const SIGNADOT_ORG = 'signadot'; // Enter your Signadot org name here
-const SIGNADOT_API_KEY = process.env.SIGNADOT_API_KEY; // passed from command line
+const SIGNADOT_ORG = process.env.SIGNADOT_ORG; 
+const SIGNADOT_API_KEY = process.env.SIGNADOT_API_KEY;
+const SIGNADOT_CLUSTER_NAME = process.env.SIGNADOT_CLUSTER_NAME;
+
 const options = {
     headers: {
         'signadot-api-key': SIGNADOT_API_KEY
@@ -64,7 +66,7 @@ describe('Test a service using sandbox', () => {
                 const request = CreateSandboxRequest.constructFromObject({
                     name: `test-ws-${nanoid()}`,
                     description: 'created using @signadot/signadot-sdk',
-                    cluster: 'demo',
+                    cluster: SIGNADOT_CLUSTER_NAME,
                     forks: [ routeFork ]
                 });
 
