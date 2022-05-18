@@ -41,9 +41,9 @@ class TestUseCase2(unittest.TestCase):
     if SIGNADOT_CLUSTER_NAME is None:
         raise OSError("SIGNADOT_CLUSTER_NAME is not set")
 
-    SIGNADOT_ORG_NAME = os.getenv('SIGNADOT_ORG_NAME')
-    if SIGNADOT_ORG_NAME is None:
-        raise OSError("SIGNADOT_ORG_NAME is not set")
+    SIGNADOT_ORG = os.getenv('SIGNADOT_ORG')
+    if SIGNADOT_ORG is None:
+        raise OSError("SIGNADOT_ORG is not set")
 
     SIGNADOT_API_KEY = os.getenv('SIGNADOT_API_KEY')
     if SIGNADOT_API_KEY is None:
@@ -137,7 +137,7 @@ class TestUseCase2(unittest.TestCase):
 
         try:
             # API call to create a new sandbox
-            api_response = cls.sandboxes_api.create_new_sandbox(cls.SIGNADOT_ORG_NAME, request)
+            api_response = cls.sandboxes_api.create_new_sandbox(cls.SIGNADOT_ORG, request)
         except ApiException as e:
             print("Exception creating a sandbox: %s\n" % e)
 
@@ -157,7 +157,7 @@ class TestUseCase2(unittest.TestCase):
         print("Checking sandbox readiness")
         for i in range(1, max_attempts):
             print("Attempt: {}/{}".format(i, max_attempts))
-            sandbox_ready = cls.sandboxes_api.get_sandbox_ready(cls.SIGNADOT_ORG_NAME, cls.sandbox_id).ready
+            sandbox_ready = cls.sandboxes_api.get_sandbox_ready(cls.SIGNADOT_ORG, cls.sandbox_id).ready
             if sandbox_ready:
                 print("Sandbox is ready!")
                 break
@@ -173,7 +173,7 @@ class TestUseCase2(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         # Tear down the sandbox
-        cls.sandboxes_api.delete_sandbox_by_id(cls.SIGNADOT_ORG_NAME, cls.sandbox_id)
+        cls.sandboxes_api.delete_sandbox_by_id(cls.SIGNADOT_ORG, cls.sandbox_id)
 
 
 def get_random_string(length):

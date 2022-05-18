@@ -17,7 +17,7 @@ import {expect} from 'chai';
 const nanoid = customAlphabet('1234567890abcdef', 5);
 
 let previewURL;
-const SIGNADOT_ORG = process.env.SIGNADOT_ORG_NAME; 
+const SIGNADOT_ORG = process.env.SIGNADOT_ORG; 
 const SIGNADOT_API_KEY = process.env.SIGNADOT_API_KEY;
 const SIGNADOT_CLUSTER_NAME = process.env.SIGNADOT_CLUSTER_NAME;
 const options = {

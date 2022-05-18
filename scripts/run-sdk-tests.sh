@@ -3,7 +3,7 @@
 set -ex
 
 export SIGNADOT_API_KEY
-export SIGNADOT_ORG_NAME
+export SIGNADOT_ORG
 export SIGNADOT_CLUSTER_NAME
 
 ../java-sdk-example/run-tests.sh
