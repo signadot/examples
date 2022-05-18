@@ -5,7 +5,7 @@ import unittest
 import os
 import random
 import requests
-import signadot_sdk
+import signadot_sdk as signadot_sdk
 import string
 from signadot_sdk.rest import ApiException
 
@@ -28,7 +28,13 @@ def get_random_string(length):
 # Once the sandbox is created with the resource, we are testing the customer service endpoint to ensure that the
 # new customer (ID=999) is obtained as expected.
 class TestWithResources(unittest.TestCase):
-    org_name = 'signadot'
+    SIGNADOT_CLUSTER_NAME = os.getenv('SIGNADOT_CLUSTER_NAME')
+    if SIGNADOT_CLUSTER_NAME is None:
+        raise OSError("SIGNADOT_CLUSTER_NAME is not set")
+
+    SIGNADOT_ORG_NAME = os.getenv('SIGNADOT_ORG_NAME')
+    if SIGNADOT_ORG_NAME is None:
+        raise OSError("SIGNADOT_ORG_NAME is not set")
 
     SIGNADOT_API_KEY = os.getenv('SIGNADOT_API_KEY')
     if SIGNADOT_API_KEY is None:
@@ -78,13 +84,13 @@ class TestWithResources(unittest.TestCase):
         request = signadot_sdk.CreateSandboxRequest(
             name="db-resource-test-{}".format(get_random_string(5)),
             description="Python SDK: Create sandbox with ephemeral db resource spun up using hotrod-mariadb plugin",
-            cluster="demo",
+            cluster=cls.SIGNADOT_CLUSTER_NAME,
             resources=[signadot_sdk.SandboxResource(name="customerdb", plugin="hotrod-mariadb", params={"dbname": "customer"})],
             forks=[customer_service_fork]
         )
 
         try:
-            api_response = cls.sandboxes_api.create_new_sandbox(cls.org_name, request)
+            api_response = cls.sandboxes_api.create_new_sandbox(cls.SIGNADOT_ORG_NAME, request)
         except ApiException as e:
             print("Exception creating a sandbox: %s\n" % e)
 
@@ -101,7 +107,7 @@ class TestWithResources(unittest.TestCase):
         print("Checking sandbox readiness")
         for i in range(1, max_attempts):
             print("Attempt: {}/{}".format(i, max_attempts))
-            sandbox_ready = cls.sandboxes_api.get_sandbox_ready(cls.org_name, cls.sandbox_id).ready
+            sandbox_ready = cls.sandboxes_api.get_sandbox_ready(cls.SIGNADOT_ORG_NAME, cls.sandbox_id).ready
             if sandbox_ready:
                 print("Sandbox is ready!")
                 break
@@ -122,7 +128,7 @@ class TestWithResources(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        cls.sandboxes_api.delete_sandbox_by_id(cls.org_name, cls.sandbox_id)
+        cls.sandboxes_api.delete_sandbox_by_id(cls.SIGNADOT_ORG_NAME, cls.sandbox_id)
 
 if __name__ == '__main__':
     unittest.main()
