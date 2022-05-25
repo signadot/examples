@@ -37,7 +37,7 @@ class TestBasic(unittest.TestCase):
             ),
             customizations=signadot_sdk.SandboxCustomizations(
                 images=[
-                    signadot_sdk.Image(image="signadot/frontend:latest")
+                    signadot_sdk.Image(image="signadot/hotrod-frontend:latest")
                 ],
                 env=[
                     signadot_sdk.EnvOp(

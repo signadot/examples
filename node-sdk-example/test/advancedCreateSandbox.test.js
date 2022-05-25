@@ -45,7 +45,7 @@ describe('Test a service using sandbox', () => {
                     customizations: SandboxCustomizations.constructFromObject({
                         images: [
                             Image.constructFromObject({
-                                image: "signadot/frontend:latest"
+                                image: "signadot/hotrod-frontend:latest"
                             })
                         ],
                         env: [
