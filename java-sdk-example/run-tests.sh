@@ -1,3 +1,6 @@
 #!/bin/bash
 
-./gradlew clean test
+set -ex
+
+cd `dirname $0`
+gradle clean test

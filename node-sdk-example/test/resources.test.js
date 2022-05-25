@@ -17,8 +17,9 @@ import {expect} from 'chai';
 const nanoid = customAlphabet('1234567890abcdef', 5);
 
 let previewURL;
-const SIGNADOT_ORG = 'signadot'; // Enter your Signadot org name here
-const SIGNADOT_API_KEY = process.env.SIGNADOT_API_KEY; // passed from command line
+const SIGNADOT_ORG = process.env.SIGNADOT_ORG; 
+const SIGNADOT_API_KEY = process.env.SIGNADOT_API_KEY;
+const SIGNADOT_CLUSTER_NAME = process.env.SIGNADOT_CLUSTER_NAME;
 const options = {
   headers: {
     'signadot-api-key': SIGNADOT_API_KEY
@@ -96,7 +97,7 @@ describe('Sandbox test using resources', () => {
         const request = CreateSandboxRequest.constructFromObject({
           name: `db-resource-test-${nanoid()}`,
           description: 'Node SDK: Create sandbox with ephemeral db resource spun up using hotrod-mariadb plugin',
-          cluster: 'demo',
+          cluster: SIGNADOT_CLUSTER_NAME,
           resources: [
             SandboxResource.constructFromObject({
               name: 'customerdb',
