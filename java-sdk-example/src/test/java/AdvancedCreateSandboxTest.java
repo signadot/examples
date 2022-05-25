@@ -39,7 +39,7 @@ public class AdvancedCreateSandboxTest {
         SandboxFork frontendFork = new SandboxFork()
             .forkOf(new ForkOf().kind("Deployment").namespace(HOTROD).name("frontend"))
             .customizations(new SandboxCustomizations()
-                .addImagesItem(new Image().image("signadot/frontend:latest"))
+                .addImagesItem(new Image().image("signadot/hotrod-frontend:latest"))
                 .addEnvItem(new EnvOp().name("ROUTE_ADDR").valueFrom(
                     new EnvValueFrom().fork(
                         new EnvValueFromFork().forkOf(
