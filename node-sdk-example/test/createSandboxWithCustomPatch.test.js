@@ -28,7 +28,7 @@ const options = {
     }
 };
 
-describe('Test a service using sandbox', () => {
+describe('Create sandbox with custom patch', () => {
     let sandboxesApi, sandboxID;
     before(async () => {
         return new Promise(async (resolve, reject) => {
@@ -69,7 +69,7 @@ describe('Test a service using sandbox', () => {
                                 name: 'FROM_TEST_VAR',
                                 valueFrom: EnvValueFrom.constructFromObject({
                                     forkOf: EnvValueFromFork.constructFromObject({
-                                        fork: ForKOf.constructFromObject({
+                                        fork: ForkOf.constructFromObject({
                                             kind: 'Deployment',
                                             namespace: 'hotrod',
                                             name: 'frontend'
