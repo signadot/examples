@@ -116,7 +116,6 @@ public class CreateSandboxTestWithCustomPatch {
     while (!sandboxesApi.getSandboxReady(ORG_NAME, sandboxID).isReady()) {
       Thread.sleep(5000);
     }
-    ;
   }
 
   @Test
@@ -129,7 +128,7 @@ public class CreateSandboxTestWithCustomPatch {
       .statusCode(200)
       .assertThat()
       .body("PatchVar", equalTo("foo"))
-      .body("FromVar", not(isEmptyOrNullString()));
+      .body("FromVar", not(is(emptyOrNullString())));
   }
 
   @AfterSuite
