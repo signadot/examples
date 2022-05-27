@@ -19,7 +19,8 @@ import {expect} from 'chai';
 const nanoid = customAlphabet('1234567890abcdef', 5);
 
 let previewURL;
-const SIGNADOT_ORG = 'signadot'; // Enter your Signadot org name here
+const CLUSTER_NAME = process.env.SIGNADOT_CLUSTER_NAME;
+const SIGNADOT_ORG = process.env.SIGNADOT_ORG; // Enter your Signadot org name here
 const SIGNADOT_API_KEY = process.env.SIGNADOT_API_KEY; // passed from command line
 const options = {
     headers: {
@@ -45,22 +46,7 @@ describe('Test a service using sandbox', () => {
                     customizations: SandboxCustomizations.constructFromObject({
                         images: [
                             Image.constructFromObject({
-                                image: "signadot/hotrod-frontend:latest"
-                            })
-                        ],
-                        env: [
-                            EnvOp.constructFromObject({
-                                name: 'ROUTE_ADDR',
-                                valueFrom: EnvValueFrom.constructFromObject({
-                                    forkOf: EnvValueFromFork.constructFromObject({
-                                        fork: ForKOf.constructFromObject({
-                                            kind: 'Deployment',
-                                            namespace: 'hotrod',
-                                            name: 'route'
-                                        }),
-                                        expression: '{{ .Service.Host }}:{{ .Service.Port }}',
-                                    })
-                                }),
+                                image: "signadot/hotrod:49aa0813feba0fb74e4edccdde27702605de07e0"
                             })
                         ],
                     }),
@@ -69,19 +55,28 @@ describe('Test a service using sandbox', () => {
                 const routeFork = SandboxFork.constructFromObject({
                     forkOf: ForkOf.constructFromObject({
                         kind: 'Deployment',
-                        name: 'route',
+                        name: 'customer',
                         namespace: 'hotrod'
                     }),
                     customizations: SandboxCustomizations.constructFromObject({
                         images: [
                             Image.constructFromObject({
-                                image: 'signadot/hotrod:0ed0bdadaa3af1e4f1e6f3bb6b7d19504aa9b1bd'
+                                image: 'signadot/hotrod:49aa0813feba0fb74e4edccdde27702605de07e0'
                             })
                         ],
                         env: [
                             EnvOp.constructFromObject({
-                                name: 'abc',
-                                value: 'def'
+                                name: 'FROM_TEST_VAR',
+                                valueFrom: EnvValueFrom.constructFromObject({
+                                    forkOf: EnvValueFromFork.constructFromObject({
+                                        fork: ForKOf.constructFromObject({
+                                            kind: 'Deployment',
+                                            namespace: 'hotrod',
+                                            name: 'frontend'
+                                        }),
+                                        expression: '{{ .Service.Host }}:{{ .Service.Port }}',
+                                    })
+                                }),
                             })
                         ],
                         patch: CustomPatch.constructFromObject({
@@ -93,33 +88,33 @@ describe('Test a service using sandbox', () => {
                                   containers:
                                   - name: hotrod
                                     env:
-                                    - name: TEST
+                                    - name: PATCH_TEST_VAR
                                       value: foo
                             `,
                         }),
                     }),
                     endpoints: [
                         ForkEndpoint.constructFromObject({
-                            name: 'hotrod-route',
-                            port: 8083,
+                            name: 'hotrod-customer',
+                            port: 8081,
                             protocol: 'http'
                         })
                     ]
                 });
 
                 const request = CreateSandboxRequest.constructFromObject({
-                    name: `test-ws-${nanoid()}`,
+                    name: `customer-patch-test-${nanoid()}`,
                     description: 'created using @signadot/signadot-sdk',
-                    cluster: 'demo',
+                    cluster: CLUSTER_NAME,
                     forks: [ routeFork, sandboxFork ]
                 });
 
                 const response = await sandboxesApi.createNewSandbox(SIGNADOT_ORG, request);
                 sandboxID = response.sandboxID;
 
-                const filteredEndpoints = response.previewEndpoints.filter(ep => ep.name === 'hotrod-route');
+                const filteredEndpoints = response.previewEndpoints.filter(ep => ep.name === 'hotrod-customer');
                 if (filteredEndpoints.length == 0) {
-                    throw new Error("Endpoint `hotrod-route` missing");
+                    throw new Error("Endpoint `hotrod-customer` missing");
                 }
                 previewURL = filteredEndpoints[0].previewURL;
 
@@ -136,17 +131,16 @@ describe('Test a service using sandbox', () => {
         });
     });
 
-    it('Route service preview', () => {
-        const serviceURL = `${previewURL}/route?pickup=123&dropoff=456`
+    it('Customer service env vars', () => {
+        const serviceURL = `${previewURL}/customer?customer=392`
         axios.get(serviceURL, options)
             .then((response) => {
                 expect(response.status).to.equal(200);
 
                 const data = response.data;
-                ['Pickup', 'Dropoff', 'ETA'].forEach(x => expect(data).to.have.property(x));
-                expect(data.Pickup).to.equal("123");
-                expect(data.DropOff).to.equal("456");
-                expect(data.ETA).isAbove(0); // ETA should be positive
+                ['PatchVar', 'FromVar'].forEach(x => expect(data).to.have.property(x));
+                expect(data.PatchVar).to.equal("foo")
+                expect(data.FromVar).to.not.equal("");
             });
     });
 
