@@ -60,18 +60,6 @@ public class CreateSandboxTestWithCustomPatch {
       .forkOf(new ForkOf().kind("Deployment").namespace(HOTROD).name("customer"))
       .customizations(new SandboxCustomizations()
         .addImagesItem(new Image().image("signadot/hotrod:49aa0813feba0fb74e4edccdde27702605de07e0"))
-        .env(Arrays.asList(
-            new EnvOp().name("MYSQL_HOST").valueFrom(new EnvValueFrom().resource(
-              new EnvValueFromResource().name("customerdb").outputKey("host")
-            )),
-            new EnvOp().name("MYSQL_PORT").valueFrom(new EnvValueFrom().resource(
-              new EnvValueFromResource().name("customerdb").outputKey("port")
-            )),
-            new EnvOp().name("MYSQL_ROOT_PASSWORD").valueFrom(new EnvValueFrom().resource(
-              new EnvValueFromResource().name("customerdb").outputKey("root_password")
-            ))
-          )
-        )
         .addEnvItem(new EnvOp().name("FROM_TEST_VAR").valueFrom(
           new EnvValueFrom().fork(
             new EnvValueFromFork().forkOf(
@@ -90,13 +78,7 @@ public class CreateSandboxTestWithCustomPatch {
       .name(sandboxName)
       .description("Java SDK: sandbox creation with custom patch example")
       .addForksItem(routeFork)
-      .addForksItem(frontendFork)
-      .addResourcesItem(
-        new SandboxResource()
-          .name("customerdb")
-          .plugin("hotrod-mariadb")
-          .putParamsItem("dbname", "customer")
-      );
+      .addForksItem(frontendFork);
 
     response = sandboxesApi.createNewSandbox(ORG_NAME, request);
 
