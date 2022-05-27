@@ -121,7 +121,7 @@ public class CreateSandboxTestWithCustomPatch {
     given()
       .spec(requestSpec)
       .when()
-      .get("/customer?customer=999")
+      .get("/customer?customer=392")
       .then()
       .statusCode(200)
       .assertThat()
