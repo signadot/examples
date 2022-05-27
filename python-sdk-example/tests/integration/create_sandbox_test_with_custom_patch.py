@@ -108,7 +108,7 @@ class TestBasic(unittest.TestCase):
 
         filtered_endpoints = list(filter(lambda ep: ep.name == "hotrod-customer", api_response.preview_endpoints))
         if len(filtered_endpoints) == 0:
-            raise RuntimeError("Endpoint `hotrod-route` missing")
+            raise RuntimeError("Endpoint `hotrod-customer` missing")
         preview_endpoint = filtered_endpoints[0]
         cls.preview_url = preview_endpoint.preview_url
 
