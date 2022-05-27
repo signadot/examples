@@ -932,10 +932,10 @@
   "resolved" "https://registry.npmjs.org/@nicolo-ribaudo/chokidar-2/-/chokidar-2-2.1.8-no-fsevents.3.tgz"
   "version" "2.1.8-no-fsevents.3"
 
-"@signadot/signadot-sdk@0.2.5":
-  "integrity" "sha512-LuP8aD/RQHjWLFoLA/eBKCrFB/MuTEDgJRxYNNoLSX43Bo6VT4Ldt7Gtkg33TVRkYM5zb2Zdv9xBf8gzBFYfig=="
-  "resolved" "https://registry.npmjs.org/@signadot/signadot-sdk/-/signadot-sdk-0.2.5.tgz"
-  "version" "0.2.5"
+"@signadot/signadot-sdk@0.2.6":
+  "integrity" "sha512-/634fenZKeNf6GcygsFhBNn6fHnRB2zCVfFCpj5arF1SJD6kiiW/vSWMQvB6v2yw/F5Y50DGi0qwnAbjMTzd9A=="
+  "resolved" "https://registry.npmjs.org/@signadot/signadot-sdk/-/signadot-sdk-0.2.6.tgz"
+  "version" "0.2.6"
   dependencies:
     "@babel/cli" "^7.0.0"
     "@babel/core" "^7.0.0"
