@@ -20,16 +20,14 @@ import static org.hamcrest.Matchers.*;
 public class CreateSandboxTestWithCustomPatch {
 
   public static final String HOTROD = "hotrod";
-  public static final String CUSTOM_PATCH = """
-    spec:
-      template:
-        spec:
-          containers:
-          - name: hotrod
-            env:
-            - name:  PATCH_TEST_VAR
-              value: foo
-    """;
+  public static final String CUSTOM_PATCH = "spec:\n" +
+                                            "  template:\n" +
+                                            "    spec:\n" +
+                                            "      containers:\n" +
+                                            "      - name: hotrod\n" +
+                                            "        env:\n" +
+                                            "        - name:  PATCH_TEST_VAR\n" +
+                                            "          value: foo\n";
 
   public static final String ORG_NAME = System.getenv("SIGNADOT_ORG");
   public static final String SIGNADOT_API_KEY = System.getenv("SIGNADOT_API_KEY");
