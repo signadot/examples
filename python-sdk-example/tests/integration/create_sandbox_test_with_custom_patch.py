@@ -13,9 +13,13 @@ def get_random_string(length):
     return ''.join(random.choice(string.ascii_lowercase + string.digits) for i in range(length))
 
 class TestBasic(unittest.TestCase):
-    org_name = 'signadot'
-
+    ORG_NAME = os.getenv("SIGNADOT_ORG")
+    CLUSTER_NAME = os.getenv("SIGNADOT_CLUSTER_NAME")
     SIGNADOT_API_KEY = os.getenv('SIGNADOT_API_KEY')
+    if ORG_NAME is None:
+        raise OSError("SIGNADOT_ORG is not set")
+    if CLUSTER_NAME is None:
+        raise OSError("SIGNADOT_CLUSTER_NAME is not set")
     if SIGNADOT_API_KEY is None:
         raise OSError("SIGNADOT_API_KEY is not set")
 
@@ -37,37 +41,34 @@ class TestBasic(unittest.TestCase):
             ),
             customizations=signadot_sdk.SandboxCustomizations(
                 images=[
-                    signadot_sdk.Image(image="signadot/hotrod-frontend:latest")
-                ],
-                env=[
-                    signadot_sdk.EnvOp(
-                        name="ROUTE_ADDR",
-                        valueFrom=signadot_sdk.EnvValueFrom(
-                            fork=signadot_sdk.EnvValueFromFork(
-                                forkOf=signadot_sdk.ForkOf(
-                                    kind="Deployment",
-                                    name="route",
-                                    namespace="hotrod"
-                                ),
-                                expression="{{ .Service.Host }}:{{ .Service.Port }}"
-                            )
-                        )
-                    )
+                    signadot_sdk.Image(image="signadot/hotrod:49aa0813feba0fb74e4edccdde27702605de07e0")
                 ]
             )
         )
         route_fork = signadot_sdk.SandboxFork(
             fork_of=signadot_sdk.ForkOf(
                 kind="Deployment",
-                name="route",
+                name="customer",
                 namespace="hotrod"
             ),
             customizations=signadot_sdk.SandboxCustomizations(
                 images=[
-                    signadot_sdk.Image(image="signadot/hotrod:0ed0bdadaa3af1e4f1e6f3bb6b7d19504aa9b1bd")
+                    signadot_sdk.Image(image="signadot/hotrod:49aa0813feba0fb74e4edccdde27702605de07e0")
                 ],
                 env=[
-                    signadot_sdk.EnvOp(name="abc", value="xyz", operation="upsert")
+                    signadot_sdk.EnvOp(
+                        name="FROM_TEST_VAR",
+                        valueFrom=signadot_sdk.EnvValueFrom(
+                            fork=signadot_sdk.EnvValueFromFork(
+                                forkOf=signadot_sdk.ForkOf(
+                                    kind="Deployment",
+                                    name="frontend",
+                                    namespace="hotrod"
+                                ),
+                                expression="{{ .Service.Host }}:{{ .Service.Port }}"
+                            )
+                        )
+                    )
                 ],
                 patch=signadot_sdk.CustomPatch(
                     type="strategic",
@@ -78,34 +79,34 @@ class TestBasic(unittest.TestCase):
                           containers:
                           - name: hotrod
                             env:
-                            - name: TEST
+                            - name: PATCH_TEST_VAR
                               value: foo
                     """
                 )
             ),
             endpoints=[
                 signadot_sdk.ForkEndpoint(
-                    name="hotrod-route",
-                    port=8083,
+                    name="hotrod-customer",
+                    port=8081,
                     protocol="http"
                 )
             ]
         )
         request = signadot_sdk.CreateSandboxRequest(
-            name="test-ws-{}".format(get_random_string(5)),
-            description="Sample sandbox created using Python SDK",
-            cluster="demo",
+            name="custom-patch-test-{}".format(get_random_string(5)),
+            description="Python SDK: sandbox creation with custom patch example",
+            cluster=cls.CLUSTER_NAME,
             forks=[route_fork, frontend_fork]
         )
 
         try:
-            api_response = cls.sandboxes_api.create_new_sandbox(cls.org_name, request)
+            api_response = cls.sandboxes_api.create_new_sandbox(cls.ORG_NAME, request)
         except ApiException as e:
             print("Exception creating a sandbox: %s\n" % e)
 
         cls.sandbox_id = api_response.sandbox_id
 
-        filtered_endpoints = list(filter(lambda ep: ep.name == "hotrod-route", api_response.preview_endpoints))
+        filtered_endpoints = list(filter(lambda ep: ep.name == "hotrod-customer", api_response.preview_endpoints))
         if len(filtered_endpoints) == 0:
             raise RuntimeError("Endpoint `hotrod-route` missing")
         preview_endpoint = filtered_endpoints[0]
@@ -116,7 +117,7 @@ class TestBasic(unittest.TestCase):
         print("Checking sandbox readiness")
         for i in range(1, max_attempts):
             print("Attempt: {}/{}".format(i, max_attempts))
-            sandbox_ready = cls.sandboxes_api.get_sandbox_ready(cls.org_name, cls.sandbox_id).ready
+            sandbox_ready = cls.sandboxes_api.get_sandbox_ready(cls.ORG_NAME, cls.sandbox_id).ready
             if sandbox_ready:
                 print("Sandbox is ready!")
                 break
@@ -126,20 +127,18 @@ class TestBasic(unittest.TestCase):
             raise RuntimeError("Sandbox didn't get to Ready state")
 
     def test_valid_result(self):
-        pickup = "123"
-        dropoff = "456"
-        service_url = "{}/route?pickup={}&dropoff={}".format(self.preview_url, pickup, dropoff)
+        service_url = "{}/customer?customer=392".format(self.preview_url)
         response = requests.get(service_url, headers=self.headers_dict)
         response.raise_for_status()
         data = response.json()
 
-        self.assertEqual(data["Pickup"], pickup, "Pickup must equal {}".format(pickup))
-        self.assertEqual(data["Dropoff"], dropoff, "Dropoff must equal {}".format(dropoff))
-        self.assertGreater(data["ETA"], -1, "ETA must be non-negative")
+        self.assertEqual(data["PatchVar"], "foo", "PatchVar must equal foo")
+        self.assertIsNotNone(data["FromVar"], "FromVar must not be None")
+        self.assertNotEqual(data["FromVar"], "", "FromVar must not be empty")
 
     @classmethod
     def tearDownClass(cls):
-        cls.sandboxes_api.delete_sandbox_by_id(cls.org_name, cls.sandbox_id)
+        cls.sandboxes_api.delete_sandbox_by_id(cls.ORG_NAME, cls.sandbox_id)
 
 if __name__ == '__main__':
     unittest.main()
