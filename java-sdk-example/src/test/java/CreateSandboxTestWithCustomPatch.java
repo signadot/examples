@@ -83,7 +83,7 @@ public class CreateSandboxTestWithCustomPatch {
     response = sandboxesApi.createNewSandbox(ORG_NAME, request);
 
     sandboxID = response.getSandboxID();
-    if (sandboxID == null || sandboxID == "") {
+    if (sandboxID == null || sandboxID.isBlank()) {
       throw new RuntimeException("Sandbox ID not set in API response");
     }
 
