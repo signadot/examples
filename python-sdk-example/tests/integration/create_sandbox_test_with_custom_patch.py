@@ -13,6 +13,17 @@ def get_random_string(length):
     return ''.join(random.choice(string.ascii_lowercase + string.digits) for i in range(length))
 
 class TestBasic(unittest.TestCase):
+    CUSTOM_PATCH = """
+    spec:
+      template:
+        spec:
+          containers:
+          - name: hotrod
+            env:
+            - name: PATCH_TEST_VAR
+              value: {}
+    """
+    IMAGE_PATCH = "signadot/hotrod:49aa0813feba0fb74e4edccdde27702605de07e0"
     ORG_NAME = os.getenv("SIGNADOT_ORG")
     CLUSTER_NAME = os.getenv("SIGNADOT_CLUSTER_NAME")
     SIGNADOT_API_KEY = os.getenv('SIGNADOT_API_KEY')
@@ -28,11 +39,14 @@ class TestBasic(unittest.TestCase):
 
     sandboxes_api = signadot_sdk.SandboxesApi(signadot_sdk.ApiClient(configuration))
     sandbox_id = None
+    env_var_value = None
     preview_url = None
     headers_dict = {"signadot-api-key": SIGNADOT_API_KEY}
 
     @classmethod
     def setUpClass(cls):
+        cls.env_var_value = get_random_string(5)
+
         frontend_fork = signadot_sdk.SandboxFork(
             fork_of=signadot_sdk.ForkOf(
                 kind="Deployment",
@@ -41,11 +55,11 @@ class TestBasic(unittest.TestCase):
             ),
             customizations=signadot_sdk.SandboxCustomizations(
                 images=[
-                    signadot_sdk.Image(image="signadot/hotrod:49aa0813feba0fb74e4edccdde27702605de07e0")
+                    signadot_sdk.Image(image=cls.IMAGE_PATCH)
                 ]
             )
         )
-        route_fork = signadot_sdk.SandboxFork(
+        customer_fork = signadot_sdk.SandboxFork(
             fork_of=signadot_sdk.ForkOf(
                 kind="Deployment",
                 name="customer",
@@ -53,7 +67,7 @@ class TestBasic(unittest.TestCase):
             ),
             customizations=signadot_sdk.SandboxCustomizations(
                 images=[
-                    signadot_sdk.Image(image="signadot/hotrod:49aa0813feba0fb74e4edccdde27702605de07e0")
+                    signadot_sdk.Image(image=cls.IMAGE_PATCH)
                 ],
                 env=[
                     signadot_sdk.EnvOp(
@@ -72,16 +86,7 @@ class TestBasic(unittest.TestCase):
                 ],
                 patch=signadot_sdk.CustomPatch(
                     type="strategic",
-                    value="""
-                    spec:
-                      template:
-                        spec:
-                          containers:
-                          - name: hotrod
-                            env:
-                            - name: PATCH_TEST_VAR
-                              value: foo
-                    """
+                    value=cls.CUSTOM_PATCH.format(cls.env_var_value)
                 )
             ),
             endpoints=[
@@ -96,7 +101,7 @@ class TestBasic(unittest.TestCase):
             name="custom-patch-test-{}".format(get_random_string(5)),
             description="Python SDK: sandbox creation with custom patch example",
             cluster=cls.CLUSTER_NAME,
-            forks=[route_fork, frontend_fork]
+            forks=[customer_fork, frontend_fork]
         )
 
         try:
@@ -132,7 +137,7 @@ class TestBasic(unittest.TestCase):
         response.raise_for_status()
         data = response.json()
 
-        self.assertEqual(data["PatchVar"], "foo", "PatchVar must equal foo")
+        self.assertEqual(data["PatchVar"], self.env_var_value, "PatchVar must equal {}".format(self.env_var_value))
         self.assertIsNotNone(data["FromVar"], "FromVar must not be None")
         self.assertNotEqual(data["FromVar"], "", "FromVar must not be empty")
 
