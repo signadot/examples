@@ -1,7 +1,9 @@
 import {
     ApiClient,
     CreateSandboxRequest,
-    CustomPatch,
+    EnvOp,
+    EnvValueFrom,
+    EnvValueFromFork,
     ForkEndpoint,
     ForkOf,
     Image,
@@ -28,8 +30,8 @@ const options = {
     }
 };
 
-describe('Create sandbox with custom patch', () => {
-    let sandboxesApi, sandboxID, envVarValue, customPatch;
+describe('Create sandbox with xref', () => {
+    let sandboxesApi, sandboxID;
     before(async () => {
         return new Promise(async (resolve, reject) => {
             try {
@@ -37,16 +39,20 @@ describe('Create sandbox with custom patch', () => {
                 apiClient.authentications.ApiKeyAuth.apiKey = SIGNADOT_API_KEY;
                 sandboxesApi = new SandboxesApi(apiClient);
 
-                envVarValue = nanoid();
-                customPatch = `
-spec:
-  template:
-    spec:
-      containers:
-      - name: hotrod
-        env:
-        - name: PATCH_TEST_VAR
-          value: ${envVarValue}`;
+                const sandboxFork = SandboxFork.constructFromObject({
+                    forkOf: ForkOf.constructFromObject({
+                        kind: 'Deployment',
+                        name: 'frontend',
+                        namespace: 'hotrod',
+                    }),
+                    customizations: SandboxCustomizations.constructFromObject({
+                        images: [
+                            Image.constructFromObject({
+                                image: IMAGE_PATCH
+                            })
+                        ],
+                    }),
+                });
 
                 const customerFork = SandboxFork.constructFromObject({
                     forkOf: ForkOf.constructFromObject({
@@ -60,10 +66,21 @@ spec:
                                 image: IMAGE_PATCH
                             })
                         ],
-                        patch: CustomPatch.constructFromObject({
-                            type: 'strategic',
-                            value: customPatch,
-                        }),
+                        env: [
+                            EnvOp.constructFromObject({
+                                name: 'FROM_TEST_VAR',
+                                valueFrom: EnvValueFrom.constructFromObject({
+                                    fork: EnvValueFromFork.constructFromObject({
+                                        forkOf: ForkOf.constructFromObject({
+                                            kind: 'Deployment',
+                                            namespace: 'hotrod',
+                                            name: 'frontend'
+                                        }),
+                                        expression: '{{ .Service.Host }}:{{ .Service.Port }}',
+                                    })
+                                }),
+                            })
+                        ],
                     }),
                     endpoints: [
                         ForkEndpoint.constructFromObject({
@@ -75,10 +92,10 @@ spec:
                 });
 
                 const request = CreateSandboxRequest.constructFromObject({
-                    name: `customer-patch-test-${nanoid()}`,
-                    description: 'Node SDK: sandbox creation with custom patch example',
+                    name: `xref-test-${nanoid()}`,
+                    description: 'Node SDK: sandbox creation with xref example',
                     cluster: CLUSTER_NAME,
-                    forks: [ customerFork ]
+                    forks: [ customerFork, sandboxFork ]
                 });
 
                 const response = await sandboxesApi.createNewSandbox(SIGNADOT_ORG, request);
@@ -111,8 +128,8 @@ spec:
                 expect(response.status).to.equal(200);
 
                 const data = response.data;
-                ['PatchVar'].forEach(x => expect(data).to.have.property(x));
-                expect(data.PatchVar).to.equal(envVarValue)
+                ['FromVar'].forEach(x => expect(data).to.have.property(x));
+                expect(data.FromVar).to.not.equal("");
             });
     });
 
