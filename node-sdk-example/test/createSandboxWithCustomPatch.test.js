@@ -1,7 +1,7 @@
 import {
     ApiClient,
     CreateSandboxRequest,
-    EnvOp,
+    CustomPatch,
     ForkEndpoint,
     ForkOf,
     Image,
@@ -16,18 +16,20 @@ import {expect} from 'chai';
 const nanoid = customAlphabet('1234567890abcdef', 5);
 
 let previewURL;
-const SIGNADOT_ORG = process.env.SIGNADOT_ORG; 
-const SIGNADOT_API_KEY = process.env.SIGNADOT_API_KEY;
-const SIGNADOT_CLUSTER_NAME = process.env.SIGNADOT_CLUSTER_NAME;
 
+const HOTROD_TEST_IMAGE = "signadot/hotrod:49aa0813feba0fb74e4edccdde27702605de07e0";
+
+const CLUSTER_NAME = process.env.SIGNADOT_CLUSTER_NAME;
+const SIGNADOT_ORG = process.env.SIGNADOT_ORG;
+const SIGNADOT_API_KEY = process.env.SIGNADOT_API_KEY; // passed from command line
 const options = {
     headers: {
         'signadot-api-key': SIGNADOT_API_KEY
     }
 };
 
-describe('Test a service using sandbox', () => {
-    let sandboxesApi, sandboxID;
+describe('Create sandbox with custom patch', () => {
+    let sandboxesApi, sandboxID, envVarValue, customPatch;
     before(async () => {
         return new Promise(async (resolve, reject) => {
             try {
@@ -35,47 +37,57 @@ describe('Test a service using sandbox', () => {
                 apiClient.authentications.ApiKeyAuth.apiKey = SIGNADOT_API_KEY;
                 sandboxesApi = new SandboxesApi(apiClient);
 
-                const routeFork = SandboxFork.constructFromObject({
+                envVarValue = nanoid();
+                customPatch = `
+spec:
+  template:
+    spec:
+      containers:
+      - name: hotrod
+        env:
+        - name: PATCH_TEST_VAR
+          value: ${envVarValue}`;
+
+                const customerFork = SandboxFork.constructFromObject({
                     forkOf: ForkOf.constructFromObject({
                         kind: 'Deployment',
-                        name: 'route',
+                        name: 'customer',
                         namespace: 'hotrod'
                     }),
                     customizations: SandboxCustomizations.constructFromObject({
                         images: [
                             Image.constructFromObject({
-                                image: 'signadot/hotrod:0ed0bdadaa3af1e4f1e6f3bb6b7d19504aa9b1bd'
+                                image: HOTROD_TEST_IMAGE
                             })
                         ],
-                        env: [
-                            EnvOp.constructFromObject({
-                                name: 'abc',
-                                value: 'def'
-                            })
-                        ],
+                        patch: CustomPatch.constructFromObject({
+                            type: 'strategic',
+                            value: customPatch,
+                        }),
                     }),
                     endpoints: [
                         ForkEndpoint.constructFromObject({
-                            name: 'hotrod-route',
-                            port: 8083,
+                            name: 'hotrod-customer',
+                            port: 8081,
                             protocol: 'http'
                         })
                     ]
                 });
 
                 const request = CreateSandboxRequest.constructFromObject({
-                    name: `test-ws-${nanoid()}`,
-                    description: 'created using @signadot/signadot-sdk',
-                    cluster: SIGNADOT_CLUSTER_NAME,
-                    forks: [ routeFork ]
+                    name: `customer-patch-test-${nanoid()}`,
+                    description: 'Node SDK: sandbox creation with custom patch example',
+                    cluster: CLUSTER_NAME,
+                    forks: [ customerFork ]
                 });
 
                 const response = await sandboxesApi.createNewSandbox(SIGNADOT_ORG, request);
                 sandboxID = response.sandboxID;
 
-                const filteredEndpoints = response.previewEndpoints.filter(ep => ep.name === 'hotrod-route');
-                if (filteredEndpoints.length == 0) {
-                    throw new Error("Endpoint `hotrod-route` missing");
+                const filteredEndpoints = response.previewEndpoints.filter(ep => ep.name === 'hotrod-customer');
+                if (filteredEndpoints.length === 0) {
+                    reject(new Error("Endpoint `hotrod-customer` missing"));
+                    return;
                 }
                 previewURL = filteredEndpoints[0].previewURL;
 
@@ -92,17 +104,15 @@ describe('Test a service using sandbox', () => {
         });
     });
 
-    it('Route service preview', () => {
-        const serviceURL = `${previewURL}/route?pickup=123&dropoff=456`
+    it('Customer service env vars', () => {
+        const serviceURL = `${previewURL}/customer?customer=392`
         axios.get(serviceURL, options)
             .then((response) => {
                 expect(response.status).to.equal(200);
 
                 const data = response.data;
-                ['Pickup', 'Dropoff', 'ETA'].forEach(x => expect(data).to.have.property(x));
-                expect(data.Pickup).to.equal("123");
-                expect(data.DropOff).to.equal("456");
-                expect(data.ETA).isAbove(0); // ETA should be positive
+                ['PatchVar'].forEach(x => expect(data).to.have.property(x));
+                expect(data.PatchVar).to.equal(envVarValue)
             });
     });
 

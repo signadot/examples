@@ -36,6 +36,7 @@ public class CreateSandboxTest {
         sandboxesApi = new SandboxesApi(apiClient);
 
         String sandboxName = String.format("test-ws-%s", RandomStringUtils.randomAlphanumeric(5));
+
         SandboxFork routeFork = new SandboxFork()
                 .forkOf(new ForkOf().kind("Deployment").namespace(HOTROD).name("route"))
                 .customizations(new SandboxCustomizations()
