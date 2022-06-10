@@ -18,7 +18,7 @@ import static org.hamcrest.Matchers.*;
 public class CreateSandboxWithXRefTest {
 
   public static final String HOTROD = "hotrod";
-  public static final String IMAGE_PATCH = "signadot/hotrod:49aa0813feba0fb74e4edccdde27702605de07e0";
+  public static final String HOTROD_TEST_IMAGE = "signadot/hotrod:49aa0813feba0fb74e4edccdde27702605de07e0";
 
   public static final String ORG_NAME = System.getenv("SIGNADOT_ORG");
   public static final String SIGNADOT_API_KEY = System.getenv("SIGNADOT_API_KEY");
@@ -50,13 +50,13 @@ public class CreateSandboxWithXRefTest {
     SandboxFork frontendFork = new SandboxFork()
       .forkOf(new ForkOf().kind("Deployment").namespace(HOTROD).name("frontend"))
       .customizations(new SandboxCustomizations()
-        .addImagesItem(new Image().image(IMAGE_PATCH))
+        .addImagesItem(new Image().image(HOTROD_TEST_IMAGE))
       );
 
     SandboxFork customerFork = new SandboxFork()
       .forkOf(new ForkOf().kind("Deployment").namespace(HOTROD).name("customer"))
       .customizations(new SandboxCustomizations()
-        .addImagesItem(new Image().image(IMAGE_PATCH))
+        .addImagesItem(new Image().image(HOTROD_TEST_IMAGE))
         .addEnvItem(new EnvOp().name("FROM_TEST_VAR").valueFrom(
           new EnvValueFrom().fork(
             new EnvValueFromFork().forkOf(

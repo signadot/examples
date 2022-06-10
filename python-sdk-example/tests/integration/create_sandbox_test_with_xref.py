@@ -13,7 +13,7 @@ def get_random_string(length):
     return ''.join(random.choice(string.ascii_lowercase + string.digits) for i in range(length))
 
 class TestBasic(unittest.TestCase):
-    IMAGE_PATCH = "signadot/hotrod:49aa0813feba0fb74e4edccdde27702605de07e0"
+    HOTROD_TEST_IMAGE = "signadot/hotrod:49aa0813feba0fb74e4edccdde27702605de07e0"
     ORG_NAME = os.getenv("SIGNADOT_ORG")
     CLUSTER_NAME = os.getenv("SIGNADOT_CLUSTER_NAME")
     SIGNADOT_API_KEY = os.getenv('SIGNADOT_API_KEY')
@@ -42,7 +42,7 @@ class TestBasic(unittest.TestCase):
             ),
             customizations=signadot_sdk.SandboxCustomizations(
                 images=[
-                    signadot_sdk.Image(image=cls.IMAGE_PATCH)
+                    signadot_sdk.Image(image=cls.HOTROD_TEST_IMAGE)
                 ]
             )
         )
@@ -54,7 +54,7 @@ class TestBasic(unittest.TestCase):
             ),
             customizations=signadot_sdk.SandboxCustomizations(
                 images=[
-                    signadot_sdk.Image(image=cls.IMAGE_PATCH)
+                    signadot_sdk.Image(image=cls.HOTROD_TEST_IMAGE)
                 ],
                 env=[
                     signadot_sdk.EnvOp(

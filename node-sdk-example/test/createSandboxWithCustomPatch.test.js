@@ -17,7 +17,7 @@ const nanoid = customAlphabet('1234567890abcdef', 5);
 
 let previewURL;
 
-const IMAGE_PATCH = "signadot/hotrod:49aa0813feba0fb74e4edccdde27702605de07e0";
+const HOTROD_TEST_IMAGE = "signadot/hotrod:49aa0813feba0fb74e4edccdde27702605de07e0";
 
 const CLUSTER_NAME = process.env.SIGNADOT_CLUSTER_NAME;
 const SIGNADOT_ORG = process.env.SIGNADOT_ORG;
@@ -57,7 +57,7 @@ spec:
                     customizations: SandboxCustomizations.constructFromObject({
                         images: [
                             Image.constructFromObject({
-                                image: IMAGE_PATCH
+                                image: HOTROD_TEST_IMAGE
                             })
                         ],
                         patch: CustomPatch.constructFromObject({

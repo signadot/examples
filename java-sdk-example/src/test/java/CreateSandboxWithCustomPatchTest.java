@@ -19,14 +19,14 @@ public class CreateSandboxWithCustomPatchTest {
 
   public static final String HOTROD = "hotrod";
   public static final String IMAGE_PATCH = "signadot/hotrod:49aa0813feba0fb74e4edccdde27702605de07e0";
-  public static final String CUSTOM_PATCH = "spec:\n" +
-                                            "  template:\n" +
-                                            "    spec:\n" +
-                                            "      containers:\n" +
-                                            "      - name: hotrod\n" +
-                                            "        env:\n" +
-                                            "        - name:  PATCH_TEST_VAR\n" +
-                                            "          value: %s\n";
+  public static final String HOTROD_TEST_IMAGE = "spec:\n" +
+                                                 "  template:\n" +
+                                                 "    spec:\n" +
+                                                 "      containers:\n" +
+                                                 "      - name: hotrod\n" +
+                                                 "        env:\n" +
+                                                 "        - name:  PATCH_TEST_VAR\n" +
+                                                 "          value: %s\n";
 
   public static final String ORG_NAME = System.getenv("SIGNADOT_ORG");
   public static final String SIGNADOT_API_KEY = System.getenv("SIGNADOT_API_KEY");
@@ -53,7 +53,7 @@ public class CreateSandboxWithCustomPatchTest {
     sandboxesApi = new SandboxesApi(apiClient);
 
     envVarValue = RandomStringUtils.randomAlphanumeric(5);
-    final String customPatch = String.format(CUSTOM_PATCH, envVarValue);
+    final String customPatch = String.format(HOTROD_TEST_IMAGE, envVarValue);
     String sandboxName = String.format("custom-patch-test-%s", RandomStringUtils.randomAlphanumeric(5));
 
     SandboxFork customerFork = new SandboxFork()
