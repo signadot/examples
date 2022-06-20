@@ -1,5 +1,4 @@
 import com.signadot.ApiClient;
-import com.signadot.ApiException;
 import com.signadot.api.SandboxesApi;
 import com.signadot.model.*;
 import io.restassured.RestAssured;
@@ -14,6 +13,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
@@ -50,9 +50,8 @@ public class ResourcesTest {
 
   @BeforeSuite
   public void createSandboxWithResource() {
-    apiClient = new ApiClient();
-    apiClient.setApiKey(SIGNADOT_API_KEY);
-    sandboxesApi = new SandboxesApi(apiClient);
+    apiClient = new ApiClient("ApiKeyAuth", SIGNADOT_API_KEY);
+    sandboxesApi = apiClient.buildClient(SandboxesApi.class);
 
     try {
       String sandboxName = String.format("db-resource-test-%s", RandomStringUtils.randomAlphanumeric(5));
@@ -119,10 +118,10 @@ public class ResourcesTest {
       requestSpec = builder.build();
 
       // Check for sandbox readiness
-      while (!sandboxesApi.getSandboxReady(ORG_NAME, sandboxID).isReady()) {
+      while (!sandboxesApi.getSandboxReady(ORG_NAME, sandboxID).getReady()) {
         Thread.sleep(5000);
       }
-    } catch (InterruptedException | ApiException e) {
+    } catch (InterruptedException e) {
       System.out.println(e.getMessage());
     }
   }
@@ -142,7 +141,7 @@ public class ResourcesTest {
   }
 
   @AfterSuite
-  public void deleteSandbox() throws ApiException {
-    sandboxesApi.deleteSandboxById(ORG_NAME, sandboxID);
+  public void deleteSandbox() {
+    sandboxesApi.deleteSandboxById(ORG_NAME, sandboxID, Map.of());
   }
 }

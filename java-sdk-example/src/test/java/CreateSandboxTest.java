@@ -1,5 +1,4 @@
 import com.signadot.ApiClient;
-import com.signadot.ApiException;
 import com.signadot.api.SandboxesApi;
 import com.signadot.model.*;
 import io.restassured.RestAssured;
@@ -12,6 +11,7 @@ import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
@@ -30,10 +30,9 @@ public class CreateSandboxTest {
     String sandboxID;
 
     @BeforeSuite
-    public void createSandbox() throws ApiException, InterruptedException {
-        apiClient = new ApiClient();
-        apiClient.setApiKey(SIGNADOT_API_KEY);
-        sandboxesApi = new SandboxesApi(apiClient);
+    public void createSandbox() throws InterruptedException {
+        apiClient = new ApiClient("ApiKeyAuth", SIGNADOT_API_KEY);
+        sandboxesApi = apiClient.buildClient(SandboxesApi.class);
 
         String sandboxName = String.format("test-ws-%s", RandomStringUtils.randomAlphanumeric(5));
 
@@ -83,7 +82,7 @@ public class CreateSandboxTest {
         requestSpec = builder.build();
 
         // Check for sandbox readiness
-        while (!sandboxesApi.getSandboxReady(ORG_NAME, sandboxID).isReady()) {
+        while (!sandboxesApi.getSandboxReady(ORG_NAME, sandboxID).getReady()) {
             Thread.sleep(5000);
         };
     }
@@ -159,7 +158,7 @@ public class CreateSandboxTest {
     }
 
     @AfterSuite
-    public void deleteSandbox() throws ApiException {
-        sandboxesApi.deleteSandboxById(ORG_NAME, sandboxID);
+    public void deleteSandbox() {
+        sandboxesApi.deleteSandboxById(ORG_NAME, sandboxID, Map.of());
     }
 }
