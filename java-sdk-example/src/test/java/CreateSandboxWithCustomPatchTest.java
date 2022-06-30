@@ -1,4 +1,5 @@
 import com.signadot.ApiClient;
+import com.signadot.ApiException;
 import com.signadot.api.SandboxesApi;
 import com.signadot.model.*;
 import io.restassured.RestAssured;
@@ -10,7 +11,6 @@ import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Map;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
@@ -47,9 +47,10 @@ public class CreateSandboxWithCustomPatchTest {
    * endpoint, so we can validate that it has the expected value.
    */
   @BeforeSuite
-  public void createSandboxWithCustomPatch() throws InterruptedException {
-    apiClient = new ApiClient("ApiKeyAuth", SIGNADOT_API_KEY);
-    sandboxesApi = apiClient.buildClient(SandboxesApi.class);
+  public void createSandboxWithCustomPatch() throws ApiException, InterruptedException {
+    apiClient = new ApiClient();
+    apiClient.setApiKey(SIGNADOT_API_KEY);
+    sandboxesApi = new SandboxesApi(apiClient);
 
     envVarValue = RandomStringUtils.randomAlphanumeric(5);
     final String customPatch = String.format(CUSTOM_PATCH, envVarValue);
@@ -101,7 +102,7 @@ public class CreateSandboxWithCustomPatchTest {
     requestSpec = builder.build();
 
     // Check for sandbox readiness
-    while (Boolean.FALSE.equals(sandboxesApi.getSandboxReady(ORG_NAME, sandboxID).getReady())) {
+    while (!sandboxesApi.getSandboxReady(ORG_NAME, sandboxID).isReady()) {
       Thread.sleep(5000);
     }
   }
@@ -119,7 +120,7 @@ public class CreateSandboxWithCustomPatchTest {
   }
 
   @AfterSuite
-  public void deleteSandbox() {
-    sandboxesApi.deleteSandboxById(ORG_NAME, sandboxID, Map.of());
+  public void deleteSandbox() throws ApiException {
+    sandboxesApi.deleteSandboxById(ORG_NAME, sandboxID);
   }
 }
