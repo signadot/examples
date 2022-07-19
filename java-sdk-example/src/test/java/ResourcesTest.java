@@ -4,14 +4,13 @@ import com.signadot.api.SandboxesApi;
 import com.signadot.model.*;
 import io.restassured.RestAssured;
 import io.restassured.builder.RequestSpecBuilder;
-import io.restassured.http.ContentType;
 import io.restassured.specification.RequestSpecification;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
+import javax.naming.LimitExceededException;
 import java.util.Arrays;
 import java.util.List;
 
@@ -20,18 +19,18 @@ import static org.hamcrest.Matchers.*;
 
 /**
  * This test creates a Sandbox with below specification:
- *   - Fork HotROD Customer service
- *   - Custom image of HotROD with the Customer Service code updated to include a new customer with:
- *       ID=999, Name="Resources Test" and Location="123,456".
- *   - Create resource using the plugin "hotrod-mariadb"
- *       xref: https://github.com/signadot/hotrod/tree/main/resource-plugins/mariadb
- *       This spins up an ephemeral MariaDB resource that is then used by Customer service to populate customer date.
- *       The request defines the resource and env vars that are populated off of the resource.
- * 
+ * - Fork HotROD Customer service
+ * - Custom image of HotROD with the Customer Service code updated to include a new customer with:
+ * ID=999, Name="Resources Test" and Location="123,456".
+ * - Create resource using the plugin "hotrod-mariadb"
+ * xref: https://github.com/signadot/hotrod/tree/main/resource-plugins/mariadb
+ * This spins up an ephemeral MariaDB resource that is then used by Customer service to populate customer date.
+ * The request defines the resource and env vars that are populated off of the resource.
+ * <p>
  * Pre-requisites:
  * - hotrod must be installed
  * - resource plugin (hotrod-mariadb) must be installed
- *
+ * <p>
  * Once the sandbox is created with the resource, we are testing the customer service endpoint to ensure that the
  * new customer (ID=999) is obtained as expected.
  */
@@ -45,8 +44,8 @@ public class ResourcesTest {
 
   ApiClient apiClient;
   SandboxesApi sandboxesApi;
-  CreateSandboxResponse response;
-  String sandboxID;
+  Sandbox sandbox;
+  String sandboxName;
 
   @BeforeSuite
   public void createSandboxWithResource() {
@@ -55,51 +54,47 @@ public class ResourcesTest {
     sandboxesApi = new SandboxesApi(apiClient);
 
     try {
-      String sandboxName = String.format("db-resource-test-%s", RandomStringUtils.randomAlphanumeric(5));
+      sandboxName = String.format("db-resource-test-%s", RandomStringUtils.randomAlphanumeric(5));
+
       SandboxFork customerServiceFork = new SandboxFork()
-        .forkOf(new ForkOf().kind("Deployment").namespace(HOTROD).name("customer"))
+        .forkOf(new SandboxForkOf().kind("Deployment").namespace(HOTROD).name("customer"))
         .customizations(new SandboxCustomizations()
           .env(Arrays.asList(
-              new EnvOp().name("MYSQL_HOST").valueFrom(new EnvValueFrom().resource(
-                new EnvValueFromResource().name("customerdb").outputKey("host")
+              new SandboxEnvVar().name("MYSQL_HOST").valueFrom(new SandboxEnvValueFrom().resource(
+                new SandboxEnvValueFromResource().name("customerdb").outputKey("host")
               )),
-              new EnvOp().name("MYSQL_PORT").valueFrom(new EnvValueFrom().resource(
-                new EnvValueFromResource().name("customerdb").outputKey("port")
+              new SandboxEnvVar().name("MYSQL_PORT").valueFrom(new SandboxEnvValueFrom().resource(
+                new SandboxEnvValueFromResource().name("customerdb").outputKey("port")
               )),
-              new EnvOp().name("MYSQL_ROOT_PASSWORD").valueFrom(new EnvValueFrom().resource(
-                new EnvValueFromResource().name("customerdb").outputKey("root_password")
+              new SandboxEnvVar().name("MYSQL_ROOT_PASSWORD").valueFrom(new SandboxEnvValueFrom().resource(
+                new SandboxEnvValueFromResource().name("customerdb").outputKey("root_password")
               ))
             )
           )
-          .addImagesItem(new Image().image("signadot/hotrod:cace2c797082481ac0238cc1310b7816980e3244")))
-        .addEndpointsItem(new ForkEndpoint().name("customer-svc-endpoint").port(8081).protocol("http"));
+          .addImagesItem(new SandboxImage().image("signadot/hotrod:cace2c797082481ac0238cc1310b7816980e3244")))
+        .addEndpointsItem(new SandboxForkEndpoint().name("customer-svc-endpoint").port(8081).protocol("http"));
 
-      CreateSandboxRequest request = new CreateSandboxRequest()
-        .cluster(CLUSTER_NAME)
-        .name(sandboxName)
-        .description("Java SDK: Create sandbox with ephemeral db resource spun up using hotrod-mariadb plugin")
-        .addResourcesItem(
-          new SandboxResource()
-            .name("customerdb")
-            .plugin("hotrod-mariadb")
-            .putParamsItem("dbname", "customer")
-        )
-        .addForksItem(customerServiceFork);
+      SandboxResource customerDBResource = new SandboxResource()
+        .name("customerdb")
+        .plugin("hotrod-mariadb")
+        .putParamsItem("dbname", "customer");
 
-      response = sandboxesApi.createNewSandbox(ORG_NAME, request);
+      Sandbox request = new Sandbox()
+        .spec(new SandboxSpec()
+          .cluster(CLUSTER_NAME)
+          .description("Java SDK: Create sandbox with ephemeral db resource spun up using hotrod-mariadb plugin")
+          .addForksItem(customerServiceFork)
+          .addResourcesItem(customerDBResource));
 
-      sandboxID = response.getSandboxID();
-      if (sandboxID == null || sandboxID == "") {
-        throw new RuntimeException("Sandbox ID not set in API response");
-      }
+      sandbox = sandboxesApi.applySandbox(ORG_NAME, sandboxName, request);
 
-      List<PreviewEndpoint> endpoints = response.getPreviewEndpoints();
+      List<SandboxEndpoint> endpoints = sandbox.getEndpoints();
       if (endpoints.size() == 0) {
-        throw new RuntimeException("preview endpoints not available in API response");
+        throw new RuntimeException("endpoints not available in API response");
       }
 
-      PreviewEndpoint endpoint = null;
-      for (PreviewEndpoint ep : endpoints) {
+      SandboxEndpoint endpoint = null;
+      for (SandboxEndpoint ep : endpoints) {
         if ("customer-svc-endpoint".equals(ep.getName())) {
           endpoint = ep;
           break;
@@ -110,20 +105,28 @@ public class ResourcesTest {
       }
 
       // set the base URL for tests
-      RestAssured.baseURI = endpoint.getPreviewURL();
+      RestAssured.baseURI = endpoint.getUrl();
 
       RequestSpecBuilder builder = new RequestSpecBuilder();
-      builder.setBaseUri(endpoint.getPreviewURL());
+      builder.setBaseUri(RestAssured.baseURI);
       builder.addHeader("signadot-api-key", SIGNADOT_API_KEY);
 
       requestSpec = builder.build();
 
       // Check for sandbox readiness
-      while (!sandboxesApi.getSandboxReady(ORG_NAME, sandboxID).isReady()) {
+      int count = 1, maxAttempts = 20;
+      while (!sandbox.getStatus().isReady()) {
+        if (count++ > maxAttempts) {
+          throw new LimitExceededException("max attempts reached");
+        }
         Thread.sleep(5000);
+        sandbox = sandboxesApi.getSandbox(ORG_NAME, sandboxName);
       }
-    } catch (InterruptedException | ApiException e) {
-      System.out.println(e.getMessage());
+    } catch (ApiException e) {
+      System.out.println(e.getResponseBody());
+      e.printStackTrace();
+    } catch (InterruptedException | LimitExceededException e) {
+      e.printStackTrace();
     }
   }
 
@@ -143,6 +146,6 @@ public class ResourcesTest {
 
   @AfterSuite
   public void deleteSandbox() throws ApiException {
-    sandboxesApi.deleteSandboxById(ORG_NAME, sandboxID);
+    sandboxesApi.deleteSandbox(ORG_NAME, sandboxName);
   }
 }

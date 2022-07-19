@@ -1,14 +1,17 @@
 import {
   ApiClient,
-  CreateSandboxRequest,
-  EnvOp, EnvValueFrom, EnvValueFromResource,
-  ForkEndpoint,
-  ForkOf,
-  Image,
+  Sandbox,
   SandboxCustomizations,
+  SandboxEnvValueFrom,
+  SandboxEnvValueFromResource,
+  SandboxEnvVar,
   SandboxesApi,
   SandboxFork,
-  SandboxResource
+  SandboxForkEndpoint,
+  SandboxForkOf,
+  SandboxImage,
+  SandboxResource,
+  SandboxSpec
 } from '@signadot/signadot-sdk';
 import axios from 'axios';
 import {customAlphabet} from 'nanoid';
@@ -16,8 +19,8 @@ import {expect} from 'chai';
 
 const nanoid = customAlphabet('1234567890abcdef', 5);
 
-let previewURL;
-const SIGNADOT_ORG = process.env.SIGNADOT_ORG; 
+let endpointURL, sandboxName;
+const SIGNADOT_ORG = process.env.SIGNADOT_ORG;
 const SIGNADOT_API_KEY = process.env.SIGNADOT_API_KEY;
 const SIGNADOT_CLUSTER_NAME = process.env.SIGNADOT_CLUSTER_NAME;
 const options = {
@@ -44,7 +47,7 @@ const options = {
  * new customer (ID=999) is obtained as expected.
  */
 describe('Sandbox test using resources', () => {
-  let sandboxesApi, sandboxID;
+  let sandboxesApi;
   before(async () => {
     return new Promise(async (resolve, reject) => {
       try {
@@ -53,40 +56,43 @@ describe('Sandbox test using resources', () => {
         sandboxesApi = new SandboxesApi(apiClient);
 
         const customerServiceFork = SandboxFork.constructFromObject({
-          forkOf: ForkOf.constructFromObject({
+          forkOf: SandboxForkOf.constructFromObject({
             kind: 'Deployment',
             name: 'customer',
             namespace: 'hotrod'
           }),
           customizations: SandboxCustomizations.constructFromObject({
             images: [
-              Image.constructFromObject({
+              SandboxImage.constructFromObject({
                 image: 'signadot/hotrod:0ed0bdadaa3af1e4f1e6f3bb6b7d19504aa9b1bd'
               })
             ],
             env: [
-              EnvOp.constructFromObject({
+              SandboxEnvVar.constructFromObject({
                 name: 'MYSQL_HOST',
-                valueFrom: EnvValueFrom.constructFromObject({
-                  resource: EnvValueFromResource.constructFromObject({name: 'customerdb', outputKey: 'host'})
+                valueFrom: SandboxEnvValueFrom.constructFromObject({
+                  resource: SandboxEnvValueFromResource.constructFromObject({name: 'customerdb', outputKey: 'host'})
                 })
               }),
-              EnvOp.constructFromObject({
+              SandboxEnvVar.constructFromObject({
                 name: 'MYSQL_PORT',
-                valueFrom: EnvValueFrom.constructFromObject({
-                  resource: EnvValueFromResource.constructFromObject({name: 'customerdb', outputKey: 'port'})
+                valueFrom: SandboxEnvValueFrom.constructFromObject({
+                  resource: SandboxEnvValueFromResource.constructFromObject({name: 'customerdb', outputKey: 'port'})
                 })
               }),
-              EnvOp.constructFromObject({
+              SandboxEnvVar.constructFromObject({
                 name: 'MYSQL_ROOT_PASSWORD',
-                valueFrom: EnvValueFrom.constructFromObject({
-                  resource: EnvValueFromResource.constructFromObject({name: 'customerdb', outputKey: 'root_password'})
+                valueFrom: SandboxEnvValueFrom.constructFromObject({
+                  resource: SandboxEnvValueFromResource.constructFromObject({
+                    name: 'customerdb',
+                    outputKey: 'root_password'
+                  })
                 })
               })
             ]
           }),
           endpoints: [
-            ForkEndpoint.constructFromObject({
+            SandboxForkEndpoint.constructFromObject({
               name: 'customer-svc-endpoint',
               port: 8081,
               protocol: 'http'
@@ -94,37 +100,42 @@ describe('Sandbox test using resources', () => {
           ]
         });
 
-        const request = CreateSandboxRequest.constructFromObject({
-          name: `db-resource-test-${nanoid()}`,
-          description: 'Node SDK: Create sandbox with ephemeral db resource spun up using hotrod-mariadb plugin',
-          cluster: SIGNADOT_CLUSTER_NAME,
-          resources: [
-            SandboxResource.constructFromObject({
-              name: 'customerdb',
-              plugin: 'hotrod-mariadb',
-              params: {
-                dbname: 'customer'
-              }
-            })
-          ],
-          forks: [customerServiceFork]
+        sandboxName = `db-resource-test-${nanoid()}`;
+        const request = Sandbox.constructFromObject({
+          spec: SandboxSpec.constructFromObject({
+            cluster: SIGNADOT_CLUSTER_NAME,
+            description: 'created using @signadot/signadot-sdk',
+            forks: [customerServiceFork],
+            resources: [
+              SandboxResource.constructFromObject({
+                name: 'customerdb',
+                plugin: 'hotrod-mariadb',
+                params: {
+                  dbname: 'customer'
+                }
+              })
+            ]
+          })
         });
 
-        const response = await sandboxesApi.createNewSandbox(SIGNADOT_ORG, request);
-        sandboxID = response.sandboxID;
+        let sandbox = await sandboxesApi.applySandbox(SIGNADOT_ORG, sandboxName, request);
 
-        const filteredEndpoints = response.previewEndpoints.filter(ep => ep.name === 'customer-svc-endpoint');
+        const filteredEndpoints = sandbox.endpoints.filter(ep => ep.name === 'customer-svc-endpoint');
         if (filteredEndpoints.length == 0) {
           throw new Error("Endpoint `customer-svc-endpoint` missing");
         }
-        previewURL = filteredEndpoints[0].previewURL;
+        endpointURL = filteredEndpoints[0].url;
 
+        let count=0, maxAttempts=20;
         const readyStateInterval = setInterval(async () => {
-          const readyState = await sandboxesApi.getSandboxReady(SIGNADOT_ORG, sandboxID);
-          if (readyState.ready) {
+          if (count++ > maxAttempts) {
+            reject(new Error("max attempts reached"));
+          }
+          if (sandbox.status.ready) {
             clearInterval(readyStateInterval);
             resolve();
           }
+          sandbox = await sandboxesApi.getSandbox(SIGNADOT_ORG, sandboxName);
         }, 5000);
       } catch (e) {
         reject(e);
@@ -133,7 +144,7 @@ describe('Sandbox test using resources', () => {
   });
 
   it('Test Customer Service', () => {
-    const serviceURL = `${previewURL}/customer?customer=999`
+    const serviceURL = `${endpointURL}/customer?customer=999`
     axios.get(serviceURL, options)
       .then((response) => {
         expect(response.status).to.equal(200);
@@ -146,6 +157,6 @@ describe('Sandbox test using resources', () => {
   });
 
   after(() => {
-    return sandboxesApi.deleteSandboxById(SIGNADOT_ORG, sandboxID);
+    return sandboxesApi.deleteSandbox(SIGNADOT_ORG, sandboxName);
   });
 });

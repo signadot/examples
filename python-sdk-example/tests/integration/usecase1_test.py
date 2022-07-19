@@ -4,8 +4,10 @@ import time
 import unittest
 import os
 import random
-import signadot_sdk as signadot_sdk
 import string
+
+from signadot_sdk import Configuration, SandboxesApi, ApiClient, SandboxFork, SandboxForkOf, \
+    SandboxCustomizations, SandboxImage, SandboxEnvVar, Sandbox, SandboxSpec, SandboxHostEndpoint
 from signadot_sdk.rest import ApiException
 
 """
@@ -28,13 +30,15 @@ To set up for that use-case, we will be creating a sandbox with a fork of the Ro
 the frontend service. The Frontend service endpoint URL can then be used to verify that the changes as the sandboxes
 routes the call to the fork of Route service instead of the baseline Route service.
 
-The below code is scoped to creating a sandbox with the above setup, and printing out the preview endpoint URL to
+The below code is scoped to creating a sandbox with the above setup, and printing out the endpoint URL to
 the frontend service to verify the change. Using a UI testing setup to test out the change on the UI is not covered here.
 
 Sample command to run this test:
 cd examples/python-sdk-example
 SIGNADOT_API_KEY=<signadot-api-key> ROUTE_IMAGE=signadot/hotrod:0ed0bdadaa3af1e4f1e6f3bb6b7d19504aa9b1bd python3 tests/integration/usecase1_test.py
 """
+
+
 class TestUseCase1(unittest.TestCase):
     SIGNADOT_CLUSTER_NAME = os.getenv('SIGNADOT_CLUSTER_NAME')
     if SIGNADOT_CLUSTER_NAME is None:
@@ -52,36 +56,36 @@ class TestUseCase1(unittest.TestCase):
     if ROUTE_IMAGE is None:
         raise OSError("ROUTE_IMAGE is not set")
 
-    configuration = signadot_sdk.Configuration()
+    configuration = Configuration()
     configuration.api_key['signadot-api-key'] = SIGNADOT_API_KEY
 
-    sandboxes_api = signadot_sdk.SandboxesApi(signadot_sdk.ApiClient(configuration))
-    sandbox_id = None
-    preview_url = None
+    sandboxes_api = SandboxesApi(ApiClient(configuration))
+    sandbox_name = None
+    endpoint_url = None
     headers_dict = {"signadot-api-key": SIGNADOT_API_KEY}
 
     @classmethod
     def setUpClass(cls):
         # Define the spec for the fork of route service
-        route_fork = signadot_sdk.SandboxFork(
+        route_fork = SandboxFork(
             # This tells the application to create a fork of route service/deployment in hotrod namespace.
-            fork_of=signadot_sdk.ForkOf(
+            fork_of=SandboxForkOf(
                 kind="Deployment",
                 name="route",
                 namespace="hotrod"
             ),
             # Define the various customizations we want to apply on the fork
-            customizations=signadot_sdk.SandboxCustomizations(
+            customizations=SandboxCustomizations(
                 # The image(s) we want to apply on the fork. This assumes that the updated Route service code has been
                 # packaged as an image and published to docker.
                 # Sample value: signadot/hotrod:latest
                 images=[
-                    signadot_sdk.Image(image=cls.ROUTE_IMAGE)
+                    SandboxImage(image=cls.ROUTE_IMAGE)
                 ],
                 # Environment variable changes. Here, we can define new environment variables, or update/delete the
                 # ones existing in the baseline deployment.
                 env=[
-                    signadot_sdk.EnvOp(name="abc", value="xyz", operation="upsert")
+                    SandboxEnvVar(name="abc", value="xyz", operation="upsert")
                 ]
             ),
             # Since we are only interested in previewing the change to the Route service through the frontend, we do not
@@ -91,51 +95,50 @@ class TestUseCase1(unittest.TestCase):
 
         # Define an additional endpoint to the frontend service as we're interested in testing the Route service
         # changes through the frontend service.
-        frontend_endpoint = signadot_sdk.SandboxEndpoint(
+        frontend_endpoint = SandboxHostEndpoint(
             host="frontend.hotrod.svc",  # Host for frontend service
             name="hotrod-frontend",  # Name for the endpoint
             port=8080,  # Frontend service operates on port 8080
             protocol="http"  # Frontend service uses HTTP protocol
         )
 
+        cls.sandbox_name = "test-ws-{}".format(get_random_string(5))
         # Specification for the sandbox. We will pass the spec for the fork of route service and the additional
         # endpoint to frontend service.
-        request = signadot_sdk.CreateSandboxRequest(
-            name="test-ws-{}".format(get_random_string(5)),
-            description="Sample sandbox created using Python SDK",
-            cluster=cls.SIGNADOT_CLUSTER_NAME,
-            forks=[route_fork],
-            endpoints=[frontend_endpoint]
+        request = Sandbox(
+            spec=SandboxSpec(
+                description="Sample sandbox created using Python SDK",
+                cluster=cls.SIGNADOT_CLUSTER_NAME,
+                forks=[route_fork],
+                endpoints=[frontend_endpoint]
+            )
         )
 
         try:
             # API call to create a new sandbox
-            api_response = cls.sandboxes_api.create_new_sandbox(cls.SIGNADOT_ORG, request)
+            sandbox = cls.sandboxes_api.apply_sandbox(cls.SIGNADOT_ORG, cls.sandbox_name, request)
         except ApiException as e:
             print("Exception creating a sandbox: %s\n" % e)
 
-        # Sandbox ID for the created sandbox
-        cls.sandbox_id = api_response.sandbox_id
-
         # Filtering out the endpoint to the frontend service by name.
-        filtered_frontend = filter_endpoint(api_response, "hotrod-frontend")
-        if len(filtered_frontend) == 0:
+        filtered_endpoints = list(filter(lambda ep: ep.name == "hotrod-frontend", sandbox.endpoints))
+        if len(filtered_endpoints) == 0:
             raise RuntimeError("Endpoint `hotrod-frontend` missing")
-        frontend_preview_endpoint = filtered_frontend[0]
-        cls.preview_url = frontend_preview_endpoint.preview_url
-        print("Frontend Service endpoint URL: {}".format(cls.preview_url))
+        cls.endpoint_url = filtered_endpoints[0].url
+        print("Frontend Service endpoint URL: {}".format(cls.endpoint_url))
 
         # Code block to wait until sandbox is ready
         sandbox_ready = False
-        max_attempts = 10
+        max_attempts = 20
         print("Checking sandbox readiness")
         for i in range(1, max_attempts):
             print("Attempt: {}/{}".format(i, max_attempts))
-            sandbox_ready = cls.sandboxes_api.get_sandbox_ready(cls.SIGNADOT_ORG, cls.sandbox_id).ready
-            if sandbox_ready:
+            if sandbox.status.ready:
+                sandbox_ready = True
                 print("Sandbox is ready!")
                 break
             time.sleep(5)
+            sandbox = cls.sandboxes_api.get_sandbox(cls.SIGNADOT_ORG, cls.sandbox_name)
 
         if not sandbox_ready:
             raise RuntimeError("Sandbox didn't get to Ready state")
@@ -147,15 +150,11 @@ class TestUseCase1(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         # Tear down the sandbox
-        cls.sandboxes_api.delete_sandbox_by_id(cls.SIGNADOT_ORG, cls.sandbox_id)
+        cls.sandboxes_api.delete_sandbox(cls.SIGNADOT_ORG, cls.sandbox_name)
 
 
 def get_random_string(length):
     return ''.join(random.choice(string.ascii_lowercase + string.digits) for i in range(length))
-
-
-def filter_endpoint(api_response, name):
-    return list(filter(lambda ep: ep.name == name, api_response.preview_endpoints))
 
 
 if __name__ == '__main__':

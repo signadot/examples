@@ -10,6 +10,7 @@ import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
 
+import javax.naming.LimitExceededException;
 import java.util.List;
 
 import static io.restassured.RestAssured.given;
@@ -28,8 +29,8 @@ public class CreateSandboxWithXRefTest {
 
   ApiClient apiClient;
   SandboxesApi sandboxesApi;
-  CreateSandboxResponse response;
-  String sandboxID;
+  Sandbox sandbox;
+  String sandboxName;
 
   /**
    * Forks the hotrod customer and frontend containers. It is customized with the
@@ -40,78 +41,85 @@ public class CreateSandboxWithXRefTest {
    * in the response.
    */
   @BeforeSuite
-  public void createSandboxWithXRef() throws ApiException, InterruptedException {
-    apiClient = new ApiClient();
-    apiClient.setApiKey(SIGNADOT_API_KEY);
-    sandboxesApi = new SandboxesApi(apiClient);
+  public void createSandboxWithXRef() {
+    try {
+      apiClient = new ApiClient();
+      apiClient.setApiKey(SIGNADOT_API_KEY);
+      sandboxesApi = new SandboxesApi(apiClient);
 
-    String sandboxName = String.format("xref-test-%s", RandomStringUtils.randomAlphanumeric(5));
+      sandboxName = String.format("xref-test-%s", RandomStringUtils.randomAlphanumeric(5));
 
-    SandboxFork frontendFork = new SandboxFork()
-      .forkOf(new ForkOf().kind("Deployment").namespace(HOTROD).name("frontend"))
-      .customizations(new SandboxCustomizations()
-        .addImagesItem(new Image().image(HOTROD_TEST_IMAGE))
-      );
+      SandboxFork frontendFork = new SandboxFork()
+        .forkOf(new SandboxForkOf().kind("Deployment").namespace(HOTROD).name("frontend"))
+        .customizations(new SandboxCustomizations()
+          .addImagesItem(new SandboxImage().image(HOTROD_TEST_IMAGE))
+        );
 
-    SandboxFork customerFork = new SandboxFork()
-      .forkOf(new ForkOf().kind("Deployment").namespace(HOTROD).name("customer"))
-      .customizations(new SandboxCustomizations()
-        .addImagesItem(new Image().image(HOTROD_TEST_IMAGE))
-        .addEnvItem(new EnvOp().name("FROM_TEST_VAR").valueFrom(
-          new EnvValueFrom().fork(
-            new EnvValueFromFork().forkOf(
-              new ForkOf()
-                .kind("Deployment")
-                .namespace("hotrod")
-                .name("frontend")
-            ).expression("{{ .Service.Host }}:{{ .Service.Port }}")
-          )
-        ))
-      )
-      .addEndpointsItem(new ForkEndpoint().name("hotrod-customer").port(8081).protocol("http"));
+      SandboxFork customerFork = new SandboxFork()
+        .forkOf(new SandboxForkOf().kind("Deployment").namespace(HOTROD).name("customer"))
+        .customizations(new SandboxCustomizations()
+          .addImagesItem(new SandboxImage().image(HOTROD_TEST_IMAGE))
+          .addEnvItem(new SandboxEnvVar().name("FROM_TEST_VAR").valueFrom(
+            new SandboxEnvValueFrom().fork(
+              new SandboxEnvValueFromFork().forkOf(
+                new SandboxForkOf()
+                  .kind("Deployment")
+                  .namespace("hotrod")
+                  .name("frontend")
+              ).expression("{{ .Service.Host }}:{{ .Service.Port }}")
+            )
+          ))
+        )
+        .addEndpointsItem(new SandboxForkEndpoint().name("hotrod-customer").port(8081).protocol("http"));
 
-    CreateSandboxRequest request = new CreateSandboxRequest()
-      .cluster(CLUSTER_NAME)
-      .name(sandboxName)
-      .description("Java SDK: sandbox creation with xref example")
-      .addForksItem(customerFork)
-      .addForksItem(frontendFork);
+      Sandbox request = new Sandbox()
+        .spec(new SandboxSpec()
+          .cluster(CLUSTER_NAME)
+          .description("Java SDK: sandbox creation with cross fork reference example")
+          .addForksItem(customerFork)
+          .addForksItem(frontendFork));
 
-    response = sandboxesApi.createNewSandbox(ORG_NAME, request);
+      sandbox = sandboxesApi.applySandbox(ORG_NAME, sandboxName, request);
 
-    sandboxID = response.getSandboxID();
-    if (sandboxID == null || sandboxID.isBlank()) {
-      throw new RuntimeException("Sandbox ID not set in API response");
-    }
-
-    List<PreviewEndpoint> endpoints = response.getPreviewEndpoints();
-    if (endpoints.size() == 0) {
-      throw new RuntimeException("preview endpoints not available in API response");
-    }
-
-    PreviewEndpoint endpoint = null;
-    for (PreviewEndpoint ep : endpoints) {
-      if ("hotrod-customer".equals(ep.getName())) {
-        endpoint = ep;
-        break;
+      List<SandboxEndpoint> endpoints = sandbox.getEndpoints();
+      if (endpoints.size() == 0) {
+        throw new RuntimeException("endpoints not available in API response");
       }
-    }
-    if (endpoint == null) {
-      throw new RuntimeException("No endpoint found for route service");
-    }
 
-    // set the base URL for tests
-    RestAssured.baseURI = endpoint.getPreviewURL();
+      SandboxEndpoint endpoint = null;
+      for (SandboxEndpoint ep : endpoints) {
+        if ("hotrod-customer".equals(ep.getName())) {
+          endpoint = ep;
+          break;
+        }
+      }
+      if (endpoint == null) {
+        throw new RuntimeException("No endpoint found for route service");
+      }
 
-    RequestSpecBuilder builder = new RequestSpecBuilder();
-    builder.setBaseUri(endpoint.getPreviewURL());
-    builder.addHeader("signadot-api-key", SIGNADOT_API_KEY);
+      // set the base URL for tests
+      RestAssured.baseURI = endpoint.getUrl();
 
-    requestSpec = builder.build();
+      RequestSpecBuilder builder = new RequestSpecBuilder();
+      builder.setBaseUri(RestAssured.baseURI);
+      builder.addHeader("signadot-api-key", SIGNADOT_API_KEY);
 
-    // Check for sandbox readiness
-    while (!sandboxesApi.getSandboxReady(ORG_NAME, sandboxID).isReady()) {
-      Thread.sleep(5000);
+      requestSpec = builder.build();
+
+      // Check for sandbox readiness
+      int count = 1, maxAttempts = 20;
+      while (!sandbox.getStatus().isReady()) {
+        if (count++ > maxAttempts) {
+          throw new LimitExceededException("max attempts reached");
+        }
+        Thread.sleep(5000);
+        sandbox = sandboxesApi.getSandbox(ORG_NAME, sandboxName);
+      }
+    } catch (ApiException e) {
+      System.out.println(e.getResponseBody());
+      e.printStackTrace();
+    } catch (InterruptedException | LimitExceededException e) {
+      e.printStackTrace();
     }
   }
 
@@ -129,6 +137,6 @@ public class CreateSandboxWithXRefTest {
 
   @AfterSuite
   public void deleteSandbox() throws ApiException {
-    sandboxesApi.deleteSandboxById(ORG_NAME, sandboxID);
+    sandboxesApi.deleteSandbox(ORG_NAME, sandboxName);
   }
 }

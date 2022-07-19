@@ -5,12 +5,16 @@ import unittest
 import os
 import random
 import requests
-import signadot_sdk
 import string
+
+from signadot_sdk import Configuration, SandboxesApi, ApiClient, SandboxFork, SandboxForkOf, \
+    SandboxCustomizations, SandboxImage, SandboxForkEndpoint, SandboxEnvVar, Sandbox, SandboxSpec
 from signadot_sdk.rest import ApiException
+
 
 def get_random_string(length):
     return ''.join(random.choice(string.ascii_lowercase + string.digits) for i in range(length))
+
 
 class TestBasic(unittest.TestCase):
     SIGNADOT_CLUSTER_NAME = os.getenv('SIGNADOT_CLUSTER_NAME')
@@ -25,68 +29,68 @@ class TestBasic(unittest.TestCase):
     if SIGNADOT_API_KEY is None:
         raise OSError("SIGNADOT_API_KEY is not set")
 
-    configuration = signadot_sdk.Configuration()
+    configuration = Configuration()
     configuration.api_key['signadot-api-key'] = SIGNADOT_API_KEY
 
-    sandboxes_api = signadot_sdk.SandboxesApi(signadot_sdk.ApiClient(configuration))
-    sandbox_id = None
-    preview_url = None
+    sandboxes_api = SandboxesApi(ApiClient(configuration))
+    sandbox_name = None
+    endpoint_url = None
     headers_dict = {"signadot-api-key": SIGNADOT_API_KEY}
 
     @classmethod
     def setUpClass(cls):
-        route_fork = signadot_sdk.SandboxFork(
-            fork_of=signadot_sdk.ForkOf(
+        route_fork = SandboxFork(
+            fork_of=SandboxForkOf(
                 kind="Deployment",
                 name="route",
                 namespace="hotrod"
             ),
-            customizations=signadot_sdk.SandboxCustomizations(
+            customizations=SandboxCustomizations(
                 images=[
-                    signadot_sdk.Image(image="signadot/hotrod:0ed0bdadaa3af1e4f1e6f3bb6b7d19504aa9b1bd")
+                    SandboxImage(image="signadot/hotrod:0ed0bdadaa3af1e4f1e6f3bb6b7d19504aa9b1bd")
                 ],
                 env=[
-                    signadot_sdk.EnvOp(name="abc", value="xyz", operation="upsert")
+                    SandboxEnvVar(name="abc", value="xyz", operation="upsert")
                 ]
             ),
             endpoints=[
-                signadot_sdk.ForkEndpoint(
+                SandboxForkEndpoint(
                     name="hotrod-route",
                     port=8083,
                     protocol="http"
                 )
             ]
         )
-        request = signadot_sdk.CreateSandboxRequest(
-            name="test-ws-{}".format(get_random_string(5)),
-            description="Sample sandbox created using Python SDK",
-            cluster=cls.SIGNADOT_CLUSTER_NAME,
-            forks=[route_fork]
+        cls.sandbox_name = "test-ws-{}".format(get_random_string(5))
+        request = Sandbox(
+            spec=SandboxSpec(
+                description="Sample sandbox created using Python SDK",
+                cluster=cls.SIGNADOT_CLUSTER_NAME,
+                forks=[route_fork]
+            )
         )
 
         try:
-            api_response = cls.sandboxes_api.create_new_sandbox(cls.SIGNADOT_ORG, request)
+            sandbox = cls.sandboxes_api.apply_sandbox(cls.SIGNADOT_ORG, cls.sandbox_name, request)
         except ApiException as e:
             print("Exception creating a sandbox: %s\n" % e)
 
-        cls.sandbox_id = api_response.sandbox_id
-
-        filtered_endpoints = list(filter(lambda ep: ep.name == "hotrod-route", api_response.preview_endpoints))
+        filtered_endpoints = list(filter(lambda ep: ep.name == "hotrod-route", sandbox.endpoints))
         if len(filtered_endpoints) == 0:
             raise RuntimeError("Endpoint `hotrod-route` missing")
-        preview_endpoint = filtered_endpoints[0]
-        cls.preview_url = preview_endpoint.preview_url
+        cls.endpoint_url = filtered_endpoints[0].url
 
         sandbox_ready = False
-        max_attempts = 10
+        max_attempts = 20
         print("Checking sandbox readiness")
         for i in range(1, max_attempts):
             print("Attempt: {}/{}".format(i, max_attempts))
-            sandbox_ready = cls.sandboxes_api.get_sandbox_ready(cls.SIGNADOT_ORG, cls.sandbox_id).ready
-            if sandbox_ready:
+            if sandbox.status.ready:
+                sandbox_ready = True
                 print("Sandbox is ready!")
                 break
             time.sleep(5)
+            sandbox = cls.sandboxes_api.get_sandbox(cls.SIGNADOT_ORG, cls.sandbox_name)
 
         if not sandbox_ready:
             raise RuntimeError("Sandbox didn't get to Ready state")
@@ -94,7 +98,7 @@ class TestBasic(unittest.TestCase):
     def test_valid_result(self):
         pickup = "123"
         dropoff = "456"
-        service_url = "{}/route?pickup={}&dropoff={}".format(self.preview_url, pickup, dropoff)
+        service_url = "{}/route?pickup={}&dropoff={}".format(self.endpoint_url, pickup, dropoff)
         response = requests.get(service_url, headers=self.headers_dict)
         response.raise_for_status()
         data = response.json()
@@ -105,7 +109,8 @@ class TestBasic(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        cls.sandboxes_api.delete_sandbox_by_id(cls.SIGNADOT_ORG, cls.sandbox_id)
+        cls.sandboxes_api.delete_sandbox(cls.SIGNADOT_ORG, cls.sandbox_name)
+
 
 if __name__ == '__main__':
     unittest.main()
