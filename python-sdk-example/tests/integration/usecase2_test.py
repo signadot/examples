@@ -88,7 +88,7 @@ class TestUseCase2(unittest.TestCase):
                 # Environment variable changes. Here, we can define new environment variables, or update/delete the
                 # ones existing in the baseline deployment.
                 env=[
-                    SandboxEnvVar(name="abc", value="xyz", operation="upsert")
+                    SandboxEnvVar(name="abc", value="xyz")
                 ]
             ),
             # Since we are only interested in previewing the change to the Route service through the frontend, we do not
@@ -115,7 +115,7 @@ class TestUseCase2(unittest.TestCase):
                 # Environment variable changes. Here, we can define new environment variables, or update/delete the
                 # ones existing in the baseline deployment.
                 env=[
-                    SandboxEnvVar(name="pqr", value="stu", operation="upsert")
+                    SandboxEnvVar(name="pqr", value="stu")
                 ]
             ),
             # Spec to create an endpoint to fork (of frontend service) serving HTTP traffic on port 8080. This requires

@@ -50,7 +50,7 @@ class TestBasic(unittest.TestCase):
                     SandboxImage(image="signadot/hotrod:0ed0bdadaa3af1e4f1e6f3bb6b7d19504aa9b1bd")
                 ],
                 env=[
-                    SandboxEnvVar(name="abc", value="xyz", operation="upsert")
+                    SandboxEnvVar(name="abc", value="xyz")
                 ]
             ),
             endpoints=[

@@ -42,7 +42,7 @@ public class CreateSandboxTest {
       SandboxFork routeFork = new SandboxFork()
         .forkOf(new SandboxForkOf().kind("Deployment").namespace(HOTROD).name("route"))
         .customizations(new SandboxCustomizations()
-          .addEnvItem(new SandboxEnvVar().name("abc").value("def").operation("upsert"))
+          .addEnvItem(new SandboxEnvVar().name("abc").value("def"))
           .addImagesItem(new SandboxImage().image("signadot/hotrod:0ed0bdadaa3af1e4f1e6f3bb6b7d19504aa9b1bd")))
         .addEndpointsItem(new SandboxForkEndpoint().name("hotrod-route").port(8083).protocol("http"));
 

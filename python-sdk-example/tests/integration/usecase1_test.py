@@ -85,7 +85,7 @@ class TestUseCase1(unittest.TestCase):
                 # Environment variable changes. Here, we can define new environment variables, or update/delete the
                 # ones existing in the baseline deployment.
                 env=[
-                    SandboxEnvVar(name="abc", value="xyz", operation="upsert")
+                    SandboxEnvVar(name="abc", value="xyz")
                 ]
             ),
             # Since we are only interested in previewing the change to the Route service through the frontend, we do not
