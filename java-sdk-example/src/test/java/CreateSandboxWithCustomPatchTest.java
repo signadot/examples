@@ -13,20 +13,21 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.*;
+import static org.hamcrest.Matchers.equalTo;
 
 public class CreateSandboxWithCustomPatchTest {
 
+  private static final int TIMEOUT = 120000;
   public static final String HOTROD = "hotrod";
   public static final String HOTROD_TEST_IMAGE = "signadot/hotrod:49aa0813feba0fb74e4edccdde27702605de07e0";
   public static final String CUSTOM_PATCH = "spec:\n" +
-                                            "  template:\n" +
-                                            "    spec:\n" +
-                                            "      containers:\n" +
-                                            "      - name: hotrod\n" +
-                                            "        env:\n" +
-                                            "        - name:  PATCH_TEST_VAR\n" +
-                                            "          value: %s\n";
+    "  template:\n" +
+    "    spec:\n" +
+    "      containers:\n" +
+    "      - name: hotrod\n" +
+    "        env:\n" +
+    "        - name:  PATCH_TEST_VAR\n" +
+    "          value: %s\n";
 
   public static final String ORG_NAME = System.getenv("SIGNADOT_ORG");
   public static final String SIGNADOT_API_KEY = System.getenv("SIGNADOT_API_KEY");
@@ -36,9 +37,9 @@ public class CreateSandboxWithCustomPatchTest {
 
   ApiClient apiClient;
   SandboxesApi sandboxesApi;
-  CreateSandboxResponse response;
+  Sandbox sandbox;
   String envVarValue;
-  String sandboxID;
+  String sandboxName;
 
   /**
    * Forks the hotrod customer container. The customer container is customized with a custom patch
@@ -46,64 +47,67 @@ public class CreateSandboxWithCustomPatchTest {
    * container has been customized so that the custom environment variable is returned from the customer
    * endpoint, so we can validate that it has the expected value.
    */
-  @BeforeSuite
-  public void createSandboxWithCustomPatch() throws ApiException, InterruptedException {
+  @BeforeSuite(timeOut = TIMEOUT)
+  public void createSandboxWithCustomPatch() throws InterruptedException {
     apiClient = new ApiClient();
     apiClient.setApiKey(SIGNADOT_API_KEY);
     sandboxesApi = new SandboxesApi(apiClient);
 
-    envVarValue = RandomStringUtils.randomAlphanumeric(5);
-    final String customPatch = String.format(CUSTOM_PATCH, envVarValue);
-    String sandboxName = String.format("custom-patch-test-%s", RandomStringUtils.randomAlphanumeric(5));
+    try {
+      envVarValue = RandomStringUtils.randomAlphanumeric(5);
+      final String customPatch = String.format(CUSTOM_PATCH, envVarValue);
+      sandboxName = String.format("custom-patch-test-%s", RandomStringUtils.randomAlphanumeric(5));
 
-    SandboxFork customerFork = new SandboxFork()
-      .forkOf(new ForkOf().kind("Deployment").namespace(HOTROD).name("customer"))
-      .customizations(new SandboxCustomizations()
-        .addImagesItem(new Image().image(HOTROD_TEST_IMAGE))
-        .patch(new CustomPatch().type("strategic").value(customPatch)))
-      .addEndpointsItem(new ForkEndpoint().name("hotrod-customer").port(8081).protocol("http"));
+      SandboxFork customerFork = new SandboxFork()
+        .forkOf(new SandboxForkOf().kind("Deployment").namespace(HOTROD).name("customer"))
+        .customizations(new SandboxCustomizations()
+          .addImagesItem(new SandboxImage().image(HOTROD_TEST_IMAGE))
+          .patch(new SandboxCustomPatch().type("strategic").value(customPatch)))
+        .addEndpointsItem(new SandboxForkEndpoint().name("hotrod-customer").port(8081).protocol("http"));
 
-    CreateSandboxRequest request = new CreateSandboxRequest()
-      .cluster(CLUSTER_NAME)
-      .name(sandboxName)
-      .description("Java SDK: sandbox creation with custom patch example")
-      .addForksItem(customerFork);
+      Sandbox request = new Sandbox()
+        .spec(new SandboxSpec()
+          .cluster(CLUSTER_NAME)
+          .description("Java SDK: sandbox creation with custom patch example")
+          .addForksItem(customerFork));
 
-    response = sandboxesApi.createNewSandbox(ORG_NAME, request);
+      sandbox = sandboxesApi.applySandbox(ORG_NAME, sandboxName, request);
 
-    sandboxID = response.getSandboxID();
-    if (sandboxID == null || sandboxID.isBlank()) {
-      throw new RuntimeException("Sandbox ID not set in API response");
-    }
-
-    List<PreviewEndpoint> endpoints = response.getPreviewEndpoints();
-    if (endpoints.size() == 0) {
-      throw new RuntimeException("preview endpoints not available in API response");
-    }
-
-    PreviewEndpoint endpoint = null;
-    for (PreviewEndpoint ep : endpoints) {
-      if ("hotrod-customer".equals(ep.getName())) {
-        endpoint = ep;
-        break;
+      List<SandboxEndpoint> endpoints = sandbox.getEndpoints();
+      if (endpoints.size() == 0) {
+        throw new RuntimeException("endpoints not available in API response");
       }
-    }
-    if (endpoint == null) {
-      throw new RuntimeException("No endpoint found for route service");
-    }
 
-    // set the base URL for tests
-    RestAssured.baseURI = endpoint.getPreviewURL();
+      SandboxEndpoint endpoint = null;
+      for (SandboxEndpoint ep : endpoints) {
+        if ("hotrod-customer".equals(ep.getName())) {
+          endpoint = ep;
+          break;
+        }
+      }
+      if (endpoint == null) {
+        throw new RuntimeException("No endpoint found for route service");
+      }
 
-    RequestSpecBuilder builder = new RequestSpecBuilder();
-    builder.setBaseUri(endpoint.getPreviewURL());
-    builder.addHeader("signadot-api-key", SIGNADOT_API_KEY);
+      // set the base URL for tests
+      RestAssured.baseURI = endpoint.getUrl();
 
-    requestSpec = builder.build();
+      RequestSpecBuilder builder = new RequestSpecBuilder();
+      builder.setBaseUri(RestAssured.baseURI);
+      builder.addHeader("signadot-api-key", SIGNADOT_API_KEY);
 
-    // Check for sandbox readiness
-    while (!sandboxesApi.getSandboxReady(ORG_NAME, sandboxID).isReady()) {
-      Thread.sleep(5000);
+      requestSpec = builder.build();
+
+      // Check for sandbox readiness
+      while (!sandbox.getStatus().isReady()) {
+        Thread.sleep(5000);
+        sandbox = sandboxesApi.getSandbox(ORG_NAME, sandboxName);
+      }
+    } catch (ApiException e) {
+      System.out.println(e.getResponseBody());
+      e.printStackTrace();
+    } catch (InterruptedException e) {
+      e.printStackTrace();
     }
   }
 
@@ -121,6 +125,6 @@ public class CreateSandboxWithCustomPatchTest {
 
   @AfterSuite
   public void deleteSandbox() throws ApiException {
-    sandboxesApi.deleteSandboxById(ORG_NAME, sandboxID);
+    sandboxesApi.deleteSandbox(ORG_NAME, sandboxName);
   }
 }

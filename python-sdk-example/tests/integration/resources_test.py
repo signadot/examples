@@ -1,16 +1,22 @@
 from __future__ import print_function
 
-import time
-import unittest
 import os
 import random
-import requests
-import signadot_sdk as signadot_sdk
 import string
+import time
+import unittest
+
+import requests
+import timeout_decorator
+from signadot_sdk import Configuration, SandboxesApi, ApiClient, SandboxFork, SandboxForkOf, \
+    SandboxCustomizations, SandboxImage, SandboxForkEndpoint, SandboxEnvVar, Sandbox, SandboxSpec, SandboxEnvValueFrom, \
+    SandboxEnvValueFromResource, SandboxResource
 from signadot_sdk.rest import ApiException
+
 
 def get_random_string(length):
     return ''.join(random.choice(string.ascii_lowercase + string.digits) for i in range(length))
+
 
 # This test creates a Sandbox with below specification:
 #   - Fork HotROD Customer service
@@ -40,84 +46,87 @@ class TestWithResources(unittest.TestCase):
     if SIGNADOT_API_KEY is None:
         raise OSError("SIGNADOT_API_KEY is not set")
 
-    configuration = signadot_sdk.Configuration()
+    configuration = Configuration()
     configuration.api_key['signadot-api-key'] = SIGNADOT_API_KEY
 
-    sandboxes_api = signadot_sdk.SandboxesApi(signadot_sdk.ApiClient(configuration))
-    sandbox_id = None
-    preview_url = None
+    sandboxes_api = SandboxesApi(ApiClient(configuration))
+    sandbox_name = None
+    endpoint_url = None
     headers_dict = {"signadot-api-key": SIGNADOT_API_KEY}
 
     @classmethod
+    @timeout_decorator.timeout(120)
     def setUpClass(cls):
-        customer_service_fork = signadot_sdk.SandboxFork(
-            fork_of=signadot_sdk.ForkOf(
+        customer_service_fork = SandboxFork(
+            fork_of=SandboxForkOf(
                 kind="Deployment",
                 name="customer",
                 namespace="hotrod"
             ),
-            customizations=signadot_sdk.SandboxCustomizations(
-                images=[signadot_sdk.Image(image="signadot/hotrod:cace2c797082481ac0238cc1310b7816980e3244")],
+            customizations=SandboxCustomizations(
+                images=[SandboxImage(image="signadot/hotrod:cace2c797082481ac0238cc1310b7816980e3244")],
                 env=[
-                    signadot_sdk.EnvOp(
+                    SandboxEnvVar(
                         name="MYSQL_HOST",
-                        value_from=signadot_sdk.EnvValueFrom(
-                            resource=signadot_sdk.EnvValueFromResource(name="customerdb", output_key="host")
+                        value_from=SandboxEnvValueFrom(
+                            resource=SandboxEnvValueFromResource(name="customerdb", output_key="host")
                         )
                     ),
-                    signadot_sdk.EnvOp(
+                    SandboxEnvVar(
                         name="MYSQL_PORT",
-                        value_from=signadot_sdk.EnvValueFrom(
-                            resource=signadot_sdk.EnvValueFromResource(name="customerdb", output_key="port")
+                        value_from=SandboxEnvValueFrom(
+                            resource=SandboxEnvValueFromResource(name="customerdb", output_key="port")
                         )
                     ),
-                    signadot_sdk.EnvOp(
+                    SandboxEnvVar(
                         name="MYSQL_ROOT_PASSWORD",
-                        value_from=signadot_sdk.EnvValueFrom(
-                            resource=signadot_sdk.EnvValueFromResource(name="customerdb", output_key="root_password")
+                        value_from=SandboxEnvValueFrom(
+                            resource=SandboxEnvValueFromResource(name="customerdb", output_key="root_password")
                         )
                     )
                 ]
             ),
-            endpoints=[signadot_sdk.ForkEndpoint(name="customer-svc-endpoint", port=8081, protocol="http")]
+            endpoints=[SandboxForkEndpoint(name="customer-svc-endpoint", port=8081, protocol="http")]
         )
-        request = signadot_sdk.CreateSandboxRequest(
-            name="db-resource-test-{}".format(get_random_string(5)),
-            description="Python SDK: Create sandbox with ephemeral db resource spun up using hotrod-mariadb plugin",
-            cluster=cls.SIGNADOT_CLUSTER_NAME,
-            resources=[signadot_sdk.SandboxResource(name="customerdb", plugin="hotrod-mariadb", params={"dbname": "customer"})],
-            forks=[customer_service_fork]
+
+        cls.sandbox_name = "db-resource-test-{}".format(get_random_string(5))
+        request = Sandbox(
+            spec=SandboxSpec(
+                description="Python SDK: Create sandbox with ephemeral db resource spun up using hotrod-mariadb plugin",
+                cluster=cls.SIGNADOT_CLUSTER_NAME,
+                resources=[SandboxResource(name="customerdb", plugin="hotrod-mariadb",
+                                           params={"dbname": "customer"})],
+                forks=[customer_service_fork]
+            )
         )
 
         try:
-            api_response = cls.sandboxes_api.create_new_sandbox(cls.SIGNADOT_ORG, request)
+            sandbox = cls.sandboxes_api.apply_sandbox(cls.SIGNADOT_ORG, cls.sandbox_name, request)
         except ApiException as e:
             print("Exception creating a sandbox: %s\n" % e)
 
-        cls.sandbox_id = api_response.sandbox_id
-
-        filtered_endpoints = list(filter(lambda ep: ep.name == "customer-svc-endpoint", api_response.preview_endpoints))
+        filtered_endpoints = list(filter(lambda ep: ep.name == "customer-svc-endpoint", sandbox.endpoints))
         if len(filtered_endpoints) == 0:
             raise RuntimeError("Endpoint `customer-svc-endpoint` missing")
-        preview_endpoint = filtered_endpoints[0]
-        cls.preview_url = preview_endpoint.preview_url
+        cls.endpoint_url = filtered_endpoints[0].url
 
         sandbox_ready = False
-        max_attempts = 10
+        max_attempts = 20
         print("Checking sandbox readiness")
         for i in range(1, max_attempts):
             print("Attempt: {}/{}".format(i, max_attempts))
-            sandbox_ready = cls.sandboxes_api.get_sandbox_ready(cls.SIGNADOT_ORG, cls.sandbox_id).ready
-            if sandbox_ready:
+            if sandbox.status.ready:
+                sandbox_ready = True
                 print("Sandbox is ready!")
                 break
-            time.sleep(10)
+            time.sleep(5)
+            sandbox = cls.sandboxes_api.get_sandbox(cls.SIGNADOT_ORG, cls.sandbox_name)
 
         if not sandbox_ready:
             raise RuntimeError("Sandbox didn't get to Ready state")
 
     def test_customer_service(self):
-        service_url = "{}/customer?customer=999".format(self.preview_url)
+        service_url = "{}/customer?customer=999".format(self.endpoint_url)
         response = requests.get(service_url, headers=self.headers_dict)
         response.raise_for_status()
         data = response.json()
@@ -128,7 +137,8 @@ class TestWithResources(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        cls.sandboxes_api.delete_sandbox_by_id(cls.SIGNADOT_ORG, cls.sandbox_id)
+        cls.sandboxes_api.delete_sandbox(cls.SIGNADOT_ORG, cls.sandbox_name)
+
 
 if __name__ == '__main__':
     unittest.main()
