@@ -130,20 +130,9 @@ class TestUseCase1(unittest.TestCase):
         print("Frontend Service endpoint URL: {}".format(cls.endpoint_url))
 
         # Code block to wait until sandbox is ready
-        sandbox_ready = False
-        max_attempts = 20
-        print("Checking sandbox readiness")
-        for i in range(1, max_attempts):
-            print("Attempt: {}/{}".format(i, max_attempts))
-            if sandbox.status.ready:
-                sandbox_ready = True
-                print("Sandbox is ready!")
-                break
+        while not sandbox.status.ready:
             time.sleep(5)
             sandbox = cls.sandboxes_api.get_sandbox(cls.SIGNADOT_ORG, cls.sandbox_name)
-
-        if not sandbox_ready:
-            raise RuntimeError("Sandbox didn't get to Ready state")
 
     def test_frontend(self):
         # Run tests on the updated frontend service using the endpoint URL

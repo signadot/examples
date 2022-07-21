@@ -110,20 +110,10 @@ class TestWithResources(unittest.TestCase):
             raise RuntimeError("Endpoint `customer-svc-endpoint` missing")
         cls.endpoint_url = filtered_endpoints[0].url
 
-        sandbox_ready = False
-        max_attempts = 20
-        print("Checking sandbox readiness")
-        for i in range(1, max_attempts):
-            print("Attempt: {}/{}".format(i, max_attempts))
-            if sandbox.status.ready:
-                sandbox_ready = True
-                print("Sandbox is ready!")
-                break
+        # Code block to wait until sandbox is ready
+        while not sandbox.status.ready:
             time.sleep(5)
             sandbox = cls.sandboxes_api.get_sandbox(cls.SIGNADOT_ORG, cls.sandbox_name)
-
-        if not sandbox_ready:
-            raise RuntimeError("Sandbox didn't get to Ready state")
 
     def test_customer_service(self):
         service_url = "{}/customer?customer=999".format(self.endpoint_url)
