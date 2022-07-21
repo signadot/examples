@@ -1,11 +1,12 @@
 from __future__ import print_function
 
-import time
-import unittest
 import os
 import random
 import string
+import time
+import unittest
 
+import timeout_decorator
 from signadot_sdk import Configuration, SandboxesApi, ApiClient, SandboxFork, SandboxForkOf, \
     SandboxCustomizations, SandboxImage, SandboxForkEndpoint, SandboxEnvVar, Sandbox, SandboxSpec
 from signadot_sdk.rest import ApiException
@@ -68,6 +69,7 @@ class TestUseCase2(unittest.TestCase):
     headers_dict = {"signadot-api-key": SIGNADOT_API_KEY}
 
     @classmethod
+    @timeout_decorator.timeout(120)
     def setUpClass(cls):
         # Define the spec for the fork of route service
         route_fork = SandboxFork(

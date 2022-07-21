@@ -11,7 +11,6 @@ import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
 
-import javax.naming.LimitExceededException;
 import java.util.List;
 
 import static io.restassured.RestAssured.given;
@@ -19,6 +18,7 @@ import static org.hamcrest.Matchers.*;
 
 public class CreateSandboxTest {
 
+  private static final int TIMEOUT = 120000;
   public static final String HOTROD = "hotrod";
   public static final String ORG_NAME = System.getenv("SIGNADOT_ORG");
   public static final String SIGNADOT_API_KEY = System.getenv("SIGNADOT_API_KEY");
@@ -30,7 +30,7 @@ public class CreateSandboxTest {
   Sandbox sandbox;
   String sandboxName;
 
-  @BeforeSuite
+  @BeforeSuite(timeOut = TIMEOUT)
   public void createSandbox() {
     try {
       apiClient = new ApiClient();
@@ -80,18 +80,14 @@ public class CreateSandboxTest {
       requestSpec = builder.build();
 
       // Check for sandbox readiness
-      int count = 1, maxAttempts = 20;
       while (!sandbox.getStatus().isReady()) {
-        if (count++ > maxAttempts) {
-          throw new LimitExceededException("max attempts reached");
-        }
         Thread.sleep(5000);
         sandbox = sandboxesApi.getSandbox(ORG_NAME, sandboxName);
       }
     } catch (ApiException e) {
       System.out.println(e.getResponseBody());
       e.printStackTrace();
-    } catch (InterruptedException | LimitExceededException e) {
+    } catch (InterruptedException e) {
       e.printStackTrace();
     }
   }

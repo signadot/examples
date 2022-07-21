@@ -10,14 +10,14 @@ import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
 
-import javax.naming.LimitExceededException;
 import java.util.List;
 
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.*;
+import static org.hamcrest.Matchers.equalTo;
 
 public class CreateSandboxWithCustomPatchTest {
 
+  private static final int TIMEOUT = 120000;
   public static final String HOTROD = "hotrod";
   public static final String HOTROD_TEST_IMAGE = "signadot/hotrod:49aa0813feba0fb74e4edccdde27702605de07e0";
   public static final String CUSTOM_PATCH = "spec:\n" +
@@ -47,7 +47,7 @@ public class CreateSandboxWithCustomPatchTest {
    * container has been customized so that the custom environment variable is returned from the customer
    * endpoint, so we can validate that it has the expected value.
    */
-  @BeforeSuite
+  @BeforeSuite(timeOut = TIMEOUT)
   public void createSandboxWithCustomPatch() throws InterruptedException {
     apiClient = new ApiClient();
     apiClient.setApiKey(SIGNADOT_API_KEY);
@@ -99,18 +99,14 @@ public class CreateSandboxWithCustomPatchTest {
       requestSpec = builder.build();
 
       // Check for sandbox readiness
-      int count = 1, maxAttempts = 20;
       while (!sandbox.getStatus().isReady()) {
-        if (count++ > maxAttempts) {
-          throw new LimitExceededException("max attempts reached");
-        }
         Thread.sleep(5000);
         sandbox = sandboxesApi.getSandbox(ORG_NAME, sandboxName);
       }
     } catch (ApiException e) {
       System.out.println(e.getResponseBody());
       e.printStackTrace();
-    } catch (InterruptedException | LimitExceededException e) {
+    } catch (InterruptedException e) {
       e.printStackTrace();
     }
   }

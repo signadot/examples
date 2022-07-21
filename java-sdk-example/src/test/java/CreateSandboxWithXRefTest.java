@@ -10,7 +10,6 @@ import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
 
-import javax.naming.LimitExceededException;
 import java.util.List;
 
 import static io.restassured.RestAssured.given;
@@ -18,6 +17,7 @@ import static org.hamcrest.Matchers.*;
 
 public class CreateSandboxWithXRefTest {
 
+  private static final int TIMEOUT = 120000;
   public static final String HOTROD = "hotrod";
   public static final String HOTROD_TEST_IMAGE = "signadot/hotrod:49aa0813feba0fb74e4edccdde27702605de07e0";
 
@@ -40,7 +40,7 @@ public class CreateSandboxWithXRefTest {
    * we can't be sure what is going to be put into FROM_TEST_VAR, we only validate that there is content for it
    * in the response.
    */
-  @BeforeSuite
+  @BeforeSuite(timeOut = TIMEOUT)
   public void createSandboxWithXRef() {
     try {
       apiClient = new ApiClient();
@@ -107,18 +107,14 @@ public class CreateSandboxWithXRefTest {
       requestSpec = builder.build();
 
       // Check for sandbox readiness
-      int count = 1, maxAttempts = 20;
       while (!sandbox.getStatus().isReady()) {
-        if (count++ > maxAttempts) {
-          throw new LimitExceededException("max attempts reached");
-        }
         Thread.sleep(5000);
         sandbox = sandboxesApi.getSandbox(ORG_NAME, sandboxName);
       }
     } catch (ApiException e) {
       System.out.println(e.getResponseBody());
       e.printStackTrace();
-    } catch (InterruptedException | LimitExceededException e) {
+    } catch (InterruptedException e) {
       e.printStackTrace();
     }
   }

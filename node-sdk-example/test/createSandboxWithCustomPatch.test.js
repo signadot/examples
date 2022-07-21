@@ -91,11 +91,7 @@ spec:
         }
         endpointURL = filteredEndpoints[0].url;
 
-        let count=0, maxAttempts=20;
         const readyStateInterval = setInterval(async () => {
-          if (count++ > maxAttempts) {
-            reject(new Error("max attempts reached"));
-          }
           if (sandbox.status.ready) {
             clearInterval(readyStateInterval);
             resolve();
