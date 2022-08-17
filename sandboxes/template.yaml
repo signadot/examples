@@ -1,0 +1,38 @@
+#
+# Example yaml file containing input to the signadot cli
+# with scalar variable templating.
+#
+# usage:
+#
+#  signadot sandbox apply -f template.yaml \
+#    --set dev=jane \
+#    --set team=miners \
+#    --set port=8083 \
+#    --set namespace=ns1
+#
+# Further documentation is available at https://docs.signadot.com/docs/cli#sandbox-templates
+#
+name: @{dev}-@{team}-feature-x
+spec:
+  tags:
+    team: @{team}
+  cluster: staging
+  description: "@{dev}'s work on feature-x" 
+  endpoints:
+  - host: frontend.hotrod.svc
+    name: frontend-hotrod-svc
+    port: @{port}
+    protocol: http
+  forks:
+  - customizations:
+      env:
+      - container: main
+        name: DEV
+        value: @{dev}
+      images: null
+    endpoints: null
+    forkOf:
+      kind: Deployment
+      name: frontend
+      namespace: @{namespace}
+  resources: null
