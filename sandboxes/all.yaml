@@ -3,7 +3,7 @@
 #
 # Further documentation is available at https://docs.signadot.com/docs/reference/sandbox-ref
 #
-name: "@{dev}-@{team}-feature-x" # name of the sandbox
+name: "@{dev}-@{team}-feature-x-@{commit}"    # name of the sandbox
 spec:  
   tags:                                       # tags for tracking sandboxes and analytics
     team: "@{team}"                           # key, value
