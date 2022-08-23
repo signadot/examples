@@ -1,0 +1,58 @@
+# Example yaml file containing input to the signadot cli
+# using all available constructs in the specification.
+#
+# Further documentation is available at https://docs.signadot.com/docs/reference/sandbox-spec
+#
+name: "@{dev}-@{team}-feature-x-@{commit}"    # name of the sandbox
+spec:  
+  tags:                                       # tags for tracking sandboxes and analytics
+    team: "@{team}"                           # key, value
+  cluster: staging                            # cluster in which this sandbox is to reside.
+  description: "@{dev}'s work on feature-x"   # a short description
+  forks:                                      # set of workloads to fork and how to fork.
+  - forkOf:                                   # what to fork
+      kind: Deployment                        # K8s Kind of workload to fork (Deployment or ArgoRollout).
+      name: frontend                          # K8s name of workload to fork.
+      namespace: "@{namespace}"               # K8s namespace in which the workload to fork resides.
+    customizations:                           # how to fork the workload specified by forkOf
+      env:                                    # define environment for containers in fork.
+      - container: main                       # what container (identified by name).
+        name: DEV                             # environmental variable name.
+        value: "@{dev}"                       # environmental variable value.
+      - name: VAR                             # a variable for the (implicit) main container.
+        value: foo                            # environmental variable value.
+      - name: BACKEND_ADDR
+        valueFrom:                            # dynamic value, determined when the fork is created.
+          fork:                               # from a fork.
+            forkOf:                           # defines which fork (must exist in this sandbox).
+              kind: Deployment                # K8s kind (Deployment or ArgoRollout).
+              namespace: "@{namespace}"       # K8s namespace.
+              name: backend                   # K8s name
+            expression: "{{.Service.Host}}:{{.Service.Port}}"  # fork-creation-time expanded expression.
+      - name: DBHOST                          # environmental variable name.
+        valueFrom:                            # dynamic value, determined when the fork is created.
+          resource:                           # value taken from sandbox resource
+            name: testdb                      # the resource is named 'testdb' in this sandbox.
+            outputKey: dbhost                 # the resource plugin provides a value for this key.
+      images:
+      - container: side                       # container name.
+        image: docker-user/side-repo:tag      # docker image reference.
+      - image: docker-user/repo:tag           # docker image for (implicit) main container.
+    endpoints:                                # endpoints associated with this fork.
+    - name: frontend                          # name of the endpoint.
+      protocol: http                          # protocol (http or grpc).
+      port: 8080                              # port to which the endpoint will resolve.
+  - forkOf:                                   # multiple forks are possible.
+      kind: Deployment
+      name: backend
+      namespace: "@{namespace}"
+  endpoints:                                  # host endpoints, not associated with a fork.
+  - name: test                                # name of the endpoint.
+    host: test.default.svc                    # hostname to which the endpoint will resolve.
+    protocol: grpc                            # protocol (http or grpc).
+    port: 8081                                # port to which the endpoint will resolve.
+  resources:                                  # resource allocated to the sandbox.
+  - name: testdb                              # name of the resource.
+    plugin: sd-mariadb                        # name of the resource plugin.
+    params:                                   # parameters to pass to the resource plugin.
+      dbname: testdb                          # a parameter is a key-value, string-string pair.
