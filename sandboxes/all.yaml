@@ -9,11 +9,6 @@ spec:
     team: "@{team}"                           # key, value
   cluster: staging                            # cluster in which this sandbox is to reside.
   description: "@{dev}'s work on feature-x"   # a short description
-  endpoints:                                  # host endpoints -- services without a fork.
-  - host: frontend.hotrod.svc                 # host name of the endpoint, in-cluster.
-    name: frontend-hotrod-svc                 # name of the endpoint.
-    port: "@{port}"                           # port to which the endpoint will resolve
-    protocol: http                            # protocol (http or grpc)
   forks:                                      # set of workloads to fork and how to fork.
   - forkOf:                                   # what to fork
       kind: Deployment                        # K8s Kind of workload to fork (Deployment or ArgoRollout).
