@@ -1,7 +1,6 @@
 #!/usr/bin/env signadot sandbox apply -f
 # sandbox specification for cross fork references.
 #
-#
 # The frontend service is provided with the forked backend service address 
 # via a dynamic environmental variable.
 #

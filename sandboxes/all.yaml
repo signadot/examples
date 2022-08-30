@@ -1,7 +1,7 @@
 # Example yaml file containing input to the signadot cli
 # using all available constructs in the specification.
 #
-# Further documentation is available at https://docs.signadot.com/docs/reference/sandbox-spec
+# Further documentation is available at https://docs.signadot.com/docs/sandbox-spec
 #
 name: "@{dev}-@{team}-feature-x-@{commit}"    # name of the sandbox
 spec:  
