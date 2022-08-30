@@ -1,0 +1,34 @@
+#!/usr/bin/env signadot sandbox apply -f
+#
+# example sandbox using a resource.
+#
+# This sandbox uses a mysql/mariadb database resource.  To use such a resource,
+# the corresponding sd-mariadb resource plugin must be installed in the cluster
+# in which the sandbox runs.  To install this resource plugin, please see
+# https://github.com/signadot/plugins/tree/main/signadot-plugins-exp/mariadb
+#
+name: "@{dev}-@{team}-x-@{commit}"    # name of the sandbox
+spec:  
+  cluster: staging                            # cluster in which this sandbox is to reside.
+  description: "@{dev}'s work on feature-x"   # a short description
+  resources:                                  # resource allocated to the sandbox.
+  - name: testdb                              # name of the resource.
+    plugin: sd-mariadb                        # name of the resource plugin.
+    params:                                   # parameters to pass to the resource plugin.
+      dbname: testdb                          # a parameter is a key-value, string-string pair.
+  forks:                                      # set of workloads to fork and how to fork.
+  - forkOf:                                   # what to fork
+      kind: Deployment                        # K8s Kind of workload to fork (Deployment or ArgoRollout).
+      name: customer                          # K8s name of workload to fork.
+      namespace: "@{namespace}"               # K8s namespace in which the workload to fork resides.
+    customizations:                           # how to fork the workload specified by forkOf
+      env:                                    # define environment for containers in fork.
+      - name: DBHOST                          # environmental variable name.
+        valueFrom:                            # dynamic value, determined when the fork is created.
+          resource:                           # value taken from sandbox resource
+            name: testdb                      # the resource is named 'testdb' in this sandbox.
+            outputKey: dbhost                 # the resource plugin provides a value for this key.
+    endpoints:                                # endpoints associated with this fork.
+    - name: customer                          # name of the endpoint.
+      protocol: http                          # protocol (http or grpc).
+      port: 8081                              # port to which the endpoint will resolve.

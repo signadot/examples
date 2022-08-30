@@ -1,3 +1,4 @@
+#!/usr/bin/env signadot sandbox apply -f
 #
 # Example yaml file containing input to the signadot cli
 # which defines a sandbox using tags.  Analytics covering
@@ -8,7 +9,7 @@ name: example-tags
 spec:
   tags:
     team: hotrod-frontend
-    endpoints: 
+    jira: TS-1164
   cluster: signadot-staging
   description: signadot/hotrod-staging#0
   endpoints:
