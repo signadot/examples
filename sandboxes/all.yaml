@@ -9,6 +9,9 @@ spec:
     team: "@{team}"                           # key, value
   cluster: staging                            # cluster in which this sandbox is to reside.
   description: "@{dev}'s work on feature-x"   # a short description
+  ttl:                                        # optional sandbox lifetime limit
+    duration: 2d                              # N<unit>, unit m: minutes, h: hours, d: days, w: weeks
+    offsetFrom: createdAt                     # what the duration is relative to (createdAt).
   forks:                                      # set of workloads to fork and how to fork.
   - forkOf:                                   # what to fork
       kind: Deployment                        # K8s Kind of workload to fork (Deployment or ArgoRollout).

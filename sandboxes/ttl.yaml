@@ -1,0 +1,26 @@
+#!/usr/bin/env signadot sandbox apply -f 
+#
+# Example yaml file containing input to the signadot cli
+# which defines a sandbox using ttl.  Further documentation
+# is available at https://docs.sigandot.com/docs/sandbox-spec#specttl.
+#
+name: example-ttl
+spec:
+  cluster: signadot-staging
+  description: signadot/hotrod-staging#0
+  ttl:
+    duration: "@{ttlDur}"
+    offsetFrom: createdAt
+  forks:
+  - customizations:
+      env:
+      - container: hotrod
+        name: first
+        value: one
+      images: null
+    endpoints: null
+    forkOf:
+      kind: Deployment
+      name: frontend
+      namespace: hotrod
+  resources: null
