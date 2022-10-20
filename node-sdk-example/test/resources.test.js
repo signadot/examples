@@ -11,7 +11,8 @@ import {
   SandboxForkOf,
   SandboxImage,
   SandboxResource,
-  SandboxSpec
+  SandboxSpec,
+  SandboxTTL
 } from '@signadot/signadot-sdk';
 import axios from 'axios';
 import {customAlphabet} from 'nanoid';
@@ -105,6 +106,7 @@ describe('Sandbox test using resources', () => {
           spec: SandboxSpec.constructFromObject({
             cluster: SIGNADOT_CLUSTER_NAME,
             description: 'created using @signadot/signadot-sdk',
+            ttl: SandboxTTL.constructFromObject({ duration: "10m" }),
             forks: [customerServiceFork],
             resources: [
               SandboxResource.constructFromObject({

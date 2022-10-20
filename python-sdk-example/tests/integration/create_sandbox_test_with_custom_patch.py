@@ -8,8 +8,9 @@ import unittest
 
 import requests
 import timeout_decorator
+
 from signadot_sdk import Configuration, SandboxesApi, ApiClient, SandboxFork, SandboxForkOf, \
-    SandboxCustomizations, SandboxImage, SandboxForkEndpoint, Sandbox, SandboxSpec, SandboxCustomPatch
+    SandboxCustomizations, SandboxImage, SandboxForkEndpoint, Sandbox, SandboxSpec, SandboxCustomPatch, SandboxTTL
 from signadot_sdk.rest import ApiException
 
 
@@ -26,7 +27,7 @@ class TestBasic(unittest.TestCase):
           - name: hotrod
             env:
             - name: PATCH_TEST_VAR
-              value: {}
+              value: "{}"
     """
     HOTROD_TEST_IMAGE = "signadot/hotrod:49aa0813feba0fb74e4edccdde27702605de07e0"
     SIGNADOT_ORG = os.getenv("SIGNADOT_ORG")
@@ -80,6 +81,7 @@ class TestBasic(unittest.TestCase):
         request = Sandbox(
             spec=SandboxSpec(
                 description="Python SDK: sandbox creation with custom patch example",
+                ttl=SandboxTTL(duration="10m"),
                 cluster=cls.CLUSTER_NAME,
                 forks=[customer_fork]
             )

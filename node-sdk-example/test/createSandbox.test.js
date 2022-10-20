@@ -8,7 +8,8 @@ import {
   SandboxForkEndpoint,
   SandboxForkOf,
   SandboxImage,
-  SandboxSpec
+  SandboxSpec,
+  SandboxTTL,
 } from '@signadot/signadot-sdk';
 import axios from 'axios';
 import {customAlphabet} from 'nanoid';
@@ -67,6 +68,7 @@ describe('Test a service using sandbox', () => {
         const request = Sandbox.constructFromObject({
           spec: SandboxSpec.constructFromObject({
             cluster: SIGNADOT_CLUSTER_NAME,
+            ttl: SandboxTTL.constructFromObject({ duration: "10m" }),
             description: 'created using @signadot/signadot-sdk',
             forks: [routeFork]
           })

@@ -82,6 +82,7 @@ public class ResourcesTest {
       Sandbox request = new Sandbox()
         .spec(new SandboxSpec()
           .cluster(CLUSTER_NAME)
+          .ttl(new SandboxTTL().duration("10m"))
           .description("Java SDK: Create sandbox with ephemeral db resource spun up using hotrod-mariadb plugin")
           .addForksItem(customerServiceFork)
           .addResourcesItem(customerDBResource));

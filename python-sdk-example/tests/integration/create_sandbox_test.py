@@ -8,8 +8,9 @@ import unittest
 
 import requests
 import timeout_decorator
+
 from signadot_sdk import Configuration, SandboxesApi, ApiClient, SandboxFork, SandboxForkOf, \
-    SandboxCustomizations, SandboxImage, SandboxForkEndpoint, SandboxEnvVar, Sandbox, SandboxSpec
+    SandboxCustomizations, SandboxImage, SandboxForkEndpoint, SandboxEnvVar, Sandbox, SandboxSpec, SandboxTTL
 from signadot_sdk.rest import ApiException
 
 
@@ -67,6 +68,7 @@ class TestBasic(unittest.TestCase):
         request = Sandbox(
             spec=SandboxSpec(
                 description="Sample sandbox created using Python SDK",
+                ttl=SandboxTTL(duration="10m"),
                 cluster=cls.SIGNADOT_CLUSTER_NAME,
                 forks=[route_fork]
             )

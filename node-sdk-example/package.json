@@ -4,7 +4,7 @@
   "description": "Signadot sandboxes JS SDK example",
   "main": "index.js",
   "scripts": {
-    "test": "mocha --timeout 120000"
+    "test": "mocha --parallel --timeout 120000"
   },
   "author": "",
   "license": "ISC",
@@ -19,7 +19,7 @@
   },
   "type": "module",
   "dependencies": {
-    "@signadot/signadot-sdk": "0.3.0",
+    "@signadot/signadot-sdk": "0.3.4",
     "axios": "^0.24.0",
     "nanoid": "^3.1.32"
   }
