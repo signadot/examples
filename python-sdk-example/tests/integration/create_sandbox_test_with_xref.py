@@ -8,9 +8,10 @@ import unittest
 
 import requests
 import timeout_decorator
+
 from signadot_sdk import Configuration, SandboxesApi, ApiClient, SandboxFork, SandboxForkOf, \
     SandboxCustomizations, SandboxImage, SandboxForkEndpoint, SandboxEnvVar, Sandbox, SandboxSpec, SandboxEnvValueFrom, \
-    SandboxEnvValueFromFork
+    SandboxEnvValueFromFork, SandboxTTL
 from signadot_sdk.rest import ApiException
 
 
@@ -91,6 +92,7 @@ class TestBasic(unittest.TestCase):
         request = Sandbox(
             spec=SandboxSpec(
                 description="Python SDK: sandbox creation with cross-fork reference example",
+                ttl=SandboxTTL(duration="10m"),
                 cluster=cls.CLUSTER_NAME,
                 forks=[customer_fork, frontend_fork]
             )

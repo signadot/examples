@@ -10,7 +10,8 @@ import {
   SandboxForkEndpoint,
   SandboxForkOf,
   SandboxImage,
-  SandboxSpec
+  SandboxSpec,
+  SandboxTTL
 } from '@signadot/signadot-sdk';
 import axios from 'axios';
 import {customAlphabet} from 'nanoid';
@@ -96,6 +97,7 @@ describe('Create sandbox with xref', () => {
         const request = Sandbox.constructFromObject({
           spec: SandboxSpec.constructFromObject({
             cluster: SIGNADOT_CLUSTER_NAME,
+            ttl: SandboxTTL.constructFromObject({ duration: "10m" }),
             description: 'Node SDK: sandbox creation with xref example',
             forks: [customerFork, frontendFork]
           })

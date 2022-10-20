@@ -49,6 +49,7 @@ public class CreateSandboxTest {
       Sandbox request = new Sandbox()
         .spec(new SandboxSpec()
           .cluster(CLUSTER_NAME)
+          .ttl(new SandboxTTL().duration("10m"))
           .description("Java SDK: sandbox creation example")
           .addForksItem(routeFork));
 

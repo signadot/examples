@@ -8,9 +8,10 @@ import unittest
 
 import requests
 import timeout_decorator
+
 from signadot_sdk import Configuration, SandboxesApi, ApiClient, SandboxFork, SandboxForkOf, \
     SandboxCustomizations, SandboxImage, SandboxForkEndpoint, SandboxEnvVar, Sandbox, SandboxSpec, SandboxEnvValueFrom, \
-    SandboxEnvValueFromResource, SandboxResource
+    SandboxEnvValueFromResource, SandboxResource, SandboxTTL
 from signadot_sdk.rest import ApiException
 
 
@@ -94,6 +95,7 @@ class TestWithResources(unittest.TestCase):
             spec=SandboxSpec(
                 description="Python SDK: Create sandbox with ephemeral db resource spun up using hotrod-mariadb plugin",
                 cluster=cls.SIGNADOT_CLUSTER_NAME,
+                ttl=SandboxTTL(duration="10m"),
                 resources=[SandboxResource(name="customerdb", plugin="hotrod-mariadb",
                                            params={"dbname": "customer"})],
                 forks=[customer_service_fork]

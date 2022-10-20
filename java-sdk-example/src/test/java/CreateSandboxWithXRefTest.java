@@ -75,6 +75,7 @@ public class CreateSandboxWithXRefTest {
       Sandbox request = new Sandbox()
         .spec(new SandboxSpec()
           .cluster(CLUSTER_NAME)
+          .ttl(new SandboxTTL().duration("10m"))
           .description("Java SDK: sandbox creation with cross fork reference example")
           .addForksItem(customerFork)
           .addForksItem(frontendFork));
