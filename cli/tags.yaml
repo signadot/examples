@@ -10,7 +10,7 @@ spec:
   tags:
     team: hotrod-frontend
     jira: TS-1164
-  cluster: signadot-staging
+  cluster: demo
   description: signadot/hotrod-staging#0
   endpoints:
   - host: frontend.hotrod.svc
