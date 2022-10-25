@@ -15,25 +15,21 @@
 #
 name: "@{dev}-@{team}-feature-x"
 spec:
-  tags:
+  labels:
     team: "@{team}"
   cluster: staging
   description: "@{dev}'s work on feature-x" 
-  endpoints:
-  - host: frontend.hotrod.svc
-    name: frontend-hotrod-svc
-    port: "@{port}"
-    protocol: http
+  defaultRouteGroup:
+    endpoints:
+    - name: frontend-hotrod-svc
+      target: "http://frontend.hotrod.svc:@{port}"
   forks:
   - customizations:
       env:
       - container: main
         name: DEV
         value: "@{dev}"
-      images: null
-    endpoints: null
     forkOf:
       kind: Deployment
       name: frontend
       namespace: "@{namespace}"
-  resources: null

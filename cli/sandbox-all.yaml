@@ -5,7 +5,7 @@
 #
 name: "@{dev}-@{team}-feature-x-@{commit}"    # name of the sandbox
 spec:  
-  tags:                                       # tags for tracking sandboxes and analytics
+  labels:                                     # labels for sandbox analytics.
     team: "@{team}"                           # key, value
   cluster: staging                            # cluster in which this sandbox is to reside.
   description: "@{dev}'s work on feature-x"   # a short description
@@ -41,19 +41,16 @@ spec:
       - container: side                       # container name.
         image: docker-user/side-repo:tag      # docker image reference.
       - image: docker-user/repo:tag           # docker image for (implicit) main container.
-    endpoints:                                # endpoints associated with this fork.
-    - name: frontend                          # name of the endpoint.
-      protocol: http                          # protocol (http or grpc).
-      port: 8080                              # port to which the endpoint will resolve.
   - forkOf:                                   # multiple forks are possible.
       kind: Deployment
       name: backend
       namespace: "@{namespace}"
-  endpoints:                                  # host endpoints, not associated with a fork.
-  - name: test                                # name of the endpoint.
-    host: test.default.svc                    # hostname to which the endpoint will resolve.
-    protocol: grpc                            # protocol (http or grpc).
-    port: 8081                                # port to which the endpoint will resolve.
+  defaultRouteGroup:
+    endpoints:
+    - name: test                              # host endpoint
+      target: "grpc://test.default.svc:8081"
+    - name: frontend                          # fork endpoint for frontend fork
+      target: "http://frontend.@{namespace}.deploy:8080"
   resources:                                  # resource allocated to the sandbox.
   - name: testdb                              # name of the resource.
     plugin: sd-mariadb                        # name of the resource plugin.

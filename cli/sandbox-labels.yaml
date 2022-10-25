@@ -1,0 +1,28 @@
+#!/usr/bin/env signadot sandbox apply -f
+#
+# Example yaml file containing input to the signadot cli
+# which defines a sandbox using labels.  Analytics covering
+# sandboxes with labels are available via the dashboard at
+# https://app.signadot.com/analytics.
+#
+name: example-labels
+spec:
+  labels:
+    team: hotrod-frontend
+    jira: TS-1164
+  cluster: demo
+  description: signadot/hotrod-staging#0
+  defaultRouteGroup:
+    endpoints:
+    - name: frontend-hotrod-svc
+      target: http://frontend.hotrod.svc:8080
+  forks:
+  - customizations:
+      env:
+      - container: hotrod
+        name: first
+        value: one
+    forkOf:
+      kind: Deployment
+      name: frontend
+      namespace: hotrod

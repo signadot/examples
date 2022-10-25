@@ -11,6 +11,10 @@ name: "@{dev}-@{team}-x-@{commit}"    # name of the sandbox
 spec:  
   cluster: staging                            # cluster in which this sandbox is to reside.
   description: "@{dev}'s work on feature-x"   # a short description
+  defaultRouteGroup:
+    endpoints:
+    - name: customer                          # name of the endpoint
+      target: "http://customer.@{namespace}.deploy:8081"  # target url
   resources:                                  # resource allocated to the sandbox.
   - name: testdb                              # name of the resource.
     plugin: sd-mariadb                        # name of the resource plugin.
@@ -28,7 +32,3 @@ spec:
           resource:                           # value taken from sandbox resource
             name: testdb                      # the resource is named 'testdb' in this sandbox.
             outputKey: dbhost                 # the resource plugin provides a value for this key.
-    endpoints:                                # endpoints associated with this fork.
-    - name: customer                          # name of the endpoint.
-      protocol: http                          # protocol (http or grpc).
-      port: 8081                              # port to which the endpoint will resolve.

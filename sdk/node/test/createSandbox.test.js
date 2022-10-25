@@ -67,6 +67,7 @@ describe('Test a service using sandbox', () => {
         sandboxName = `test-ws-${nanoid()}`;
         const request = Sandbox.constructFromObject({
           spec: SandboxSpec.constructFromObject({
+            labels: {key1: "value1", key2: "value2"},
             cluster: SIGNADOT_CLUSTER_NAME,
             ttl: SandboxTTL.constructFromObject({ duration: "10m" }),
             description: 'created using @signadot/signadot-sdk',
