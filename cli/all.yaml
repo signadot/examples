@@ -5,7 +5,7 @@
 #
 name: "@{dev}-@{team}-feature-x-@{commit}"    # name of the sandbox
 spec:  
-  tags:                                       # tags for tracking sandboxes and analytics
+  labels:                                     # labels for sandbox analytics.
     team: "@{team}"                           # key, value
   cluster: staging                            # cluster in which this sandbox is to reside.
   description: "@{dev}'s work on feature-x"   # a short description
