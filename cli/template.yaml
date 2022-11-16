@@ -15,7 +15,7 @@
 #
 name: "@{dev}-@{team}-feature-x"
 spec:
-  tags:
+  labels:
     team: "@{team}"
   cluster: staging
   description: "@{dev}'s work on feature-x" 
