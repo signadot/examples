@@ -1,13 +1,13 @@
 #!/usr/bin/env signadot sandbox apply -f
 #
 # Example yaml file containing input to the signadot cli
-# which defines a sandbox using tags.  Analytics covering
-# sandboxes with tags are available via the dashboard at
-# https://app.staging.signadot.com/analytics.
+# which defines a sandbox using labels.  Analytics covering
+# sandboxes with labels are available via the dashboard at
+# https://app.signadot.com/analytics.
 #
-name: example-tags
+name: example-labels
 spec:
-  tags:
+  labels:
     team: hotrod-frontend
     jira: TS-1164
   cluster: demo
