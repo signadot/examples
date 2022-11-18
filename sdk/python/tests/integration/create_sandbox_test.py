@@ -67,6 +67,7 @@ class TestBasic(unittest.TestCase):
         cls.sandbox_name = "test-ws-{}".format(get_random_string(5))
         request = Sandbox(
             spec=SandboxSpec(
+                labels={"key1": "value1", "key2": "value2"},
                 description="Sample sandbox created using Python SDK",
                 ttl=SandboxTTL(duration="10m"),
                 cluster=cls.SIGNADOT_CLUSTER_NAME,

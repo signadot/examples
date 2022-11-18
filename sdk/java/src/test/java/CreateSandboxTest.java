@@ -11,7 +11,9 @@ import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
@@ -46,8 +48,13 @@ public class CreateSandboxTest {
           .addImagesItem(new SandboxImage().image("signadot/hotrod:0ed0bdadaa3af1e4f1e6f3bb6b7d19504aa9b1bd")))
         .addEndpointsItem(new SandboxForkEndpoint().name("hotrod-route").port(8083).protocol("http"));
 
+      Map<String, String> labels = new HashMap<>();
+      labels.put("key1", "value1");
+      labels.put("key2", "value2");
+
       Sandbox request = new Sandbox()
         .spec(new SandboxSpec()
+          .labels(labels)
           .cluster(CLUSTER_NAME)
           .ttl(new SandboxTTL().duration("10m"))
           .description("Java SDK: sandbox creation example")
