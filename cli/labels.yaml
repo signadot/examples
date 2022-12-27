@@ -12,21 +12,17 @@ spec:
     jira: TS-1164
   cluster: demo
   description: signadot/hotrod-staging#0
-  endpoints:
-  - host: frontend.hotrod.svc
-    name: frontend-hotrod-svc
-    port: 8080
-    protocol: http
+  defaultRouteGroup:
+    endpoints:
+    - name: frontend-hotrod-svc
+      target: http://frontend.hotrod.svc:8080
   forks:
   - customizations:
       env:
       - container: hotrod
         name: first
         value: one
-      images: null
-    endpoints: null
     forkOf:
       kind: Deployment
       name: frontend
       namespace: hotrod
-  resources: null

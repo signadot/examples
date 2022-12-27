@@ -26,11 +26,11 @@ spec:
               namespace: "@{namespace}"       # K8s namespace.
               name: backend                   # K8s name
             expression: "{{.Service.Host}}:{{.Service.Port}}"  # fork-creation-time expanded expression.
-    endpoints:
-    - port: 8080
-      name: frontend
-      protocol: http
   - forkOf:                                   # multiple forks are possible.
       kind: Deployment
       name: backend
       namespace: "@{namespace}"
+  defaultRouteGroup:
+    endpoints:
+      name: frontend
+      target: "http://frontend.@{namespace}.deploy:8080"

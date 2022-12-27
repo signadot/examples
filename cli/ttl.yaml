@@ -17,10 +17,7 @@ spec:
       - container: hotrod
         name: first
         value: one
-      images: null
-    endpoints: null
     forkOf:
       kind: Deployment
       name: frontend
       namespace: hotrod
-  resources: null

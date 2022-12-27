@@ -19,11 +19,10 @@ spec:
     team: "@{team}"
   cluster: staging
   description: "@{dev}'s work on feature-x" 
-  endpoints:
-  - host: frontend.hotrod.svc
-    name: frontend-hotrod-svc
-    port: "@{port}"
-    protocol: http
+  defaultRouteGroup:
+    endpoints:
+    - name: frontend-hotrod-svc
+      target: "http://frontend.hotrod.svc:@{port}"
   forks:
   - customizations:
       env:

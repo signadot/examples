@@ -7,11 +7,10 @@ name: example-patch
 spec:
   cluster: signadot-staging
   description: signadot/hotrod-staging#0
-  endpoints:
-  - host: frontend.hotrod.svc
-    name: frontend-hotrod-svc
-    port: 8080
-    protocol: http
+  defaultRouteGroup:
+    endpoints:
+    - name: frontend-hotrod-svc
+      target: http://frontend.hotrod.svc:8080
   forks:
   - forkOf:
       kind: Deployment
