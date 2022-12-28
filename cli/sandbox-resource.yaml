@@ -32,7 +32,3 @@ spec:
           resource:                           # value taken from sandbox resource
             name: testdb                      # the resource is named 'testdb' in this sandbox.
             outputKey: dbhost                 # the resource plugin provides a value for this key.
-    endpoints:                                # endpoints associated with this fork.
-    - name: customer                          # name of the endpoint.
-      protocol: http                          # protocol (http or grpc).
-      port: 8081                              # port to which the endpoint will resolve.

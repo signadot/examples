@@ -29,10 +29,7 @@ spec:
       - container: main
         name: DEV
         value: "@{dev}"
-      images: null
-    endpoints: null
     forkOf:
       kind: Deployment
       name: frontend
       namespace: "@{namespace}"
-  resources: null
