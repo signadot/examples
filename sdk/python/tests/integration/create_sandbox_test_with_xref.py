@@ -8,10 +8,9 @@ import unittest
 
 import requests
 import timeout_decorator
-
 from signadot_sdk import Configuration, SandboxesApi, ApiClient, SandboxFork, SandboxForkOf, \
-    SandboxCustomizations, SandboxImage, SandboxForkEndpoint, SandboxEnvVar, Sandbox, SandboxSpec, SandboxEnvValueFrom, \
-    SandboxEnvValueFromFork, SandboxTTL
+    SandboxCustomizations, SandboxImage, SandboxEnvVar, Sandbox, SandboxSpec, SandboxEnvValueFrom, \
+    SandboxEnvValueFromFork, SandboxTTL, SandboxDefaultRouteGroup, RouteGroupSpecEndpoint
 from signadot_sdk.rest import ApiException
 
 
@@ -79,14 +78,7 @@ class TestBasic(unittest.TestCase):
                         )
                     )
                 ]
-            ),
-            endpoints=[
-                SandboxForkEndpoint(
-                    name="hotrod-customer",
-                    port=8081,
-                    protocol="http"
-                )
-            ]
+            )
         )
         cls.sandbox_name = "xref-test-{}".format(get_random_string(5))
         request = Sandbox(
@@ -94,7 +86,12 @@ class TestBasic(unittest.TestCase):
                 description="Python SDK: sandbox creation with cross-fork reference example",
                 ttl=SandboxTTL(duration="10m"),
                 cluster=cls.CLUSTER_NAME,
-                forks=[customer_fork, frontend_fork]
+                forks=[customer_fork, frontend_fork],
+                default_route_group=SandboxDefaultRouteGroup(
+                    endpoints=[
+                        RouteGroupSpecEndpoint(name="hotrod-customer", target="http://customer.hotrod.deploy:8081")
+                    ]
+                )
             )
         )
 

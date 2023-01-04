@@ -54,7 +54,7 @@ public class ResourcesTest {
     sandboxesApi = new SandboxesApi(apiClient);
 
     try {
-      sandboxName = String.format("db-resource-test-%s", RandomStringUtils.randomAlphanumeric(5));
+      sandboxName = String.format("db-resource-test-%s", RandomStringUtils.randomNumeric(5));
 
       SandboxFork customerServiceFork = new SandboxFork()
         .forkOf(new SandboxForkOf().kind("Deployment").namespace(HOTROD).name("customer"))
@@ -71,13 +71,15 @@ public class ResourcesTest {
               ))
             )
           )
-          .addImagesItem(new SandboxImage().image("signadot/hotrod:cace2c797082481ac0238cc1310b7816980e3244")))
-        .addEndpointsItem(new SandboxForkEndpoint().name("customer-svc-endpoint").port(8081).protocol("http"));
+          .addImagesItem(new SandboxImage().image("signadot/hotrod:cace2c797082481ac0238cc1310b7816980e3244")));
 
       SandboxResource customerDBResource = new SandboxResource()
         .name("customerdb")
         .plugin("hotrod-mariadb")
         .putParamsItem("dbname", "customer");
+
+      SandboxDefaultRouteGroup drg = new SandboxDefaultRouteGroup()
+        .addEndpointsItem(new RouteGroupSpecEndpoint().name("customer-svc-endpoint").target("http://customer.hotrod.deploy:8081"));
 
       Sandbox request = new Sandbox()
         .spec(new SandboxSpec()
@@ -85,7 +87,8 @@ public class ResourcesTest {
           .ttl(new SandboxTTL().duration("10m"))
           .description("Java SDK: Create sandbox with ephemeral db resource spun up using hotrod-mariadb plugin")
           .addForksItem(customerServiceFork)
-          .addResourcesItem(customerDBResource));
+          .addResourcesItem(customerDBResource)
+          .defaultRouteGroup(drg));
 
       sandbox = sandboxesApi.applySandbox(ORG_NAME, sandboxName, request);
 

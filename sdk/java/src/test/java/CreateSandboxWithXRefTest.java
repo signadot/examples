@@ -47,7 +47,7 @@ public class CreateSandboxWithXRefTest {
       apiClient.setApiKey(SIGNADOT_API_KEY);
       sandboxesApi = new SandboxesApi(apiClient);
 
-      sandboxName = String.format("xref-test-%s", RandomStringUtils.randomAlphanumeric(5));
+      sandboxName = String.format("xref-test-%s", RandomStringUtils.randomNumeric(5));
 
       SandboxFork frontendFork = new SandboxFork()
         .forkOf(new SandboxForkOf().kind("Deployment").namespace(HOTROD).name("frontend"))
@@ -69,8 +69,10 @@ public class CreateSandboxWithXRefTest {
               ).expression("{{ .Service.Host }}:{{ .Service.Port }}")
             )
           ))
-        )
-        .addEndpointsItem(new SandboxForkEndpoint().name("hotrod-customer").port(8081).protocol("http"));
+        );
+
+      SandboxDefaultRouteGroup drg = new SandboxDefaultRouteGroup()
+        .addEndpointsItem(new RouteGroupSpecEndpoint().name("hotrod-customer").target("http://customer.hotrod.deploy:8081"));
 
       Sandbox request = new Sandbox()
         .spec(new SandboxSpec()
@@ -78,7 +80,8 @@ public class CreateSandboxWithXRefTest {
           .ttl(new SandboxTTL().duration("10m"))
           .description("Java SDK: sandbox creation with cross fork reference example")
           .addForksItem(customerFork)
-          .addForksItem(frontendFork));
+          .addForksItem(frontendFork)
+          .defaultRouteGroup(drg));
 
       sandbox = sandboxesApi.applySandbox(ORG_NAME, sandboxName, request);
 

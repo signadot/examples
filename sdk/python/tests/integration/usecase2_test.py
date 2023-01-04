@@ -8,7 +8,8 @@ import unittest
 
 import timeout_decorator
 from signadot_sdk import Configuration, SandboxesApi, ApiClient, SandboxFork, SandboxForkOf, \
-    SandboxCustomizations, SandboxImage, SandboxForkEndpoint, SandboxEnvVar, Sandbox, SandboxSpec, SandboxTTL
+    SandboxCustomizations, SandboxImage, SandboxEnvVar, Sandbox, SandboxSpec, SandboxTTL, \
+    SandboxDefaultRouteGroup, RouteGroupSpecEndpoint
 from signadot_sdk.rest import ApiException
 
 """
@@ -119,26 +120,22 @@ class TestUseCase2(unittest.TestCase):
                 env=[
                     SandboxEnvVar(name="pqr", value="stu")
                 ]
-            ),
-            # Spec to create an endpoint to fork (of frontend service) serving HTTP traffic on port 8080. This requires
-            # a name (valid name can include alphabet, numbers and hyphens, and starts with an alphabet).
-            endpoints=[
-                SandboxForkEndpoint(
-                    name="hotrod-frontend",
-                    port=8080,
-                    protocol="http"
-                )
-            ]
+            )
         )
 
         cls.sandbox_name = "test-ws-{}".format(get_random_string(5))
         # Specification for the sandbox. We will pass the spec for the forks of route and frontend services.
         request = Sandbox(
             spec=SandboxSpec(
-                description="Sample sandbox created using Python SDK",
+                description="Sample sandbox created using Python SDK (use case 2)",
                 cluster=cls.SIGNADOT_CLUSTER_NAME,
                 ttl=SandboxTTL(duration="10m"),
-                forks=[route_fork, frontend_fork]
+                forks=[route_fork, frontend_fork],
+                default_route_group=SandboxDefaultRouteGroup(
+                    endpoints=[
+                        RouteGroupSpecEndpoint(name="hotrod-frontend", target="http://frontend.hotrod.deploy:8080")
+                    ]
+                )
             )
         )
 
