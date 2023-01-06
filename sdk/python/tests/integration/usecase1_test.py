@@ -8,7 +8,8 @@ import unittest
 
 import timeout_decorator
 from signadot_sdk import Configuration, SandboxesApi, ApiClient, SandboxFork, SandboxForkOf, \
-    SandboxCustomizations, SandboxImage, SandboxEnvVar, Sandbox, SandboxSpec, SandboxHostEndpoint, SandboxTTL
+    SandboxCustomizations, SandboxImage, SandboxEnvVar, Sandbox, SandboxSpec, SandboxHostEndpoint, SandboxTTL, \
+    SandboxDefaultRouteGroup, RouteGroupSpecEndpoint
 from signadot_sdk.rest import ApiException
 
 """
@@ -89,19 +90,7 @@ class TestUseCase1(unittest.TestCase):
                 env=[
                     SandboxEnvVar(name="abc", value="xyz")
                 ]
-            ),
-            # Since we are only interested in previewing the change to the Route service through the frontend, we do not
-            # need an endpoint to the fork-of Route service.
-            endpoints=None
-        )
-
-        # Define an additional endpoint to the frontend service as we're interested in testing the Route service
-        # changes through the frontend service.
-        frontend_endpoint = SandboxHostEndpoint(
-            host="frontend.hotrod.svc",  # Host for frontend service
-            name="hotrod-frontend",  # Name for the endpoint
-            port=8080,  # Frontend service operates on port 8080
-            protocol="http"  # Frontend service uses HTTP protocol
+            )
         )
 
         cls.sandbox_name = "test-ws-{}".format(get_random_string(5))
@@ -109,11 +98,15 @@ class TestUseCase1(unittest.TestCase):
         # endpoint to frontend service.
         request = Sandbox(
             spec=SandboxSpec(
-                description="Sample sandbox created using Python SDK",
+                description="Sample sandbox created using Python SDK (use case 1)",
                 cluster=cls.SIGNADOT_CLUSTER_NAME,
                 ttl=SandboxTTL(duration="10m"),
                 forks=[route_fork],
-                endpoints=[frontend_endpoint]
+                default_route_group=SandboxDefaultRouteGroup(
+                    endpoints=[
+                        RouteGroupSpecEndpoint(name="hotrod-frontend", target="http://frontend.hotrod.svc:8080")
+                    ]
+                )
             )
         )
 

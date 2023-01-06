@@ -8,10 +8,9 @@ import unittest
 
 import requests
 import timeout_decorator
-
 from signadot_sdk import Configuration, SandboxesApi, ApiClient, SandboxFork, SandboxForkOf, \
-    SandboxCustomizations, SandboxImage, SandboxForkEndpoint, SandboxEnvVar, Sandbox, SandboxSpec, SandboxEnvValueFrom, \
-    SandboxEnvValueFromResource, SandboxResource, SandboxTTL
+    SandboxCustomizations, SandboxImage, SandboxEnvVar, Sandbox, SandboxSpec, SandboxEnvValueFrom, \
+    SandboxEnvValueFromResource, SandboxResource, SandboxTTL, SandboxDefaultRouteGroup, RouteGroupSpecEndpoint
 from signadot_sdk.rest import ApiException
 
 
@@ -86,8 +85,7 @@ class TestWithResources(unittest.TestCase):
                         )
                     )
                 ]
-            ),
-            endpoints=[SandboxForkEndpoint(name="customer-svc-endpoint", port=8081, protocol="http")]
+            )
         )
 
         cls.sandbox_name = "db-resource-test-{}".format(get_random_string(5))
@@ -98,7 +96,12 @@ class TestWithResources(unittest.TestCase):
                 ttl=SandboxTTL(duration="10m"),
                 resources=[SandboxResource(name="customerdb", plugin="hotrod-mariadb",
                                            params={"dbname": "customer"})],
-                forks=[customer_service_fork]
+                forks=[customer_service_fork],
+                default_route_group=SandboxDefaultRouteGroup(
+                    endpoints=[
+                        RouteGroupSpecEndpoint(name="customer-svc-endpoint", target="http://customer.hotrod.deploy:8081")
+                    ]
+                )
             )
         )
 

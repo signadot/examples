@@ -56,21 +56,24 @@ public class CreateSandboxWithCustomPatchTest {
     try {
       envVarValue = RandomStringUtils.randomAlphanumeric(5);
       final String customPatch = String.format(CUSTOM_PATCH, envVarValue);
-      sandboxName = String.format("custom-patch-test-%s", RandomStringUtils.randomAlphanumeric(5));
+      sandboxName = String.format("custom-patch-test-%s", RandomStringUtils.randomNumeric(5));
 
       SandboxFork customerFork = new SandboxFork()
         .forkOf(new SandboxForkOf().kind("Deployment").namespace(HOTROD).name("customer"))
         .customizations(new SandboxCustomizations()
           .addImagesItem(new SandboxImage().image(HOTROD_TEST_IMAGE))
-          .patch(new SandboxCustomPatch().type("strategic").value(customPatch)))
-        .addEndpointsItem(new SandboxForkEndpoint().name("hotrod-customer").port(8081).protocol("http"));
+          .patch(new SandboxCustomPatch().type("strategic").value(customPatch)));
+
+      SandboxDefaultRouteGroup drg = new SandboxDefaultRouteGroup()
+        .addEndpointsItem(new RouteGroupSpecEndpoint().name("hotrod-customer").target("http://customer.hotrod.deploy:8081"));
 
       Sandbox request = new Sandbox()
         .spec(new SandboxSpec()
           .cluster(CLUSTER_NAME)
           .ttl(new SandboxTTL().duration("10m"))
           .description("Java SDK: sandbox creation with custom patch example")
-          .addForksItem(customerFork));
+          .addForksItem(customerFork)
+          .defaultRouteGroup(drg));
 
       sandbox = sandboxesApi.applySandbox(ORG_NAME, sandboxName, request);
 

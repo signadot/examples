@@ -39,18 +39,20 @@ public class CreateSandboxTest {
       apiClient.setApiKey(SIGNADOT_API_KEY);
       sandboxesApi = new SandboxesApi(apiClient);
 
-      sandboxName = String.format("test-ws-%s", RandomStringUtils.randomAlphanumeric(5));
+      sandboxName = String.format("test-ws-%s", RandomStringUtils.randomNumeric(5));
 
       SandboxFork routeFork = new SandboxFork()
         .forkOf(new SandboxForkOf().kind("Deployment").namespace(HOTROD).name("route"))
         .customizations(new SandboxCustomizations()
           .addEnvItem(new SandboxEnvVar().name("abc").value("def"))
-          .addImagesItem(new SandboxImage().image("signadot/hotrod:0ed0bdadaa3af1e4f1e6f3bb6b7d19504aa9b1bd")))
-        .addEndpointsItem(new SandboxForkEndpoint().name("hotrod-route").port(8083).protocol("http"));
+          .addImagesItem(new SandboxImage().image("signadot/hotrod:0ed0bdadaa3af1e4f1e6f3bb6b7d19504aa9b1bd")));
 
       Map<String, String> labels = new HashMap<>();
       labels.put("key1", "value1");
       labels.put("key2", "value2");
+
+      SandboxDefaultRouteGroup drg = new SandboxDefaultRouteGroup()
+        .addEndpointsItem(new RouteGroupSpecEndpoint().name("hotrod-route").target("http://route.hotrod.deploy:8083"));
 
       Sandbox request = new Sandbox()
         .spec(new SandboxSpec()
@@ -58,7 +60,8 @@ public class CreateSandboxTest {
           .cluster(CLUSTER_NAME)
           .ttl(new SandboxTTL().duration("10m"))
           .description("Java SDK: sandbox creation example")
-          .addForksItem(routeFork));
+          .addForksItem(routeFork)
+          .defaultRouteGroup(drg));
 
       sandbox = sandboxesApi.applySandbox(ORG_NAME, sandboxName, request);
 

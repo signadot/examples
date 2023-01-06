@@ -8,9 +8,9 @@ import unittest
 
 import requests
 import timeout_decorator
-
 from signadot_sdk import Configuration, SandboxesApi, ApiClient, SandboxFork, SandboxForkOf, \
-    SandboxCustomizations, SandboxImage, SandboxForkEndpoint, SandboxEnvVar, Sandbox, SandboxSpec, SandboxTTL
+    SandboxCustomizations, SandboxImage, SandboxEnvVar, Sandbox, SandboxSpec, SandboxTTL, \
+    SandboxDefaultRouteGroup, RouteGroupSpecEndpoint
 from signadot_sdk.rest import ApiException
 
 
@@ -55,14 +55,7 @@ class TestBasic(unittest.TestCase):
                 env=[
                     SandboxEnvVar(name="abc", value="xyz")
                 ]
-            ),
-            endpoints=[
-                SandboxForkEndpoint(
-                    name="hotrod-route",
-                    port=8083,
-                    protocol="http"
-                )
-            ]
+            )
         )
         cls.sandbox_name = "test-ws-{}".format(get_random_string(5))
         request = Sandbox(
@@ -71,7 +64,12 @@ class TestBasic(unittest.TestCase):
                 description="Sample sandbox created using Python SDK",
                 ttl=SandboxTTL(duration="10m"),
                 cluster=cls.SIGNADOT_CLUSTER_NAME,
-                forks=[route_fork]
+                forks=[route_fork],
+                default_route_group=SandboxDefaultRouteGroup(
+                    endpoints=[
+                        RouteGroupSpecEndpoint(name="hotrod-route", target="http://route.hotrod.deploy:8083")
+                    ]
+                )
             )
         )
 
