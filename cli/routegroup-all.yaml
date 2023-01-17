@@ -2,7 +2,7 @@
 #
 # Example yaml file containing input to the signadot cli
 # which defines a routegroup.  Further documentation
-# is available at https://docs.signadot.com/docs/routegroups-spec
+# is available at https://docs.signadot.com/docs/routegroup-spec
 
 name: my-routegroup                           # name used to identify the routegroup
 spec:
