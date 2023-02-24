@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: httpbin
+  labels:
+    app: httpbin
+    service: httpbin
+spec:
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+  selector:
+    app: httpbin
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: httpbin
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: httpbin
+        version: v1
+    spec:
+      containers:
+      - image: docker.io/kennethreitz/httpbin:test
+        imagePullPolicy: IfNotPresent
+        name: httpbin
+        ports:
+        - containerPort: 80
+      - name: envoy
+        image: envoyproxy/envoy:v1.25-latest
+        args: 
+          - "envoy" 
+          - "-c" 
+          - "/etc/envoy/envoy.yaml"
+          # - "-l"
+          # - "debug"
+        ports:
+          - name: http
+            containerPort: 8080
+            protocol: TCP
+        volumeMounts:
+          - name: sidecar-config
+            mountPath: "/etc/envoy"
+            readOnly: true
+      restartPolicy: Always
+      volumes:
+        - name: sidecar-config
+          configMap:
+            name: sidecar-test-configmap

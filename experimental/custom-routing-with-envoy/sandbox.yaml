@@ -1,0 +1,16 @@
+name: httpbin-test-sandbox
+spec:
+  description: test-routing
+  cluster: demo
+  forks:
+  - forkOf:
+      kind: Deployment
+      name: httpbin
+      namespace: httpbin
+    customizations:
+      images:
+        - image: docker.io/kennethreitz/httpbin:latest
+  defaultRouteGroup:
+    endpoints:
+    - name: httpbin-endpoint
+      target: http://httpbin.httpbin.svc:8080
