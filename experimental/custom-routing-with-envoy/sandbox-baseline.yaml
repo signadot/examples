@@ -1,7 +1,7 @@
 name: httpbin-baseline-sandbox
 spec:
   description: test-routing baseline
-  cluster: demo
+  cluster: "@{cluster}"
   defaultRouteGroup:
     endpoints:
     - name: httpbin-endpoint

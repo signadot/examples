@@ -1,7 +1,7 @@
 name: httpbin-test-sandbox
 spec:
   description: test-routing
-  cluster: demo
+  cluster: "@{cluster}"
   forks:
   - forkOf:
       kind: Deployment

@@ -20,7 +20,7 @@ Once you have a signadot organization, connected a cluster and configured your
 signadot CLI, you can create a sandbox as shown below by running:
 
 ```
-signadot sandbox apply -f ./sandbox-baseline.yaml 
+signadot sandbox apply -f ./sandbox-baseline.yaml --set cluster=<your-cluster-name>
 Created sandbox "httpbin-baseline-sandbox" (routing key: wtmb8kfswrrtb) in cluster "demo".
 
 Waiting (up to --wait-timeout=3m0s) for sandbox to be ready...
@@ -48,7 +48,7 @@ Now, we can create the second sandbox that is running a forked version of the
 httpbin application by running the following:
 
 ```
-signadot sandbox apply -f ./sandbox.yaml
+signadot sandbox apply -f ./sandbox.yaml --set cluster=<your-cluster-name>
 Created sandbox "httpbin-test-sandbox" (routing key: 0b5v8v6vvq954) in cluster "demo".
 
 Waiting (up to --wait-timeout=3m0s) for sandbox to be ready...
