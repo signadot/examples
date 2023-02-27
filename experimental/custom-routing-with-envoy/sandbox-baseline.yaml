@@ -1,0 +1,8 @@
+name: httpbin-baseline-sandbox
+spec:
+  description: test-routing baseline
+  cluster: "@{cluster}"
+  defaultRouteGroup:
+    endpoints:
+    - name: httpbin-endpoint
+      target: http://httpbin.httpbin.svc:8080
