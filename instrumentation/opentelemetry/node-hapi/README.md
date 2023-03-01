@@ -30,8 +30,8 @@ Then send a request to the API server that includes a `baggage` header, which is
 the standard OpenTelemetry header for arbitrary context propagation:
 
 ```console
-$ curl localhost:3000 -H 'baggage: sd-sandbox=abcdef'
-Baggage header seen by API server: sd-sandbox=abcdef
+$ curl localhost:3000 -H 'baggage: sd-routing-key=abcdef'
+Baggage header seen by API server: sd-routing-key=abcdef
 Baggage header seen by backend server: undefined
 ```
 
@@ -58,9 +58,9 @@ Backend server running on http://localhost:3001
 Now send the request to the API server again:
 
 ```console
-$ curl localhost:3000 -H 'baggage: sd-sandbox=abcdef'
-Baggage header seen by API server: sd-sandbox=abcdef
-Baggage header seen by backend server: sd-sandbox=abcdef
+$ curl localhost:3000 -H 'baggage: sd-routing-key=abcdef'
+Baggage header seen by API server: sd-routing-key=abcdef
+Baggage header seen by backend server: sd-routing-key=abcdef
 ```
 
 Notice that the `baggage` header has now been propagated all the way to the
