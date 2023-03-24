@@ -17,7 +17,7 @@ spec:
       target: "http://customer.@{namespace}.deploy:8081"  # target url
   resources:                                  # resource allocated to the sandbox.
   - name: testdb                              # name of the resource.
-    plugin: sd-mariadb                        # name of the resource plugin.
+    plugin: mariadb                        # name of the resource plugin.
     params:                                   # parameters to pass to the resource plugin.
       dbname: testdb                          # a parameter is a key-value, string-string pair.
   forks:                                      # set of workloads to fork and how to fork.
@@ -31,4 +31,5 @@ spec:
         valueFrom:                            # dynamic value, determined when the fork is created.
           resource:                           # value taken from sandbox resource
             name: testdb                      # the resource is named 'testdb' in this sandbox.
-            outputKey: dbhost                 # the resource plugin provides a value for this key.
+            outputKey: provision.host         # the resource plugin provides a value for this key.
+            
