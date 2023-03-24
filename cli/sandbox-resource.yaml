@@ -32,4 +32,14 @@ spec:
           resource:                           # value taken from sandbox resource
             name: testdb                      # the resource is named 'testdb' in this sandbox.
             outputKey: provision.host         # the resource plugin provides a value for this key.
+      - name: DBPORT                          # as above
+        valueFrom:
+          resource:
+            name: testdb
+            outputKey: provision.port
+      - name: DBPASSWORD                      # as above
+        valueFrom:
+          resource:
+            name: testdb
+            outputKey: provision.root-password
             
