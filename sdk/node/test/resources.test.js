@@ -72,13 +72,13 @@ describe('Sandbox test using resources', () => {
               SandboxEnvVar.constructFromObject({
                 name: 'MYSQL_HOST',
                 valueFrom: SandboxEnvValueFrom.constructFromObject({
-                  resource: SandboxEnvValueFromResource.constructFromObject({name: 'customerdb', outputKey: 'host'})
+                  resource: SandboxEnvValueFromResource.constructFromObject({name: 'customerdb', outputKey: 'provision.host'})
                 })
               }),
               SandboxEnvVar.constructFromObject({
                 name: 'MYSQL_PORT',
                 valueFrom: SandboxEnvValueFrom.constructFromObject({
-                  resource: SandboxEnvValueFromResource.constructFromObject({name: 'customerdb', outputKey: 'port'})
+                  resource: SandboxEnvValueFromResource.constructFromObject({name: 'customerdb', outputKey: 'provision.port'})
                 })
               }),
               SandboxEnvVar.constructFromObject({
@@ -86,7 +86,7 @@ describe('Sandbox test using resources', () => {
                 valueFrom: SandboxEnvValueFrom.constructFromObject({
                   resource: SandboxEnvValueFromResource.constructFromObject({
                     name: 'customerdb',
-                    outputKey: 'root_password'
+                    outputKey: 'provision.root-password'
                   })
                 })
               })

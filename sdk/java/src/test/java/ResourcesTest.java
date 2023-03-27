@@ -61,13 +61,13 @@ public class ResourcesTest {
         .customizations(new SandboxCustomizations()
           .env(Arrays.asList(
               new SandboxEnvVar().name("MYSQL_HOST").valueFrom(new SandboxEnvValueFrom().resource(
-                new SandboxEnvValueFromResource().name("customerdb").outputKey("host")
+                new SandboxEnvValueFromResource().name("customerdb").outputKey("provision.host")
               )),
               new SandboxEnvVar().name("MYSQL_PORT").valueFrom(new SandboxEnvValueFrom().resource(
-                new SandboxEnvValueFromResource().name("customerdb").outputKey("port")
+                new SandboxEnvValueFromResource().name("customerdb").outputKey("provision.port")
               )),
               new SandboxEnvVar().name("MYSQL_ROOT_PASSWORD").valueFrom(new SandboxEnvValueFrom().resource(
-                new SandboxEnvValueFromResource().name("customerdb").outputKey("root_password")
+                new SandboxEnvValueFromResource().name("customerdb").outputKey("provision.root-password")
               ))
             )
           )
