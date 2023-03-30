@@ -69,19 +69,19 @@ class TestWithResources(unittest.TestCase):
                     SandboxEnvVar(
                         name="MYSQL_HOST",
                         value_from=SandboxEnvValueFrom(
-                            resource=SandboxEnvValueFromResource(name="customerdb", output_key="host")
+                            resource=SandboxEnvValueFromResource(name="customerdb", output_key="provision.host")
                         )
                     ),
                     SandboxEnvVar(
                         name="MYSQL_PORT",
                         value_from=SandboxEnvValueFrom(
-                            resource=SandboxEnvValueFromResource(name="customerdb", output_key="port")
+                            resource=SandboxEnvValueFromResource(name="customerdb", output_key="provision.port")
                         )
                     ),
                     SandboxEnvVar(
                         name="MYSQL_ROOT_PASSWORD",
                         value_from=SandboxEnvValueFrom(
-                            resource=SandboxEnvValueFromResource(name="customerdb", output_key="root_password")
+                            resource=SandboxEnvValueFromResource(name="customerdb", output_key="provision.root-password")
                         )
                     )
                 ]
