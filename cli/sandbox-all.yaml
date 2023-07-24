@@ -45,6 +45,15 @@ spec:
       kind: Deployment
       name: backend
       namespace: "@{namespace}"
+  local:                                      # local workloads to run on submitter machine via CLI
+  - name: "local-route"                       # unique local workload name
+    from:                                     # baseline workload
+      kind: Deployment
+      namespace: hotrod
+      name: route
+    mappings:                                 # mappings from baseline port to local TCP addresses
+    - port: 8083                              # baseline port (containerport).
+      toLocal: "localhost:8083"               # TCP address on which running local workload listens
   defaultRouteGroup:
     endpoints:
     - name: test                              # host endpoint
