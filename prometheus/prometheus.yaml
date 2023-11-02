@@ -1,0 +1,17 @@
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: prometheus
+spec:
+  serviceAccountName: prometheus
+  serviceMonitorSelector:
+    matchLabels:
+      app: signadot
+  serviceMonitorNamespaceSelector:
+    matchLabels:
+      prometheus: signadot
+  resources:
+    requests:
+      memory: 400Mi
+  enableAdminAPI: false
+

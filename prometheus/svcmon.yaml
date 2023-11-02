@@ -1,0 +1,66 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app: signadot
+  name: controller-manager-metrics-monitor
+  namespace: signadot
+spec:
+  endpoints:
+    - path: /metrics/signadot
+      port: "9090"
+      scheme: http
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app: signadot
+  name: agent-metrics
+  namespace: signadot
+spec:
+  endpoints:
+    - path: /metrics
+      port: "9090"
+      scheme: http
+  selector:
+    matchLabels:
+      app: signadot-agent
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app: signadot
+  name: io-context-server-metrics
+  namespace: signadot
+spec:
+  endpoints:
+    - path: /metrics
+      port: "9090"
+      scheme: http
+  selector:
+    matchLabels:
+      app: io-context-server
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app: signadot
+  name: tunnel-proxy-metrics
+  namespace: signadot
+spec:
+  endpoints:
+    - path: /metrics
+      port: "9090"
+      scheme: http
+  selector:
+    matchLabels:
+      app: tunnel-proxy
+
+
+
