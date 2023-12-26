@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<meta charset="ISO-8859-1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+
+<head>
+    <title>Kafka Demo</title>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"
+        integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
+        crossorigin="anonymous"></script>
+
+    <style>
+        .margintop {
+            margin-top: 15px;
+        }
+
+        .space {
+            margin: 0;
+            padding: 0;
+            height: 30px;
+        }
+
+        .publish-button {
+            cursor: pointer;
+        }
+
+        .publish-button:hover {
+            cursor: pointer;
+            filter: brightness(85%);
+        }
+
+        #message-log {
+            margin-top: 40px;
+        }
+
+        .timestamp {
+            margin-right: 15px;
+        }
+    </style>
+
+</head>
+
+<body>
+    <div class="container text-center">
+        <div class="margintop alert alert-info" id="uuid"></div>
+
+        <h1>Kafka Demo</h1>
+        <h4><em>Publish Messages On Demand</em></h4>
+        <div class="space"></div>
+
+
+        <div class="row mx-auto">
+            <div class="col">
+                <form class="row g-3 align-items-center">
+                    <div class="col-auto">
+                        <span class="col-form-label fw-medium">Message ID:</span>
+                    </div>
+
+                    <div class="col-auto">
+                        <input type="text" disabled class="form-control" id="messageID">
+                    </div>
+
+                    <div class="col-auto">
+                        <span class="col-form-label fw-medium">Message Body:</span>
+                    </div>
+
+                    <div class="col">
+                        <input type="text" class="form-control" id="messageBody" value="my message">
+                    </div>
+
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-primary publish-button">Publish</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="margintop">Add a message body and click "Publish".</div>
+
+        <div id="message-log"></div>
+    </div>
+</body>
+
+<script>
+    var clientUUID = Math.round(Math.random() * 10000);
+    var lastMessageID = 0;
+    var eventsCursor = 0;
+
+    // Use current URI as basepath for ajax requests
+    var pathPrefix = window.location.pathname;
+    pathPrefix = pathPrefix != "/" ? pathPrefix : '';
+
+    var headers = {
+        'baggage': 'session=' + clientUUID
+    };
+
+    $("#uuid").html("Your web client's ID is: <strong>" + clientUUID + "</strong>");
+    updateMessageID();
+
+
+    function updateMessageID() {
+        lastMessageID++;
+        $("#messageID").val(clientUUID + "-" + lastMessageID);
+    }
+
+    function logError(dt, text, context) {
+        log(dt, text, "text-danger", context)
+    }
+
+    function logSuccess(dt, text, context) {
+        log(dt, text, "text-success", context)
+    }
+
+    function log(dt, message, color, context) {
+        var contextList = [];
+        if (context !== undefined) {
+            if (context.message !== undefined) {
+                contextList.push('<span class="fw-medium">msgID:</span> ' + context.message.id)
+                contextList.push('<span class="fw-medium">msgBody:</span> "' + context.message.body + '"')
+            }
+            if (context.baselineWorkload !== undefined) {
+                contextList.push('<span class="fw-medium">workload:</span> ' + context.baselineWorkload.namespace + "/" + context.baselineWorkload.name)
+            }
+            if (context.routingKey !== undefined && context.routingKey !== "") {
+                contextList.push('<span class="fw-medium">routingKey:</span> ' + context.routingKey)
+            }
+            if (context.sandboxName !== undefined) {
+                if (context.sandboxName !== "") {
+                    contextList.push('<span class="fw-medium">processedBy</span>: sandbox/' + context.sandboxName)
+                } else {
+                    contextList.push('<span class="fw-medium">processedBy</span>: baseline')
+                }
+            }
+            if (context.error !== undefined && context.error !== "") {
+                contextList.push('<span class="fw-medium">error:</span> ' + context.error)
+            }
+        }
+        var contextStr = "";
+        if (contextList.length > 0) {
+            contextStr = '<br/><span class="text-secondary">' + contextList.join(", ") + '</span>'
+        }
+
+        var time = String(dt.getHours()).padStart(2, '0') + ":" + String(dt.getMinutes()).padStart(2, '0') + ":" +
+            String(dt.getSeconds()).padStart(2, '0') + "." + String(dt.getMilliseconds()).padStart(3, '0');
+        $("#message-log").prepend('<div class="row"><div class="col-auto text-end fw-bold">' + time +
+            '</div><div class="col text-start"><em class="' + color + '">' + message + '.</em>' + contextStr + '</div></div>');
+    }
+
+    $(".publish-button").click(function (evt) {
+        messageID = $('#messageID').val()
+        messageBody = $('#messageBody').val()
+
+        $.ajax(pathPrefix + '/api/publish/?nonse=' + Math.random(), {
+            headers: headers,
+            method: 'POST',
+            data: {
+                messageID: messageID,
+                messageBody: messageBody
+            },
+            success: function (data, textStatus) {
+                logSuccess(new Date(), 'Request sent to frontend API', {
+                    message: {
+                        id: messageID,
+                        body: messageBody
+                    },
+                })
+            },
+            error: function (xhr, status, error) {
+                logError(new Date(), 'Error sending request to frontend API', {
+                    message: {
+                        id: messageID,
+                        body: messageBody
+                    },
+                    error: error,
+                })
+            }
+        });
+
+        updateMessageID();
+        return false
+    });
+
+    // Load events from the frontend API
+    var intervalId = setInterval(function () {
+        $.ajax(pathPrefix + '/api/events?cursor='+ eventsCursor +'&nonse=' + Math.random(), {
+            headers: headers,
+            method: 'GET',
+            success: function (data, textStatus) {
+                // update our cursor
+                if (data.cursor !== 0) {
+                    eventsCursor = data.cursor
+                }
+                // display log entries
+                data.events.forEach((element) => {
+                    logSuccess(new Date(element.timestamp), element.logEntry, element.context)
+                })
+            },
+            error: function (xhr, status, error) {
+                logError(new Date(), 'Error loading events from frontend API', {
+                    error: error,
+                })
+            }
+        });
+    }, 5000);
+</script>
+
+</html>
