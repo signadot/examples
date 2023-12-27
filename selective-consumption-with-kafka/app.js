@@ -1,8 +1,11 @@
 const program = require('commander');
-const runFrontend = require('./src/apps/frontend');
 
 // setup OTEL auto-Instrumentation
 require('./src/modules/otel/instrument.js');
+
+const runFrontend = require('./src/apps/frontend/app.js');
+const runProducer = require('./src/apps/producer/app.js');
+const runConsumer = require('./src/apps/consumer/app.js');
 
 program
     .option('-f, --frontend', 'run Frontend app')
@@ -15,9 +18,9 @@ const options = program.opts();
 if (options.frontend) {
     runFrontend();
 } else if (options.producer) {
-    // TODO
+    runProducer();
 } else if (options.consumer) {
-    // TODO
+    runConsumer();
 } else {
     console.error('Please specify a valid sub-application to run.');
     program.help();

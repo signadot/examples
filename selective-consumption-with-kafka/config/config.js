@@ -5,8 +5,9 @@ module.exports = {
     producerPort: process.env.PRODUCER_PORT || 4001,
 
     // Addresses
-    producerAddr: process.env.PRODUCER_ADDR || "localhost:4001",
+    producerHost: process.env.PRODUCER_HOST || "localhost",
     redisURL: process.env.REDIS_URL || "redis://redis.kafka-demo.svc:6379",
+    kafkaAddr: process.env.KAFKA_ADDR || "kafka.kafka-demo.svc:9092",
 
     // Baseline
     baselineKind: process.env.BASELINE_KIND || "Deployment",
@@ -15,4 +16,7 @@ module.exports = {
 
     // Sandbox
     sandboxName: process.env.SIGNADOT_SANDBOX_NAME || "",
+
+    // Kafka
+    kafkaTopic: process.env.KAFKA_TOPIC || "kafka-demo",
 }

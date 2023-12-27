@@ -18,6 +18,10 @@
             margin-top: 15px;
         }
 
+        .marginright {
+            margin-right: 15px;
+        }
+
         .space {
             margin: 0;
             padding: 0;
@@ -35,10 +39,6 @@
 
         #message-log {
             margin-top: 40px;
-        }
-
-        .timestamp {
-            margin-right: 15px;
         }
     </style>
 
@@ -116,24 +116,25 @@
     }
 
     function log(dt, message, color, context) {
+        var source = "browser"
         var contextList = [];
         if (context !== undefined) {
+            // adjust the source
+            if (context.baselineWorkload !== undefined) {
+                source = context.baselineWorkload.name;
+            }
+            if (context.sandboxName !== undefined && context.sandboxName !== "") {
+                source += " (sandbox=" + context.sandboxName + ")"
+            } else if (source != "browser") {
+                source += " (baseline)"
+            }
+            // expand the context
             if (context.message !== undefined) {
                 contextList.push('<span class="fw-medium">msgID:</span> ' + context.message.id)
                 contextList.push('<span class="fw-medium">msgBody:</span> "' + context.message.body + '"')
             }
-            if (context.baselineWorkload !== undefined) {
-                contextList.push('<span class="fw-medium">workload:</span> ' + context.baselineWorkload.namespace + "/" + context.baselineWorkload.name)
-            }
             if (context.routingKey !== undefined && context.routingKey !== "") {
                 contextList.push('<span class="fw-medium">routingKey:</span> ' + context.routingKey)
-            }
-            if (context.sandboxName !== undefined) {
-                if (context.sandboxName !== "") {
-                    contextList.push('<span class="fw-medium">processedBy</span>: sandbox/' + context.sandboxName)
-                } else {
-                    contextList.push('<span class="fw-medium">processedBy</span>: baseline')
-                }
             }
             if (context.error !== undefined && context.error !== "") {
                 contextList.push('<span class="fw-medium">error:</span> ' + context.error)
@@ -141,18 +142,35 @@
         }
         var contextStr = "";
         if (contextList.length > 0) {
-            contextStr = '<br/><span class="text-secondary">' + contextList.join(", ") + '</span>'
+            contextStr = '<br/><span class="text-secondary">[' + contextList.join(", ") + ']</span>'
         }
 
-        var time = String(dt.getHours()).padStart(2, '0') + ":" + String(dt.getMinutes()).padStart(2, '0') + ":" +
-            String(dt.getSeconds()).padStart(2, '0') + "." + String(dt.getMilliseconds()).padStart(3, '0');
-        $("#message-log").prepend('<div class="row"><div class="col-auto text-end fw-bold">' + time +
-            '</div><div class="col text-start"><em class="' + color + '">' + message + '.</em>' + contextStr + '</div></div>');
+        var time = String(dt.getHours()).padStart(2, '0') + ":" +
+            String(dt.getMinutes()).padStart(2, '0') + ":" +
+            String(dt.getSeconds()).padStart(2, '0') + "." +
+            String(dt.getMilliseconds()).padStart(3, '0');
+
+        $("#message-log").prepend(
+            '<div class="row">' +
+            '<div class="col-auto text-end fw-bold">' + time + '</div>' +
+            '<div class="col text-start">' +
+            '<span class="text-primary fw-bold marginright">' + source + '</span>' +
+            '<em class="' + color + ' fw-bold">' + message + '.</em>' + contextStr +
+            '</div>' +
+            '</div>'
+        );
     }
 
     $(".publish-button").click(function (evt) {
         messageID = $('#messageID').val()
         messageBody = $('#messageBody').val()
+
+        logSuccess(new Date(), 'Sending publish request to frontend API', {
+            message: {
+                id: messageID,
+                body: messageBody
+            },
+        })
 
         $.ajax(pathPrefix + '/api/publish/?nonse=' + Math.random(), {
             headers: headers,
@@ -162,14 +180,11 @@
                 messageBody: messageBody
             },
             success: function (data, textStatus) {
-                logSuccess(new Date(), 'Request sent to frontend API', {
-                    message: {
-                        id: messageID,
-                        body: messageBody
-                    },
-                })
             },
             error: function (xhr, status, error) {
+                if (xhr.responseText) {
+                    error += " (" + xhr.responseText + ")"
+                }
                 logError(new Date(), 'Error sending request to frontend API', {
                     message: {
                         id: messageID,
@@ -186,7 +201,7 @@
 
     // Load events from the frontend API
     var intervalId = setInterval(function () {
-        $.ajax(pathPrefix + '/api/events?cursor='+ eventsCursor +'&nonse=' + Math.random(), {
+        $.ajax(pathPrefix + '/api/events?cursor=' + eventsCursor + '&nonse=' + Math.random(), {
             headers: headers,
             method: 'GET',
             success: function (data, textStatus) {
@@ -200,12 +215,15 @@
                 })
             },
             error: function (xhr, status, error) {
+                if (xhr.responseText) {
+                    error += " (" + xhr.responseText + ")"
+                }
                 logError(new Date(), 'Error loading events from frontend API', {
                     error: error,
                 })
             }
         });
-    }, 5000);
+    }, 2000);
 </script>
 
 </html>

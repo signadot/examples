@@ -2,7 +2,11 @@ const redisClient = require('./init_redis')
 const { baselineNamespace, baselineName, sandboxName } = require('./../../../config/config.js');
 
 
-function constructEvent(logEntry, message) {
+function registerEvent(logEntry, message, routingKey, onSuccess, onError) {
+    storeEvent(constructEvent(logEntry, message, routingKey), onSuccess, onError)
+}
+
+function constructEvent(logEntry, message, routingKey) {
     return {
         timestamp: new Date(),
         logEntry: logEntry,
@@ -11,7 +15,7 @@ function constructEvent(logEntry, message) {
                 namespace: baselineNamespace,
                 name: baselineName,
             },
-            routingKey: "", // TODO
+            routingKey: routingKey,
             sandboxName: sandboxName,
             message: message,
         }
@@ -87,7 +91,7 @@ function getEvents(eventsCursor, cursor, onSuccess, onError, match = 'event-*', 
                 }
 
                 // We are done
-                events.sort((a, b) => a.timestamp - b.timestamp);
+                events.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
                 onSuccess(events, lastEventID);
             });
             return;
@@ -100,13 +104,12 @@ function getEvents(eventsCursor, cursor, onSuccess, onError, match = 'event-*', 
         }
 
         // We are done
-        events.sort((a, b) => a.timestamp - b.timestamp);
+        events.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
         onSuccess(events, lastEventID);
     });
 }
 
 module.exports = {
-    constructEvent: constructEvent,
-    storeEvent: storeEvent,
+    registerEvent: registerEvent,
     getEvents: getEvents,
 }
