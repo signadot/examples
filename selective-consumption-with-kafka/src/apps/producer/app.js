@@ -33,14 +33,14 @@ function runProducer() {
             body: req.body.messageBody
         }
 
-        registerEvent('Sending message to kafka (topic=' + kafkaTopic +')', msg, extractRoutingKey(req.get('baggage')),
+        registerEvent('Publishing message to kafka (topic=' + kafkaTopic +')', msg, extractRoutingKey(req.get('baggage')),
             () => { },
             (error) => errorHandler(res, error)
         )
 
         publishMessage(kafkaTopic, msg, { baggage: req.get('baggage') })
             .then(() => {
-                console.log('Message sent successfully')
+                console.log('Message successfully published')
                 res.json({})
             })
             .catch((error) => errorHandler(res, error));

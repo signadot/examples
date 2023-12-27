@@ -28,11 +28,11 @@
             height: 30px;
         }
 
-        .publish-button {
+        .button {
             cursor: pointer;
         }
 
-        .publish-button:hover {
+        .button:hover {
             cursor: pointer;
             filter: brightness(85%);
         }
@@ -73,7 +73,11 @@
                     </div>
 
                     <div class="col-auto">
-                        <button type="submit" class="btn btn-primary publish-button">Publish</button>
+                        <button id="publishMsg" type="submit" class="btn btn-primary button">Publish</button>
+                    </div>
+
+                    <div class="col-auto">
+                        <button id="clearLog" type="submit" class="btn btn-warning button">Clear Log</button>
                     </div>
                 </form>
             </div>
@@ -161,7 +165,7 @@
         );
     }
 
-    $(".publish-button").click(function (evt) {
+    $("#publishMsg").click(function (evt) {
         messageID = $('#messageID').val()
         messageBody = $('#messageBody').val()
 
@@ -196,6 +200,11 @@
         });
 
         updateMessageID();
+        return false
+    });
+
+    $("#clearLog").click(function (evt) {
+        $("#message-log").html("");
         return false
     });
 

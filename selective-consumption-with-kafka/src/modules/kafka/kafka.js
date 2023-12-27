@@ -1,5 +1,5 @@
 const { Kafka } = require('kafkajs');
-const { kafkaAddr, baselineName } = require('./../../../config/config.js');
+const { kafkaAddr, baselineName, sandboxName } = require('./../../../config/config.js');
 
 // Define the Kafka broker connection configuration
 const kafka = new Kafka({
@@ -11,7 +11,17 @@ const kafka = new Kafka({
 const producer = kafka.producer();
 
 // Create a Kafka consumer
-const consumer = kafka.consumer({ groupId: 'test-group' });
+const consumer = kafka.consumer({ groupId: signadotConsumerGroup('test-group') });
+
+
+// This sets the consumer group with suffix '-' + <sandbox-name> if running in
+// sandboxed workload, otherwise, it just returns the argument.
+function signadotConsumerGroup(groupId) {
+    if (sandboxName !== "") {
+        groupId += groupId
+    }
+    return groupId
+}
 
 // Function to send messages to a Kafka topic with headers
 const publishMessage = async (topic, message, headers) => {

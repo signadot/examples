@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: consumer
+  namespace: kafka-demo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: consumer
+  namespace: kafka-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: consumer
+  template:
+    metadata:
+      labels:
+        app: consumer
+    spec:
+      serviceAccountName: consumer
+      enableServiceLinks: false
+      containers:
+        - name: consumer
+          image: signadot/kafka-demo:latest
+          command:
+            - "npm"
+            - "run"
+            - "consumer"
+          env:
+            - name: BASELINE_NAME
+              value: "consumer"
+            - name: KAFKA_ADDR
+              value: "kafka-headless.kafka-demo.svc:9092"
+            - name: KAFKAJS_NO_PARTITIONER_WARNING
+              value: "1"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 40001
+          securityContext:
+            # Run with the "node" user
+            runAsUser: 1000
+            runAsGroup: 1000
