@@ -2,7 +2,6 @@
 <html>
 <meta charset="ISO-8859-1">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
-
 <head>
     <title>Kafka Demo</title>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"
@@ -52,18 +51,23 @@
         .browser {
             color: #c86ddc;
         }
+
+        .log-group-header {
+            margin-bottom: 10px;
+            color: #768aad;
+        }
+
+        .log-group-entries {
+            margin-left: 20px;
+            margin-bottom: 20px;
+        }
     </style>
-
 </head>
-
 <body>
-    <div class="container text-center">
-        <div class="margintop alert alert-info" id="uuid"></div>
-
+    <div class="container text-center margintop">
         <h1>Kafka Demo</h1>
         <h4><em>Publish Messages On Demand</em></h4>
         <div class="space"></div>
-
 
         <div class="row mx-auto">
             <div class="col">
@@ -95,8 +99,10 @@
             </div>
         </div>
 
-        <div class="margintop">Add a message body, click "Publish" and see how it flows through the different
-            microservices.</div>
+        <div class="margintop">
+            Add a message body, click "Publish" and see how it flows through the
+            different microservices.
+        </div>
 
         <div class="row" style="margin-top: 40px; margin-bottom: 15px;">
             <div class="col-9 text-start">
@@ -128,10 +134,10 @@
     var headers = {
         'baggage': 'session=' + clientUUID
     };
-
-    $("#uuid").html("Your web client's ID is: <strong>" + clientUUID + "</strong>");
     updateMessageID();
 
+    // functions definition
+    // ------------------------------------------------------------------------
 
     function updateMessageID() {
         lastMessageID++;
@@ -139,6 +145,9 @@
     }
 
     function logError(dt, text, context) {
+        if (context !== undefined && context.error !== undefined) {
+            text += '('+ context.error +')';
+        }
         log(dt, text, "text-danger", context)
     }
 
@@ -146,49 +155,56 @@
         log(dt, text, "text-success", context)
     }
 
-    function log(dt, message, color, context) {
-        var source = "browser"
-        var sourceColor = source
-        var contextList = [];
-        if (context !== undefined) {
-            // adjust the source
-            if (context.baselineWorkload !== undefined) {
-                source = context.baselineWorkload.name;
-                sourceColor = source
-            }
-            if (context.sandboxName !== undefined && context.sandboxName !== "") {
-                source += " (sandbox=" + context.sandboxName + ")"
-            } else if (source != "browser") {
-                source += " (baseline)"
-            }
-            // expand the context
-            if (context.message !== undefined) {
-                contextList.push('<span class="fw-medium">msgID:</span> ' + context.message.id)
-                contextList.push('<span class="fw-medium">msgBody:</span> "' + context.message.body + '"')
-            }
-            if (context.routingKey !== undefined && context.routingKey !== "") {
-                contextList.push('<span class="fw-medium">routingKey:</span> ' + context.routingKey)
-            }
-            if (context.error !== undefined && context.error !== "") {
-                contextList.push('<span class="fw-medium">error:</span> ' + context.error)
-            }
+    function log(dt, text, color, context) {
+        if (context === undefined || context.message === undefined) {
+            return;
         }
-        var contextStr = "";
-        if (contextList.length > 0) {
-            contextStr = '<br/><span class="text-secondary">[' + contextList.join(", ") + ']</span>'
+        msgID = context.message.id
+
+        // Create the log group (if it doesn't exist)
+        if ($('#' + msgID).length == 0) {
+            $("#message-log").prepend(
+                '<div class="row" id="' + msgID + '">' +
+                '<div class="row">' +
+                '<div class="col log-group-header fw-medium text-start border-info-subtle border-bottom">' +
+                'Request Scope  >  msgID: ' + msgID + ', msgBody: "' + context.message.body + '", routingKey: <span id="' + msgID + '-rk">""</span>' +
+                '</div>' +
+                '</div>' +
+                ' <div class="row log-group-entries" id="' + msgID + '-entries">' +
+                '<div/>' +
+                '</div>'
+            );
         }
 
+        // Update routing key in group header (if any)
+        if (context.routingKey !== undefined && context.routingKey !== "") {
+            $('#' + msgID + '-rk').html(context.routingKey);
+        }
+
+        // Append the log entry
         var time = String(dt.getHours()).padStart(2, '0') + ":" +
             String(dt.getMinutes()).padStart(2, '0') + ":" +
             String(dt.getSeconds()).padStart(2, '0') + "." +
             String(dt.getMilliseconds()).padStart(3, '0');
 
-        $("#message-log").prepend(
+        var source = "browser"
+        var sourceColor = source
+        if (context.baselineWorkload !== undefined) {
+            source = context.baselineWorkload.name;
+            sourceColor = source
+        }
+        if (context.sandboxName !== undefined && context.sandboxName !== "") {
+            source += " (sandbox=" + context.sandboxName + ")"
+        } else if (source != "browser") {
+            source += " (baseline)"
+        }
+
+        $('#' + msgID + '-entries').prepend(
             '<div class="row">' +
             '<div class="col-auto text-end fw-bold">' + time + '</div>' +
             '<div class="col text-start">' +
             '<span class="' + sourceColor + ' fw-bold marginright">' + source + '</span>' +
-            '<em class="' + color + ' fw-bold">' + message + '.</em>' + contextStr +
+            '<em class="' + color + ' fw-bold">' + text + '.</em>' +
             '</div>' +
             '</div>'
         );
@@ -263,5 +279,4 @@
         });
     }, 2000);
 </script>
-
 </html>
