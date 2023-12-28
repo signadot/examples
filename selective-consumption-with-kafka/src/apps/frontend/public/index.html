@@ -52,10 +52,6 @@
         .browser {
             color: #c86ddc;
         }
-
-        #message-log {
-            margin-top: 40px;
-        }
     </style>
 
 </head>
@@ -99,9 +95,24 @@
             </div>
         </div>
 
-        <div class="margintop">Add a message body and click "Publish".</div>
+        <div class="margintop">Add a message body, click "Publish" and see how it flows through the different
+            microservices.</div>
 
-        <div id="message-log"></div>
+        <div class="row" style="margin-top: 40px; margin-bottom: 15px;">
+            <div class="col-9 text-start">
+                <h4>Log Entries:</h4>
+            </div>
+            <div class="col-3 text-start">
+                <h4>Architecture:</h4>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-9" id="message-log"></div>
+            <div class="col-3">
+                <img src="img/architecture.png" width="200" />
+            </div>
+        </div>
+
     </div>
 </body>
 
