@@ -35,8 +35,6 @@ spec:
               value: "40000"
             - name: BASELINE_NAME
               value: "frontend"
-            - name: PRODUCER_HOST
-              value: "producer.kafka-demo.svc"
             - name: KAFKAJS_NO_PARTITIONER_WARNING
               value: "1"
           imagePullPolicy: IfNotPresent

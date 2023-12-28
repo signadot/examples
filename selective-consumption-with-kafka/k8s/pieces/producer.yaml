@@ -35,8 +35,6 @@ spec:
               value: "40001"
             - name: BASELINE_NAME
               value: "producer"
-            - name: KAFKA_ADDR
-              value: "kafka-headless.kafka-demo.svc:9092"
             - name: KAFKAJS_NO_PARTITIONER_WARNING
               value: "1"
           imagePullPolicy: IfNotPresent
