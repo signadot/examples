@@ -41,25 +41,37 @@ const publishMessage = async (topic, message, headers) => {
 
 // Function to process messages received from Kafka
 const consumeMessages = async (topic, onNewMessage) => {
-    await consumer.connect();
+    let run = async () => {
+        await consumer.connect();
 
-    // Subscribe to a Kafka topic
-    await consumer.subscribe({ topic: topic, fromBeginning: true });
+        // Subscribe to a Kafka topic
+        await consumer.subscribe({ topic: topic, fromBeginning: true });
 
-    // Start consuming messages
-    await consumer.run({
-        eachMessage: async ({ topic, partition, message }) => {
-            // Parse value
-            const value = JSON.parse(message.value.toString());
-            console.log(`Received message from topic ${topic} on partition ${partition}:`, value);
+        // Start consuming messages
+        await consumer.run({
+            eachMessage: async ({ topic, partition, message }) => {
+                // Parse value
+                const value = JSON.parse(message.value.toString());
+                console.log(`Received message from topic ${topic} on partition ${partition}:`, value);
 
-            // Process the message
-            onNewMessage(value, message.headers)
+                // Process the message
+                onNewMessage(value, message.headers)
 
-            // Commit the offset to mark the message as processed
-            await consumer.commitOffsets([{ topic, partition, offset: message.offset }]);
-        },
-    });
+                // Commit the offset to mark the message as processed
+                await consumer.commitOffsets([{ topic, partition, offset: message.offset }]);
+            },
+        });
+    }
+
+    try {
+        await run();
+    } catch (error) {
+        console.error(`Error consumeing messages from Kafka: ${error.message}`);
+        // retry in 1 second
+        setTimeout(function () {
+            consumeMessages(topic, onNewMessage);
+        }, 1000)
+    }
 };
 
 
