@@ -51,62 +51,67 @@ function generateEventID(onSuccess, onError) {
     });
 }
 
-function getEvents(eventsCursor, cursor, onSuccess, onError, match = 'event-*', count = 10) {
-    var events = []
-    var lastEventID = 0
+function getEvents(eventsCursor, cursor, onSuccess, onError) {
+    let events = []
+    let lastEventID = 0
 
-    // Scan all events from redis
-    redisClient.SCAN(cursor, 'MATCH', match, 'COUNT', count, (err, reply) => {
-        if (err) {
-            console.error(err);
-            onError("couldn't scan events")
-            return;
+    let collectEvents = (cursor) => {
+
+        let checkResults = (newCursor) => {
+            // Continue scanning if the new cursor is not '0'
+            if (newCursor !== '0') {
+                collectEvents(newCursor);
+                return;
+            }
+
+            // We are done, sort results and call the on success callback
+            events.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+            onSuccess(events, lastEventID);
         }
-        const [newCursor, keys] = reply;
 
-        // Use MGET to get values for all keys in the current batch
-        if (keys.length > 0) {
-            redisClient.MGET(keys, (err, values) => {
-                if (err) {
-                    console.error(err);
-                    onError("couldn't read events");
-                    return
-                }
+        // Scan all events from redis (in batches of 10 records)
+        redisClient.SCAN(cursor, 'MATCH', 'event-*', 'COUNT', 10, (err, reply) => {
+            if (err) {
+                console.error(err);
+                onError("couldn't scan events")
+                return;
+            }
+            const [newCursor, keys] = reply;
 
-                keys.forEach((key, index) => {
-                    var event = JSON.parse(values[index]);
-                    if (event.id <= eventsCursor) {
-                        return;
+            // Read the scanned events, use MGET to get values for all keys in
+            // the current batch
+            if (keys.length > 0) {
+                redisClient.MGET(keys, (err, values) => {
+                    if (err) {
+                        console.error(err);
+                        onError("couldn't read events");
+                        return
                     }
-                    if (event.id > lastEventID) {
-                        lastEventID = event.id
-                    }
-                    events.push(event.body)
+
+                    // collect events
+                    keys.forEach((key, index) => {
+                        var event = JSON.parse(values[index]);
+                        if (event.id <= eventsCursor) {
+                            return;
+                        }
+                        if (event.id > lastEventID) {
+                            lastEventID = event.id
+                        }
+                        events.push(event.body)
+                    });
+
+                    // check results
+                    checkResults(newCursor);
                 });
+                return;
+            }
 
-                // Continue scanning if the new cursor is not '0'
-                if (newCursor !== '0') {
-                    getEvents(eventsCursor, newCursor, onSuccess, onError);
-                    return;
-                }
+            // check results
+            checkResults(newCursor);
+        });
+    }
 
-                // We are done
-                events.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-                onSuccess(events, lastEventID);
-            });
-            return;
-        }
-
-        // Continue scanning if the new cursor is not '0'
-        if (newCursor !== '0') {
-            getEvents(eventsCursor, newCursor, onSuccess, onError);
-            return;
-        }
-
-        // We are done
-        events.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-        onSuccess(events, lastEventID);
-    });
+    collectEvents(cursor);
 }
 
 module.exports = {

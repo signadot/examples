@@ -37,6 +37,22 @@
             filter: brightness(85%);
         }
 
+        .consumer {
+            color: #4faaf9;
+        }
+
+        .producer {
+            color: #51b831;
+        }
+
+        .frontend {
+            color: #dd9d49;
+        }
+
+        .browser {
+            color: #c86ddc;
+        }
+
         #message-log {
             margin-top: 40px;
         }
@@ -69,7 +85,7 @@
                     </div>
 
                     <div class="col">
-                        <input type="text" class="form-control" id="messageBody" value="my message">
+                        <input type="text" class="form-control" id="messageBody">
                     </div>
 
                     <div class="col-auto">
@@ -121,11 +137,13 @@
 
     function log(dt, message, color, context) {
         var source = "browser"
+        var sourceColor = source
         var contextList = [];
         if (context !== undefined) {
             // adjust the source
             if (context.baselineWorkload !== undefined) {
                 source = context.baselineWorkload.name;
+                sourceColor = source
             }
             if (context.sandboxName !== undefined && context.sandboxName !== "") {
                 source += " (sandbox=" + context.sandboxName + ")"
@@ -158,7 +176,7 @@
             '<div class="row">' +
             '<div class="col-auto text-end fw-bold">' + time + '</div>' +
             '<div class="col text-start">' +
-            '<span class="text-primary fw-bold marginright">' + source + '</span>' +
+            '<span class="' + sourceColor + ' fw-bold marginright">' + source + '</span>' +
             '<em class="' + color + ' fw-bold">' + message + '.</em>' + contextStr +
             '</div>' +
             '</div>'

@@ -32,8 +32,9 @@ function runProducer() {
             id: req.body.messageID,
             body: req.body.messageBody
         }
+        let routingKey = extractRoutingKey(req.get('baggage'));
 
-        registerEvent('Publishing message to kafka (topic=' + kafkaTopic +')', msg, extractRoutingKey(req.get('baggage')),
+        registerEvent('Publishing message to kafka (topic=' + kafkaTopic +')', msg, routingKey,
             () => { },
             (error) => errorHandler(res, error)
         )
