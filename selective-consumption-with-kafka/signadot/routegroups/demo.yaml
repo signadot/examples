@@ -7,3 +7,6 @@ spec:
     - label:
         key: demo
         value: kafka
+  endpoints:
+  - name: frontend
+    target: http://frontend.kafka-demo.svc:4000

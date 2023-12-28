@@ -8,3 +8,7 @@ spec:
       kind: Deployment
       name: consumer
       namespace: kafka-demo
+  defaultRouteGroup:
+    endpoints:
+    - name: frontend
+      target: http://frontend.kafka-demo.svc:4000
