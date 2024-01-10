@@ -17,7 +17,7 @@ if (sandboxName !== "") {
 var routeServerURL = url.format({
     protocol: 'http',
     host: routeServerAddr,
-    pathname: '/api/v1/workloads/routes',
+    pathname: '/api/v1/workloads/routing-rules',
     query: queryParams,
 });
 
@@ -50,9 +50,9 @@ function getRoutes() {
                 // parse routes
                 const jsonData = JSON.parse(data);
                 let routingKeys = new Set();
-                if (jsonData['routes'] !== undefined) {
-                    for (var i in jsonData.routes) {
-                        routingKeys.add(jsonData.routes[i].routingKey)
+                if (jsonData['routingRules'] !== undefined) {
+                    for (var i in jsonData.routingRules) {
+                        routingKeys.add(jsonData.routingRules[i].routingKey)
                     }
                 }
 

@@ -1,6 +1,6 @@
 name: kafka-demo
 spec:
-  cluster: test
+  cluster: "@{cluster}"
   description: "route group containing the consumer and producer sandboxes together"
   match:
     any:
