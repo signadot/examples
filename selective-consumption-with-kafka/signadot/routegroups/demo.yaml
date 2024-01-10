@@ -1,0 +1,12 @@
+name: kafka-demo
+spec:
+  cluster: "@{cluster}"
+  description: "route group containing the consumer and producer sandboxes together"
+  match:
+    any:
+    - label:
+        key: demo
+        value: kafka
+  endpoints:
+  - name: frontend
+    target: http://frontend.kafka-demo.svc:4000

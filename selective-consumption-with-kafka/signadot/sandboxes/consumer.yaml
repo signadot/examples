@@ -1,0 +1,14 @@
+name: consumer-sbx
+spec:
+  labels:
+    demo: "kafka"
+  cluster: "@{cluster}"
+  forks:
+  - forkOf:
+      kind: Deployment
+      name: consumer
+      namespace: kafka-demo
+  defaultRouteGroup:
+    endpoints:
+    - name: frontend
+      target: http://frontend.kafka-demo.svc:4000
