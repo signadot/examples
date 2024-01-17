@@ -1,5 +1,4 @@
-# Use an official Node.js runtime as a base image
-FROM node:20
+FROM node:20 as build
 
 # Set the working directory in the container
 WORKDIR /usr/src/app
@@ -12,6 +11,15 @@ RUN npm install
 
 # Copy the application code to the container
 COPY . .
+
+
+FROM node:20-alpine as main
+
+# Copy app from build
+COPY --from=build /usr/src/app /usr/src/app
+
+# Set the working directory in the container
+WORKDIR /usr/src/app
 
 # Define the command to run your application
 USER node
