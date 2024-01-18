@@ -6,8 +6,10 @@ build:
 	docker build -t signadot/kafka-demo:latest .
 
 build-multi-arch:
-	docker build -t signadot/kafka-demo:latest-linux-amd64 --platform linux/amd64 .
-	docker build -t signadot/kafka-demo:latest-linux-arm64 --platform linux/arm64 .
+	docker build -t signadot/kafka-demo:latest-linux-amd64 \
+		--platform linux/amd64 --provenance false .
+	docker build -t signadot/kafka-demo:latest-linux-arm64 \
+		--platform linux/arm64 --provenance false .
 	docker push signadot/kafka-demo:latest-linux-amd64
 	docker push signadot/kafka-demo:latest-linux-arm64
 	docker manifest create --amend signadot/kafka-demo:latest \
