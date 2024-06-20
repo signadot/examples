@@ -1,0 +1,31 @@
+#!/usr/bin/env signadot job submit -f
+#
+# Example yaml file containing input to the signadot cli
+# which defines a job.  More information is
+# available at https://docs.signadot.com/docs/reference/jobs
+
+spec:
+  namePrefix: example-job-
+
+  # refers to jobrunnergroup.yaml
+  runnerGroup: example-jrg
+
+  script: |
+    #!/bin/sh
+    echo hello example job > /tmp/artifact.txt
+    echo $SIGNADOT_ROUTING_KEY > /tmp/routing-key.txt
+
+  # if you have a sandbox, you can specify it here 
+  # and its routing key will be available in the script
+  # above
+  #
+  # routingContext:
+  #   sandbox: my-sandbox
+
+  uploadArtifact:
+  - path: /tmp/artifact.txt
+  - path: /tmp/routing-key.txt
+
+
+
+
