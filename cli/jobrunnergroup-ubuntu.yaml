@@ -1,0 +1,31 @@
+#!/usr/bin/env signadot sandbox apply -f
+#
+# Example yaml file containing input to the signadot cli
+# which defines a job runner group. More information is
+# available at https://docs.signadot.com/docs/reference/job-runner-groups.
+
+name: example-jrg
+spec:
+  cluster: minikube
+  image: ubuntu
+  namespace:             # empty defaults to "signadot"
+  jobTimeout: 3m         # 3 minutes
+  scaling:
+    manual:
+      desiredPods: 2
+  podTemplate:
+    spec:
+      containers:
+      - name: main
+        env:
+        - name: EXAMPLE_HELLO
+          value: "hello from environment"
+        # this env var requires that a secret `my-secret` exists in the signadot namespace
+        # (see namespace above) with key 'xxx'.
+        - name: EXAMPLE_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: my-secret
+              key: xxx
+
+
