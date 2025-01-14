@@ -1,0 +1,12 @@
+name: pubsub-demo
+spec:
+  cluster: "@{cluster}"
+  description: "route group containing the subscriber and publisher sandboxes together"
+  match:
+    any:
+    - label:
+        key: demo
+        value: pubsub
+  endpoints:
+  - name: frontend
+    target: http://frontend.pubsub-demo.svc:4000

@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: publisher
+  namespace: pubsub-demo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: publisher
+  namespace: pubsub-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: publisher
+  template:
+    metadata:
+      labels:
+        app: publisher
+      annotations:
+        sidecar.signadot.com/inject: "true"
+    spec:
+      serviceAccountName: publisher
+      enableServiceLinks: false
+      containers:
+        - name: publisher
+          image: signadot/pubsub-demo:latest
+          command:
+            - "npm"
+            - "run"
+            - "publisher"
+          env:
+            - name: PRODUCER_PORT
+              value: "40001"
+            - name: BASELINE_NAME
+              value: "publisher"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 40001
+          securityContext:
+            # Run with the "node" user
+            runAsUser: 1000
+            runAsGroup: 1000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: publisher
+  namespace: pubsub-demo
+  labels:
+    app: publisher
+spec:
+  type: ClusterIP
+  selector:
+    app: publisher
+  ports:
+    - port: 4001
+      targetPort: 40001
+      name: http

@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: subscriber
+  namespace: pubsub-demo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: subscriber
+  namespace: pubsub-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: subscriber
+  template:
+    metadata:
+      labels:
+        app: subscriber
+    spec:
+      serviceAccountName: subscriber
+      enableServiceLinks: false
+      containers:
+        - name: subscriber
+          image: signadot/pubsub-demo:latest
+          command:
+            - "npm"
+            - "run"
+            - "subscriber"
+          env:
+            - name: BASELINE_NAME
+              value: "subscriber"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 40001
+          securityContext:
+            # Run with the "node" user
+            runAsUser: 1000
+            runAsGroup: 1000
