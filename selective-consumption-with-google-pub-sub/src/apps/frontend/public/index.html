@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html>
+<meta charset="ISO-8859-1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+<head>
+    <title>Google Pub/Sub Demo</title>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"
+        integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
+        crossorigin="anonymous"></script>
+
+    <style>
+        .margintop {
+            margin-top: 15px;
+        }
+
+        .marginright {
+            margin-right: 15px;
+        }
+
+        .space {
+            margin: 0;
+            padding: 0;
+            height: 30px;
+        }
+
+        .button {
+            cursor: pointer;
+        }
+
+        .button:hover {
+            cursor: pointer;
+            filter: brightness(85%);
+        }
+
+        .consumer {
+            color: #4faaf9;
+        }
+
+        .producer {
+            color: #51b831;
+        }
+
+        .frontend {
+            color: #dd9d49;
+        }
+
+        .browser {
+            color: #c86ddc;
+        }
+
+        .log-group-header {
+            margin-bottom: 10px;
+            color: #768aad;
+        }
+
+        .log-group-entries {
+            margin-left: 20px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container text-center margintop">
+        <h1>Pub/Sub Demo</h1>
+        <h4><em>Publish Messages On Demand</em></h4>
+        <div class="space"></div>
+
+        <div class="row mx-auto">
+            <div class="col">
+                <form class="row g-3 align-items-center">
+                    <div class="col-auto">
+                        <span class="col-form-label fw-medium">Message ID:</span>
+                    </div>
+
+                    <div class="col-auto">
+                        <input type="text" disabled class="form-control" id="messageID">
+                    </div>
+
+                    <div class="col-auto">
+                        <span class="col-form-label fw-medium">Message Body:</span>
+                    </div>
+
+                    <div class="col">
+                        <input type="text" class="form-control" id="messageBody">
+                    </div>
+
+                    <div class="col-auto">
+                        <button id="publishMsg" type="submit" class="btn btn-primary button">Publish</button>
+                    </div>
+
+                    <div class="col-auto">
+                        <button id="clearLog" type="submit" class="btn btn-danger button">Clear Log</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="margintop">
+            Add a message body, click "Publish" and see how it flows through the
+            different microservices.
+        </div>
+
+        <div class="row" style="margin-top: 40px; margin-bottom: 15px;">
+            <div class="col-9 text-start">
+                <h4>Log Entries:</h4>
+            </div>
+            <div class="col-3 text-start">
+                <h4>Architecture:</h4>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-9" id="message-log"></div>
+            <div class="col-3">
+                <img src="img/architecture.jpg" width="200" />
+            </div>
+        </div>
+
+    </div>
+</body>
+
+<script>
+    var clientUUID = Math.round(Math.random() * 10000);
+    var lastMessageID = 0;
+    var eventsCursor = 0;
+
+    // Use current URI as basepath for ajax requests
+    var pathPrefix = window.location.pathname;
+    pathPrefix = pathPrefix != "/" ? pathPrefix : '';
+
+    var headers = {
+        'baggage': 'session=' + clientUUID
+    };
+    updateMessageID();
+
+    // functions definition
+    // ------------------------------------------------------------------------
+
+    function updateMessageID() {
+        lastMessageID++;
+        $("#messageID").val(clientUUID + "-" + lastMessageID);
+    }
+
+    function logError(dt, text, context) {
+        if (context !== undefined && context.error !== undefined) {
+            text += '('+ context.error +')';
+        }
+        log(dt, text, "text-danger", context)
+    }
+
+    function logSuccess(dt, text, context) {
+        log(dt, text, "text-success", context)
+    }
+
+    function log(dt, text, color, context) {
+        if (context === undefined || context.message === undefined) {
+            return;
+        }
+        msgID = context.message.id
+
+        // Create the log group (if it doesn't exist)
+        if ($('#' + msgID).length == 0) {
+            $("#message-log").prepend(
+                '<div class="row" id="' + msgID + '">' +
+                '<div class="row">' +
+                '<div class="col log-group-header fw-medium text-start border-info-subtle border-bottom">' +
+                'Request Scope  >  msgID: ' + msgID + ', msgBody: "' + context.message.body + '", routingKey: <span id="' + msgID + '-rk">""</span>' +
+                '</div>' +
+                '</div>' +
+                ' <div class="row log-group-entries" id="' + msgID + '-entries">' +
+                '<div/>' +
+                '</div>'
+            );
+        }
+
+        // Update routing key in group header (if any)
+        if (context.routingKey !== undefined && context.routingKey !== "") {
+            $('#' + msgID + '-rk').html(context.routingKey);
+        }
+
+        // Append the log entry
+        var time = String(dt.getHours()).padStart(2, '0') + ":" +
+            String(dt.getMinutes()).padStart(2, '0') + ":" +
+            String(dt.getSeconds()).padStart(2, '0') + "." +
+            String(dt.getMilliseconds()).padStart(3, '0');
+
+        var source = "browser"
+        var sourceColor = source
+        if (context.baselineWorkload !== undefined) {
+            source = context.baselineWorkload.name;
+            sourceColor = source
+        }
+        if (context.sandboxName !== undefined && context.sandboxName !== "") {
+            source += " (sandbox=" + context.sandboxName + ")"
+        } else if (source != "browser") {
+            source += " (baseline)"
+        }
+
+        $('#' + msgID + '-entries').prepend(
+            '<div class="row">' +
+            '<div class="col-auto text-end fw-bold">' + time + '</div>' +
+            '<div class="col text-start">' +
+            '<span class="' + sourceColor + ' fw-bold marginright">' + source + '</span>' +
+            '<em class="' + color + ' fw-bold">' + text + '.</em>' +
+            '</div>' +
+            '</div>'
+        );
+    }
+
+    $("#publishMsg").click(function (evt) {
+        messageID = $('#messageID').val()
+        messageBody = $('#messageBody').val()
+
+        logSuccess(new Date(), 'Sending publish request to frontend API', {
+            message: {
+                id: messageID,
+                body: messageBody
+            },
+        })
+
+        $.ajax(pathPrefix + '/api/publish/?nonse=' + Math.random(), {
+            headers: headers,
+            method: 'POST',
+            data: {
+                messageID: messageID,
+                messageBody: messageBody
+            },
+            success: function (data, textStatus) {
+            },
+            error: function (xhr, status, error) {
+                if (xhr.responseText) {
+                    error += " (" + xhr.responseText + ")"
+                }
+                logError(new Date(), 'Error sending request to frontend API', {
+                    message: {
+                        id: messageID,
+                        body: messageBody
+                    },
+                    error: error,
+                })
+            }
+        });
+
+        updateMessageID();
+        return false
+    });
+
+    $("#clearLog").click(function (evt) {
+        $("#message-log").html("");
+        return false
+    });
+
+    // Load events from the frontend API
+    var intervalId = setInterval(function () {
+        $.ajax(pathPrefix + '/api/events?cursor=' + eventsCursor + '&nonse=' + Math.random(), {
+            headers: headers,
+            method: 'GET',
+            success: function (data, textStatus) {
+                // update our cursor
+                if (data.cursor !== 0) {
+                    eventsCursor = data.cursor
+                }
+                // display log entries
+                data.events.forEach((element) => {
+                    logSuccess(new Date(element.timestamp), element.logEntry, element.context)
+                })
+            },
+            error: function (xhr, status, error) {
+                if (xhr.responseText) {
+                    error += " (" + xhr.responseText + ")"
+                }
+                logError(new Date(), 'Error loading events from frontend API', {
+                    error: error,
+                })
+            }
+        });
+    }, 2000);
+</script>
+</html>

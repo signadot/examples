@@ -1,0 +1,14 @@
+name: subscriber-sbx
+spec:
+  labels:
+    demo: "pubsub"
+  cluster: "@{cluster}"
+  forks:
+  - forkOf:
+      kind: Deployment
+      name: subscriber
+      namespace: pubsub-demo
+  defaultRouteGroup:
+    endpoints:
+    - name: frontend
+      target: http://frontend.pubsub-demo.svc:4000

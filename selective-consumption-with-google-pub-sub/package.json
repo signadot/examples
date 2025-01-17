@@ -1,0 +1,25 @@
+{
+  "name": "selective-consumption-with-kafka",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "frontend": "node app.js --frontend",
+    "publisher": "node app.js --publisher",
+    "subscriber": "node app.js --subscriber",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@google-cloud/pubsub": "^4.9.0",
+    "@opentelemetry/api": "^1.7.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.40.2",
+    "@opentelemetry/sdk-node": "^0.46.0",
+    "commander": "^11.1.0",
+    "express": "^4.18.2",
+    "node-cache": "^5.1.2",
+    "redis": "^4.6.12"
+  }
+}

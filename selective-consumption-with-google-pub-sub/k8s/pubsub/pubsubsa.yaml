@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pubsub-ksa
+  namespace: pubsub-demo
+  annotations:
+    iam.gke.io/gcp-service-account: # replace your pubsub service account #

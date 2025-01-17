@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: redis
+  namespace: pubsub-demo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: pubsub-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      serviceAccountName: redis
+      containers:
+        - name: redis
+          image: redis:7.2.3
+          ports:
+            - containerPort: 6379
+          resources:
+            limits:
+              cpu: "0.1"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: pubsub-demo
+  labels:
+    app: redis
+spec:
+  type: ClusterIP
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      name: redis
