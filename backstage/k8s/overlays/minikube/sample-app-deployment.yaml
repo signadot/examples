@@ -1,0 +1,11 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-app
+  namespace: backstage
+spec:
+  template:
+    spec:
+      containers:
+        - name: sample-app
+          imagePullPolicy: Never

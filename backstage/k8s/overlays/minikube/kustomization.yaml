@@ -1,0 +1,7 @@
+
+resources:
+  - ../../base
+  - postgres-pvc.yaml
+
+patches:
+  - path: sample-app-deployment.yaml
