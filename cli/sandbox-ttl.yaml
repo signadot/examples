@@ -12,12 +12,12 @@ spec:
     duration: "@{ttlDur}"
     offsetFrom: createdAt
   forks:
-  - customizations:
-      env:
-      - container: hotrod
-        name: first
-        value: one
-    forkOf:
-      kind: Deployment
-      name: frontend
-      namespace: hotrod
+    - customizations:
+        env:
+          - container: hotrod
+            name: first
+            value: one
+      forkOf:
+        kind: Deployment
+        name: frontend
+        namespace: hotrod

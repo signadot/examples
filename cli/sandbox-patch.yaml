@@ -9,25 +9,25 @@ spec:
   description: signadot/hotrod-staging#0
   defaultRouteGroup:
     endpoints:
-    - name: frontend-hotrod-svc
-      target: http://frontend.hotrod.svc:8080
+      - name: frontend-hotrod-svc
+        target: http://frontend.hotrod.svc:8080
   forks:
-  - forkOf:
-      kind: Deployment
-      name: frontend
-      namespace: hotrod
-    customizations:
-      env:
-      - container: hotrod
-        name: first
-        value: one
-      patch:
-        type: strategic # one of json, merge, strategic
-        # value can also be a string containing json
-        value: |
-          spec:
-            template:
-              spec:
-                initContainers:
-                - name: service-core-bank-migrate
-                  image: busybox
+    - forkOf:
+        kind: Deployment
+        name: frontend
+        namespace: hotrod
+      customizations:
+        env:
+          - container: hotrod
+            name: first
+            value: one
+        patch:
+          type: strategic # one of json, merge, strategic
+          # value can also be a string containing json
+          value: |
+            spec:
+              template:
+                spec:
+                  initContainers:
+                  - name: service-core-bank-migrate
+                    image: busybox

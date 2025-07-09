@@ -4,18 +4,17 @@
 # which defines a routegroup.  Further documentation
 # is available at https://docs.signadot.com/docs/routegroup-spec
 
-name: my-routegroup                           # name used to identify the routegroup
+name: my-routegroup # name used to identify the routegroup
 spec:
-  description: example routegroup spec        # description
-  cluster: signadot-staging                   # cluster in which the routegroup routes
-  match:                                      # matching spec for sandbox labels
-    label:                                    # match a single label
-      key: feature                            # with key 'feature'
-      value: "*feature-x*"                    # and value glob "*feature-x*"
-  endpoints:                                  # endpoints to be made accessible from preview server 
-  - name: frontend                            # endpoint name
-    target: http://frontend.hotrod.svc:8080   # endpoint target, hostname as resolved in-cluster
-
+  description: example routegroup spec # description
+  cluster: signadot-staging # cluster in which the routegroup routes
+  match: # matching spec for sandbox labels
+    label: # match a single label
+      key: feature # with key 'feature'
+      value: "*feature-x*" # and value glob "*feature-x*"
+  endpoints: # endpoints to be made accessible from preview server 
+    - name: frontend # endpoint name
+      target: http://frontend.hotrod.svc:8080 # endpoint target, hostname as resolved in-cluster
 # matching may take other forms, to match sandboxes
 # whose labels meet all criteria, use 'all':
 #
