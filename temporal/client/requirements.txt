@@ -1,0 +1,5 @@
+temporalio
+fastapi
+uvicorn
+opentelemetry-sdk
+httpx

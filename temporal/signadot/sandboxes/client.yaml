@@ -1,0 +1,20 @@
+name: temporal-client-sbx
+spec:
+  labels:
+    demo: "temporal"
+  cluster: "@{cluster}"
+  forks:
+  - forkOf:
+      kind: Deployment
+      name: transfer-client
+      namespace: temporal-demo
+    patches:
+    - path: spec.template.spec.containers[0].env
+      op: add
+      value:
+      - name: SANDBOX_NAME
+        value: temporal-client-sbx
+  defaultRouteGroup:
+    endpoints:
+    - name: client
+      target: http://transfer-client.temporal-demo.svc:8000

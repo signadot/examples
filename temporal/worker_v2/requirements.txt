@@ -1,0 +1,3 @@
+temporalio
+opentelemetry-sdk
+httpx
