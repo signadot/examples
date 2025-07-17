@@ -1,0 +1,25 @@
+name: temporal-worker-v2-sbx
+spec:
+  labels:
+    demo: "temporal"
+  cluster: "@{cluster}"
+  forks:
+  - forkOf:
+      kind: Deployment
+      name: transfer-worker
+      namespace: temporal-demo
+    newName: transfer-worker-v2
+    patches:
+    - path: spec.template.spec.containers[0].env
+      op: add
+      value:
+      - name: SANDBOX_NAME
+        value: temporal-worker-v2-sbx
+      - name: WORKER_VERSION
+        value: v2
+    container: worker
+    image: transfer-worker-v2:latest
+  defaultRouteGroup:
+    endpoints:
+    - name: client
+      target: http://transfer-client.temporal-demo.svc:8000

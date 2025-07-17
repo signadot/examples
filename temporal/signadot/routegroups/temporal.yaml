@@ -1,0 +1,12 @@
+name: temporal-demo
+spec:
+  cluster: "@{cluster}"
+  description: "Temporal demo client and worker sandboxes"
+  match:
+    any:
+    - label:
+        key: demo
+        value: temporal
+  endpoints:
+  - name: client
+    target: http://transfer-client.temporal-demo.svc:8000

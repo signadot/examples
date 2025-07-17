@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Bank Transfer</title>
+  <meta charset="UTF-8">
+</head>
+<body>
+  <h1>Bank Transfer</h1>
+  <form id="transfer-form">
+    <label>From Account: <input type="text" id="from_account" required></label><br>
+    <label>To Account: <input type="text" id="to_account" required></label><br>
+    <label>Amount: <input type="number" id="amount" step="0.01" required></label><br>
+    <button type="submit">Transfer</button>
+  </form>
+  <script>
+    document.getElementById('transfer-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const resp = await fetch('/transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from_account: document.getElementById('from_account').value,
+          to_account: document.getElementById('to_account').value,
+          amount: parseFloat(document.getElementById('amount').value)
+        })
+      });
+      const data = await resp.json();
+      alert('Started workflow ' + data.workflow_id);
+    });
+  </script>
+</body>
+</html>

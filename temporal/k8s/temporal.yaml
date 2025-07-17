@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: temporal-server
+  namespace: temporal-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: temporal
+  template:
+    metadata:
+      labels:
+        app: temporal
+    spec:
+      containers:
+      - name: server
+        image: temporalio/auto-setup:1.20
+        env:
+        - name: DB
+          value: "sqlite"
+        ports:
+        - containerPort: 7233
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: temporal-frontend
+  namespace: temporal-demo
+spec:
+  selector:
+    app: temporal
+  ports:
+  - port: 7233
+    targetPort: 7233
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: transfer-client
+  namespace: temporal-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: transfer-client
+  template:
+    metadata:
+      labels:
+        app: transfer-client
+    spec:
+      containers:
+      - name: client
+        image: transfer-client:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: TEMPORAL_SERVER
+          value: temporal-frontend.temporal-demo.svc:7233
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: transfer-client
+  namespace: temporal-demo
+spec:
+  selector:
+    app: transfer-client
+  ports:
+  - port: 8000
+    targetPort: 8000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: transfer-worker
+  namespace: temporal-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: transfer-worker
+  template:
+    metadata:
+      labels:
+        app: transfer-worker
+    spec:
+      containers:
+      - name: worker
+        image: transfer-worker:latest
+        env:
+        - name: TEMPORAL_SERVER
+          value: temporal-frontend.temporal-demo.svc:7233
+        - name: ROUTE_SERVER
+          value: routeserver.default.svc:3000
+        - name: SANDBOX_NAME
+          value: ""
