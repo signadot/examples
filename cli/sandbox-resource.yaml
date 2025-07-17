@@ -7,39 +7,38 @@
 # in which the sandbox runs.  To install this resource plugin, please see
 # https://github.com/signadot/plugins/tree/main/signadot-plugins-exp/mariadb
 #
-name: "@{dev}-@{team}-x-@{commit}"    # name of the sandbox
-spec:  
-  cluster: staging                            # cluster in which this sandbox is to reside.
-  description: "@{dev}'s work on feature-x"   # a short description
+name: "@{dev}-@{team}-x-@{commit}" # name of the sandbox
+spec:
+  cluster: staging # cluster in which this sandbox is to reside.
+  description: "@{dev}'s work on feature-x" # a short description
   defaultRouteGroup:
     endpoints:
-    - name: customer                          # name of the endpoint
-      target: "http://customer.@{namespace}.deploy:8081"  # target url
-  resources:                                  # resource allocated to the sandbox.
-  - name: testdb                              # name of the resource.
-    plugin: mariadb                        # name of the resource plugin.
-    params:                                   # parameters to pass to the resource plugin.
-      dbname: testdb                          # a parameter is a key-value, string-string pair.
-  forks:                                      # set of workloads to fork and how to fork.
-  - forkOf:                                   # what to fork
-      kind: Deployment                        # K8s Kind of workload to fork (Deployment or ArgoRollout).
-      name: customer                          # K8s name of workload to fork.
-      namespace: "@{namespace}"               # K8s namespace in which the workload to fork resides.
-    customizations:                           # how to fork the workload specified by forkOf
-      env:                                    # define environment for containers in fork.
-      - name: DBHOST                          # environmental variable name.
-        valueFrom:                            # dynamic value, determined when the fork is created.
-          resource:                           # value taken from sandbox resource
-            name: testdb                      # the resource is named 'testdb' in this sandbox.
-            outputKey: provision.host         # the resource plugin provides a value for this key.
-      - name: DBPORT                          # as above
-        valueFrom:
-          resource:
-            name: testdb
-            outputKey: provision.port
-      - name: DBPASSWORD                      # as above
-        valueFrom:
-          resource:
-            name: testdb
-            outputKey: provision.root-password
-            
+      - name: customer # name of the endpoint
+        target: "http://customer.@{namespace}.deploy:8081" # target url
+  resources: # resource allocated to the sandbox.
+    - name: testdb # name of the resource.
+      plugin: mariadb # name of the resource plugin.
+      params: # parameters to pass to the resource plugin.
+        dbname: testdb # a parameter is a key-value, string-string pair.
+  forks: # set of workloads to fork and how to fork.
+    - forkOf: # what to fork
+        kind: Deployment # K8s Kind of workload to fork (Deployment or ArgoRollout).
+        name: customer # K8s name of workload to fork.
+        namespace: "@{namespace}" # K8s namespace in which the workload to fork resides.
+      customizations: # how to fork the workload specified by forkOf
+        env: # define environment for containers in fork.
+          - name: DBHOST # environmental variable name.
+            valueFrom: # dynamic value, determined when the fork is created.
+              resource: # value taken from sandbox resource
+                name: testdb # the resource is named 'testdb' in this sandbox.
+                outputKey: provision.host # the resource plugin provides a value for this key.
+          - name: DBPORT # as above
+            valueFrom:
+              resource:
+                name: testdb
+                outputKey: provision.port
+          - name: DBPASSWORD # as above
+            valueFrom:
+              resource:
+                name: testdb
+                outputKey: provision.root-password

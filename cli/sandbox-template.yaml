@@ -18,18 +18,18 @@ spec:
   labels:
     team: "@{team}"
   cluster: staging
-  description: "@{dev}'s work on feature-x" 
+  description: "@{dev}'s work on feature-x"
   defaultRouteGroup:
     endpoints:
-    - name: frontend-hotrod-svc
-      target: "http://frontend.hotrod.svc:@{port}"
+      - name: frontend-hotrod-svc
+        target: "http://frontend.hotrod.svc:@{port}"
   forks:
-  - customizations:
-      env:
-      - container: main
-        name: DEV
-        value: "@{dev}"
-    forkOf:
-      kind: Deployment
-      name: frontend
-      namespace: "@{namespace}"
+    - customizations:
+        env:
+          - container: main
+            name: DEV
+            value: "@{dev}"
+      forkOf:
+        kind: Deployment
+        name: frontend
+        namespace: "@{namespace}"
