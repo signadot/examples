@@ -1,0 +1,16 @@
+# Temporal SDK
+temporalio==1.14.1
+
+# HTTP client for Routes API
+aiohttp==3.9.0
+
+# OpenTelemetry SDK and Instrumentation
+opentelemetry-api>=1.23.0
+opentelemetry-sdk>=1.23.0
+opentelemetry-instrumentation==0.55b1
+opentelemetry-instrumentation-asgi==0.55b1
+opentelemetry-semantic-conventions==0.55b1
+opentelemetry-util-http==0.55b1
+
+# Additional dependencies for production
+python-dotenv==1.0.0

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Start Money Transfer Workflow</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f9f9f9; color: #333; }
+        .container { max-width: 800px; margin: auto; background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; text-align: center; margin-bottom: 20px; }
+        label { display: block; margin-top: 15px; margin-bottom: 5px; font-weight: bold; color: #555; }
+        input[type="text"], input[type="number"], select {
+            width: calc(100% - 22px);
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        input[type="number"] { appearance: textfield; -moz-appearance: textfield; }
+        button {
+            background-color: #3498db;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+            width: 100%;
+            margin-top: 10px;
+        }
+        button:hover { background-color: #2980b9; }
+        #response { margin-top: 25px; padding: 15px; border-radius: 4px; font-size: 15px; line-height: 1.6; }
+        .success { background-color: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+        .error { background-color: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+        .info { background-color: #e3f2fd; color: #1565c0; border: 1px solid #90caf9; }
+        .baggage-info { 
+            background-color: #fff3e0; 
+            color: #e65100; 
+            border: 1px solid #ffcc02; 
+            margin-top: 15px; 
+            padding: 10px; 
+            border-radius: 4px; 
+            font-family: monospace; 
+            font-size: 14px; 
+        }
+        .baggage-key { font-weight: bold; color: #d84315; }
+        .baggage-value { color: #4e342e; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Money Transfer</h1>
+        <form id="workflowForm">
+            <label for="from_account">From Account:</label>
+            <select id="from_account" name="from_account" required>
+                <option value="">Select From Account</option>
+                {% for acc in accounts %}
+                <option value="{{ acc }}">{{ acc }}</option>
+                {% endfor %}
+            </select>
+
+            <label for="to_account">To Account:</label>
+            <select id="to_account" name="to_account" required>
+                <option value="">Select To Account</option>
+                {% for acc in accounts %}
+                <option value="{{ acc }}">{{ acc }}</option>
+                {% endfor %}
+            </select>
+
+            <label for="amount">Amount:</label>
+            <input type="number" id="amount" name="amount" step="0.01" min="0.01" placeholder="e.g., 100.50" required>
+
+            <label for="reference">Reference (Optional):</label>
+            <input type="text" id="reference" name="reference" placeholder="e.g., Invoice #123">
+
+            <button type="submit">Start Workflow</button>
+        </form>
+
+        <div id="response" style="display:none;"></div>
+    </div>
+
+    <script>
+        document.getElementById('workflowForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const formData = new FormData(this);
+            const responseDiv = document.getElementById('response');
+            responseDiv.innerHTML = 'Processing...';
+            responseDiv.className = 'info';
+            responseDiv.style.display = 'block';
+
+            const fromAccount = formData.get('from_account');
+            const toAccount = formData.get('to_account');
+            const amount = parseFloat(formData.get('amount'));
+
+            if (!fromAccount || !toAccount) {
+                responseDiv.textContent = 'Error: Please select both From and To accounts.';
+                responseDiv.className = 'error';
+                return;
+            }
+            if (fromAccount === toAccount) {
+                responseDiv.textContent = 'Error: From and To accounts cannot be the same.';
+                responseDiv.className = 'error';
+                return;
+            }
+             if (isNaN(amount) || amount <= 0) {
+                responseDiv.textContent = 'Error: Amount must be a positive number.';
+                responseDiv.className = 'error';
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/start-workflow', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    let responseHtml = `<strong>Success!</strong><br>
+                                       ${result.message}<br>
+                                       <strong>Workflow ID:</strong> ${result.workflow_id}<br>
+                                       <strong>Run ID:</strong> ${result.run_id}<br>
+                                       <strong>Routing Key:</strong> ${result.routing_key || 'undefined'}`;
+                    
+                    // Display baggage headers if available
+                    if (result.baggage_headers && Object.keys(result.baggage_headers).length > 0) {
+                        responseHtml += '<div class="baggage-info"><strong>Baggage Headers Received:</strong><br>';
+                        for (const [key, value] of Object.entries(result.baggage_headers)) {
+                            responseHtml += `<span class="baggage-key">${key}:</span> <span class="baggage-value">${value}</span><br>`;
+                        }
+                        responseHtml += '</div>';
+                    } else {
+                        responseHtml += '<div class="baggage-info"><strong>Baggage Headers:</strong> None received</div>';
+                    }
+                    
+                    responseDiv.innerHTML = responseHtml;
+                    responseDiv.className = 'success';
+                } else {
+                    responseDiv.textContent = `Error: ${result.error || 'An unknown error occurred.'}`;
+                    responseDiv.className = 'error';
+                }
+            } catch (error) {
+                console.error('Submission error:', error);
+                responseDiv.textContent = 'Network error or server is unreachable. Please check the console.';
+                responseDiv.className = 'error';
+            }
+        });
+    </script>
+</body>
+</html> 

@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: temporal-worker
+  labels:
+    app: temporal-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: temporal-worker
+  template:
+    metadata:
+      labels:
+        app: temporal-worker
+      annotations:
+        sidecar.signadot.com/inject: "true"
+    spec:
+      containers:
+        - name: temporal-worker
+          image: "temporal-money-transfer:v1.0"
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: TASK_QUEUE
+              value: "money-transfer"
+            - name: TEMPORAL_SERVER_URL
+              value: "temporal.temporal.svc:7233"
+            - name: ROUTES_API_ROUTE_SERVER_ADDR
+              value: "http://routeserver.signadot.svc:7778"
+            - name: ROUTES_API_BASELINE_KIND
+              value: "Deployment"
+            - name: ROUTES_API_BASELINE_NAMESPACE
+              value: "temporal"
+            - name: ROUTES_API_BASELINE_NAME
+              value: "temporal-worker"
+            - name: ROUTES_API_REFRESH_INTERVAL_SECONDS
+              value: "120"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            exec:
+              command: ["python", "-c", "import sys; sys.exit(0)"]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: temporal-worker
+  labels:
+    app: temporal-worker
+spec:
+  type: ClusterIP
+  selector:
+    app: temporal-worker
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+      name: http
