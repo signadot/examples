@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: temporal-ui
+  labels:
+    app: temporal-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: temporal-ui
+  template:
+    metadata:
+      labels:
+        app: temporal-ui
+    spec:
+      containers:
+        - name: temporal-ui
+          image: temporalio/ui:2.34.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          env:
+            - name: TEMPORAL_ADDRESS
+              value: "temporal.temporal.svc:7233"
+            - name: TEMPORAL_CORS_ORIGINS
+              value: "http://localhost:3000"
+---
+apiVersion: "v1"
+kind: "Service"
+metadata:
+  name: "temporal-ui-service"
+  namespace: "temporal"
+  labels:
+    app: "temporal-ui"
+spec:
+  ports:
+  - protocol: "TCP"
+    port: 80
+    targetPort: 8080
+  selector:
+    app: "temporal-ui"
+  type: "LoadBalancer"

@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: temporal-admin-tools
+  # namespace: your-namespace # Optional: Uncomment and specify if deploying to a specific namespace
+  labels:
+    app: temporal-admin-tools
+spec:
+  replicas: 1 # Usually, one instance is sufficient for admin tasks
+  selector:
+    matchLabels:
+      app: temporal-admin-tools
+  template:
+    metadata:
+      labels:
+        app: temporal-admin-tools
+    spec:
+      containers:
+        - name: temporal-admin-tools
+          image: temporalio/admin-tools:1.27.2-tctl-1.18.2-cli-1.3.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TEMPORAL_ADDRESS
+              # Assumes a Kubernetes service named 'temporal' on port 7233
+              value: "temporal.temporal.svc:7233"
+            - name: TEMPORAL_CLI_ADDRESS
+              # Assumes a Kubernetes service named 'temporal' on port 7233
+              value: "temporal.temporal.svc:7233"
+          # These allow you to run 'kubectl exec -it <pod-name> -- /bin/bash' (or tctl directly)
+          stdin: true
+          tty: true
+          # It's good practice to define resource requests and limits
+          # resources:
+          #   requests:
+          #     memory: "128Mi"
+          #     cpu: "100m"
+          #   limits:
+          #     memory: "256Mi"
+          #     cpu: "250m"
+      # Note on depends_on:
+      # Kubernetes handles service dependencies differently. Ensure the 'temporal'
+      # service is running and resolvable in your K8s cluster.

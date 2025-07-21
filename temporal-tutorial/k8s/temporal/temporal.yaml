@@ -1,0 +1,137 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: temporal-dynamic-config
+  # namespace: your-namespace # Optional: Uncomment and specify if deploying to a specific namespace
+  labels:
+    app: temporal
+data:
+  # IMPORTANT: Replace the content below with the actual content of your
+  # ./dynamicconfig/development-sql.yaml file.
+  development-sql.yaml: |
+    # Example content for development-sql.yaml
+    # Please replace this with your actual configuration.
+    frontend.enableClientVersionCheck:
+      - value: true
+    limit.maxIDLength:
+      - value: 255
+        constraints: {}
+    system.forceSearchAttributesCacheRefreshOnRead:
+      - value: true # Dev setup only. Please don't turn this on in production.
+        constraints: {}
+    # Add other dynamic configuration settings here.
+  
+  development-cass.yaml: |
+    system.forceSearchAttributesCacheRefreshOnRead:
+      - value: true # Dev setup only. Please don't turn this on in production.
+        constraints: {}
+  
+  docker.yaml: |
+    {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: temporal
+  # namespace: your-namespace # Optional: Uncomment and specify if deploying to a specific namespace
+  labels:
+    app: temporal
+spec:
+  replicas: 1 # The auto-setup image is typically run as a single replica.
+  selector:
+    matchLabels:
+      app: temporal
+  template:
+    metadata:
+      labels:
+        app: temporal
+    spec:
+      containers:
+        - name: temporal
+          image: temporalio/auto-setup:1.27.2
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 7233
+              name: grpc # Temporal frontend gRPC port
+            # The auto-setup image might also expose other ports like 7234 (membership),
+            # 7235 (frontend HTTP), 6933 (membership if different).
+            # Add them here if your setup requires them to be explicitly defined for probes or metrics.
+          env:
+            - name: DB
+              value: "postgres12"
+            - name: DB_PORT
+              value: "5432"
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret # Assumes 'postgres-secret' created for PostgreSQL
+                  key: POSTGRES_USER
+            - name: POSTGRES_PWD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret # Assumes 'postgres-secret' created for PostgreSQL
+                  key: POSTGRES_PASSWORD # Maps to POSTGRES_PASSWORD in the secret
+            - name: POSTGRES_SEEDS
+              value: "postgresql" # Kubernetes service name for PostgreSQL
+            - name: DYNAMIC_CONFIG_FILE_PATH
+              value: "config/dynamicconfig/development-sql.yaml" # Path inside the container
+            - name: ENABLE_ES
+              value: "true"
+            - name: ES_SEEDS
+              value: "elasticsearch" # Kubernetes service name for Elasticsearch
+            - name: ES_VERSION
+              value: "v7"
+            # TEMPORAL_ADDRESS and TEMPORAL_CLI_ADDRESS point to the K8s service for Temporal itself
+            - name: TEMPORAL_ADDRESS
+              value: "temporal.temporal.svc:7233"
+            - name: TEMPORAL_CLI_ADDRESS
+              value: "temporal.temporal.svc:7233"
+          volumeMounts:
+            - name: dynamic-config-volume
+              mountPath: /etc/temporal/config/dynamicconfig # Mount directory for the config
+          # The auto-setup image handles waiting for DB/ES.
+          # Readiness/Liveness probes can be added for more robust health checking.
+          readinessProbe:
+            tcpSocket:
+              port: grpc # Checks if the gRPC port 7233 is listening
+            initialDelaySeconds: 30 # auto-setup can take time to initialize DB schemas
+            periodSeconds: 10
+            failureThreshold: 6 # Allow more failures during initial schema setup
+          livenessProbe:
+            tcpSocket:
+              port: grpc
+            initialDelaySeconds: 90
+            periodSeconds: 20
+      volumes:
+        - name: dynamic-config-volume
+          configMap:
+            name: temporal-dynamic-config
+            # This will mount files from the ConfigMap into the mountPath.
+            # 'development-sql.yaml' from the ConfigMap will be at
+            # /etc/temporal/config/dynamicconfig/development-sql.yaml
+            items:
+              - key: development-sql.yaml
+                path: development-sql.yaml
+      # Note on depends_on:
+      # Kubernetes handles service dependencies differently. The auto-setup image
+      # is designed to wait and retry connections to PostgreSQL and Elasticsearch.
+      # Ensure 'postgresql' and 'elasticsearch' services are running and resolvable.
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: temporal # This name will be used for TEMPORAL_ADDRESS and by other services/clients
+  # namespace: your-namespace # Optional: Uncomment and specify if deploying to a specific namespace
+  labels:
+    app: temporal
+spec:
+  type: ClusterIP # Or NodePort. Use ClusterIP if only internal access to 7233 is needed.
+                    # LoadBalancer makes it accessible externally, similar to docker-compose port mapping.
+  ports:
+    - port: 7233       # Port the service will listen on
+      targetPort: grpc # Refers to the 'name: grpc' on the container port in the Deployment (which is 7233)
+      protocol: TCP
+      name: grpc-temporal
+  selector:
+    app: temporal    # Selects pods with label app=temporal

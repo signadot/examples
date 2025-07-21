@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: temporal-py-client-ui
+  labels:
+    app: temporal-py-client-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: temporal-py-client-ui
+  template:
+    metadata:
+      labels:
+        app: temporal-py-client-ui
+    spec:
+      containers:
+        - name: temporal-py-client-ui
+          image: "temporal-py-client-ui:v1.0"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: TEMPORAL_SERVER_URL
+              value: "temporal.temporal.svc:7233"
+            - name: TASK_QUEUE
+              value: "money-transfer"
+            - name: PORT
+              value: "8080"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: temporal-py-client-ui
+  labels:
+    app: temporal-py-client-ui
+spec:
+  type: LoadBalancer
+  selector:
+    app: temporal-py-client-ui
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+      name: http

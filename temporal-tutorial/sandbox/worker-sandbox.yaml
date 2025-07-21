@@ -1,0 +1,12 @@
+# see https://www.signadot.com/docs/reference/sandboxes/spec
+name: temporal-worker-sandbox
+spec:
+  labels:
+    team: backend
+  cluster: "@{cluster}"
+  description: Testing temporal sandboxes
+  forks:
+  - forkOf:
+      kind: Deployment
+      namespace: temporal
+      name: temporal-worker

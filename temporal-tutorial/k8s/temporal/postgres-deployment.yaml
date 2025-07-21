@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgresql
+  # namespace: your-namespace # Optional: Uncomment and specify if deploying to a specific namespace
+  labels:
+    app: postgresql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgresql
+  template:
+    metadata:
+      labels:
+        app: postgresql
+    spec:
+      containers:
+        - name: postgresql
+          image: postgres:16
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+              name: postgresql
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+            # The official postgres image uses POSTGRES_USER to name the default database if POSTGRES_DB is not set.
+            # PGDATA specifies the data directory within the volume.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data # This is where PostgreSQL stores its data
+          livenessProbe:
+            tcpSocket:
+              port: 5432
+            initialDelaySeconds: 45 # Give it more time to initialize
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              # Checks if the server is ready to accept connections for the 'temporal' user and 'temporal' database.
+              command: ["pg_isready", "-U", "temporal", "-d", "temporal", "-h", "127.0.0.1", "-p", "5432"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 6 # Allow for startup and initial db creation
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: postgres-pvc

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql # This name will be used by other services (e.g., Temporal server) to connect
+  # namespace: your-namespace # Optional: Uncomment and specify if deploying to a specific namespace
+  labels:
+    app: postgresql
+spec:
+  type: ClusterIP # Exposes the service on a cluster-internal IP. Default type.
+  ports:
+    - port: 5432       # Port the service will listen on
+      targetPort: 5432 # Port on the pods
+      protocol: TCP
+      name: tcp-postgresql
+  selector:
+    app: postgresql    # Selects pods with label app=postgresql
