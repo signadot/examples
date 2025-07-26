@@ -1,0 +1,13 @@
+name: route-surcharge-feature
+spec:
+  cluster: testing-tw
+  labels:
+    epic: EPIC-42
+  forks:
+    - forkOf:
+        kind: Deployment
+        namespace: hotrod
+        name: route
+      # customizations:
+      #   images:
+      #     - image: signadot/hotrod:latest

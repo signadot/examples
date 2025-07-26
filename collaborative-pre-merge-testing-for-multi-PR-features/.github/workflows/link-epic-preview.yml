@@ -1,0 +1,53 @@
+name: Link Epic Preview
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  link-epic:
+    if: github.event.issue.pull_request && contains(github.event.comment.body, '/epic')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Parse Epic ID from comment
+        id: parse_epic
+        run: |
+          EPIC_ID=$(echo "${{ github.event.comment.body }}" | awk '{print $2}')
+          echo "EPIC_ID=${EPIC_ID}" >> $GITHUB_ENV
+
+      - name: Install Signadot CLI
+        run: curl -sSLf https://raw.githubusercontent.com/signadot/cli/main/scripts/install.sh | sh
+
+      - name: Update Sandbox with Epic Label
+        env:
+          SIGNADOT_API_KEY: ${{ secrets.SIGNADOT_API_KEY }}
+          SIGNADOT_ORG: ${{ secrets.SIGNADOT_ORG }}
+        run: |
+          signadot sandbox apply -f .signadot/sandbox-template.yaml \
+            --set cluster=${{ secrets.SIGNADOT_CLUSTER }} \
+            --set name="pr-${{ github.event.issue.number }}" \
+            --set image="your-registry/hotrod:${{ github.event.pull_request.head.sha }}" \
+            --set labels."epic"="${{ env.EPIC_ID }}" \
+            --set labels."signadot/github-pull-request"="${{ github.event.issue.number }}" \
+            --set labels."signadot/github-repo"="${{ github.repository }}"
+
+      - name: Create or Update Epic RouteGroup
+        id: routegroup
+        env:
+          SIGNADOT_API_KEY: ${{ secrets.SIGNADOT_API_KEY }}
+          SIGNADOT_ORG: ${{ secrets.SIGNADOT_ORG }}
+        run: |
+          signadot routegroup apply -f .signadot/routegroup-template.yaml \
+            --set cluster=${{ secrets.SIGNADOT_CLUSTER }} \
+            --set name="epic-${{ env.EPIC_ID }}-preview" \
+            --set match_value="${{ env.EPIC_ID }}"
+
+          RG_URL=$(signadot routegroup get epic-${{ env.EPIC_ID }}-preview -o jsonpath='{.endpoints.url}')
+          echo "preview_url=${RG_URL}" >> $GITHUB_OUTPUT
+
+      - name: Post Preview URL back to PR
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            ✅ Unified preview for **${{ env.EPIC_ID }}** is ready!
+            Preview URL: **${{ steps.routegroup.outputs.preview_url }}**
