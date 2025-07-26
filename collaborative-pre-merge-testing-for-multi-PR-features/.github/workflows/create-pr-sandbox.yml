@@ -1,0 +1,32 @@
+name: Create PR Sandbox
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  create-sandbox:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # (Optional) Build and push your image
+      # - name: Build and push image
+      #   run: |
+      #     docker build -t your-registry/hotrod:${{ github.sha }} .
+      #     docker push your-registry/hotrod:${{ github.sha }}
+
+      - name: Install Signadot CLI
+        run: curl -sSLf https://raw.githubusercontent.com/signadot/cli/main/scripts/install.sh | sh
+
+      - name: Apply Sandbox
+        env:
+          SIGNADOT_API_KEY: ${{ secrets.SIGNADOT_API_KEY }}
+          SIGNADOT_ORG: ${{ secrets.SIGNADOT_ORG }}
+        run: |
+          signadot sandbox apply -f .signadot/sandbox-template.yaml \
+            --set cluster=${{ secrets.SIGNADOT_CLUSTER }} \
+            --set name="pr-${{ github.event.pull_request.number }}" \
+            --set image="your-registry/hotrod:${{ github.sha }}" \
+            --set labels."signadot/github-pull-request"="${{ github.event.pull_request.number }}" \
+            --set labels."signadot/github-repo"="${{ github.repository }}"

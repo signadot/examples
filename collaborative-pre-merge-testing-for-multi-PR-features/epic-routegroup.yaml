@@ -1,0 +1,11 @@
+name: epic-42-preview
+spec:
+  cluster: testing-tw
+  match:
+    any:
+      - label:
+          key: epic
+          value: EPIC-42
+  endpoints:
+    - name: hotrod-frontend
+      target: http://frontend.hotrod.svc:8080

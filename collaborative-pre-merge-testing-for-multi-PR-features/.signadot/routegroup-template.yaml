@@ -1,0 +1,11 @@
+name: "${name}"
+spec:
+  cluster: "${cluster}"
+  match:
+    any:
+      - label:
+          key: epic
+          value: "${match_value}"
+  endpoints:
+    - name: hotrod-frontend
+      target: http://frontend.hotrod.svc:8080 

@@ -1,0 +1,15 @@
+name: "${name}"
+spec:
+  cluster: "${cluster}"
+  labels:
+    signadot/github-pull-request: "${signadot/github-pull-request}"
+    signadot/github-repo: "${signadot/github-repo}"
+    epic: "${epic}"
+  forks:
+    - forkOf:
+        kind: Deployment
+        namespace: hotrod
+        name: ${service}
+      customizations:
+        images:
+          - image: ${image} 
