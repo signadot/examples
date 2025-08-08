@@ -1,0 +1,19 @@
+name: driver-ratings
+spec:
+  description: "Preview of updated driver service using ratings-v10"
+  cluster: local-hotrod-cluster
+  labels:
+    feature: driver-ratings
+    team: backend
+  forks:
+    - forkOf:
+        kind: Deployment
+        namespace: hotrod
+        name: driver
+      customizations:
+        images:
+          - container: hotrod
+            image: mostafamraafat/hotrod-driver:ratings-v11
+        env:
+          - name: SIGNADOT_BASELINE_KIND
+            value: default

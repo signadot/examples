@@ -1,0 +1,21 @@
+name: simple-complete-sandbox
+spec:
+  description: "Simple complete sandbox with both frontend and location"
+  cluster: "local-hotrod-cluster"
+  forks:
+    - forkOf:
+        kind: Deployment
+        namespace: hotrod
+        name: frontend
+    - forkOf:
+        kind: Deployment
+        namespace: hotrod
+        name: location
+      customizations:
+        images:
+          - image: mostafamraafat/hotrod-location:dynamic-seed-v5
+            container: hotrod
+        env:
+          - container: hotrod
+            name: MYSQL_DATABASE
+            value: "hotrod_sandbox"

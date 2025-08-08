@@ -1,0 +1,23 @@
+name: location-enhanced
+spec:
+  description: "Enhanced location service with new pickup points"
+  cluster: "local-hotrod-cluster"
+  labels:
+    feature: enhanced-locations
+    team: backend
+  forks:
+    - forkOf:
+        kind: Deployment
+        namespace: hotrod
+        name: location
+      customizations:
+        images:
+          - image: mostafamraafat/hotrod-location:dynamic-seed-v5
+            container: hotrod
+        env:
+          - container: hotrod
+            name: MYSQL_DATABASE
+            value: "hotrod_sandbox"
+          - container: hotrod
+            name: SIGNADOT_BASELINE_KIND
+            value: "default"
