@@ -117,8 +117,8 @@ class HotRODAPIService: APIService {
     }
     
     private func generateDriversBasedOnRouting(for location: String) -> [Driver] {
-        // Check if we're in driver-ratings sandbox based on routing headers
-        let isDriverRatingsSandbox = routingHeaders["signadot-routing-key"] != nil
+        // Check if we're in driver-ratings sandbox based on OpenTelemetry routing headers
+        let isDriverRatingsSandbox = routingHeaders["baggage"] != nil || routingHeaders["tracestate"] != nil
         
         if isDriverRatingsSandbox {
             // Enhanced drivers with ratings (driver-ratings sandbox)
