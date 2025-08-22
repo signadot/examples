@@ -6,6 +6,7 @@ struct EnvironmentOption: Identifiable, Equatable {
     let displayName: String
     let routingKey: String?
     let type: EnvironmentType
+    let isCustom: Bool
     
     enum EnvironmentType {
         case production
@@ -16,8 +17,18 @@ struct EnvironmentOption: Identifiable, Equatable {
     static let production = EnvironmentOption(
         displayName: "🏭 Production (Baseline)",
         routingKey: nil,
-        type: .production
+        type: .production,
+        isCustom: false
     )
+    
+    static func customSandbox(routingKey: String) -> EnvironmentOption {
+        return EnvironmentOption(
+            displayName: "🧪 Custom Sandbox",
+            routingKey: routingKey,
+            type: .sandbox,
+            isCustom: true
+        )
+    }
 }
 
 // MARK: - HotROD Backend Models
@@ -145,6 +156,8 @@ class AppState: ObservableObject {
     @Published var availableEnvironments: [EnvironmentOption] = [.production]
     @Published var isDebugModeEnabled: Bool = false
     @Published var currentTrip: Trip?
+    @Published var customRoutingKey: String = ""
+    @Published var showingCustomSandboxInput: Bool = false
     
     var baseURL: String {
         // For local testing with signadot local connect
@@ -157,8 +170,11 @@ class AppState: ObservableObject {
             return [:]
         }
         
+        // Use OpenTelemetry standard headers for Signadot routing
+        // Reference: https://www.signadot.com/docs/guides/set-up-context-propagation#header-propagation
         return [
-            "signadot-routing-key": routingKey
+            "baggage": "sd-routing-key=\(routingKey)",
+            "tracestate": "sd-routing-key=\(routingKey)"
         ]
     }
 }
