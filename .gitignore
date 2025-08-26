@@ -1,2 +1,6 @@
 .idea/
 .DS_Store
+poc
+poc.pub
+*.xcuserstate
+hotrod-ios-app/hotrod/ios/HotRodApp.xcodeproj/project.xcworkspace/xcuserdata/mostafa.raafat.xcuserdatad/UserInterfaceState.xcuserstate

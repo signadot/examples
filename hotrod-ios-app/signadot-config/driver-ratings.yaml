@@ -13,7 +13,4 @@ spec:
       customizations:
         images:
           - container: hotrod
-            image: mostafamraafat/hotrod-driver:ratings-v11
-        env:
-          - name: SIGNADOT_BASELINE_KIND
-            value: default
+            image: /hotrod-driver:ratings-v11

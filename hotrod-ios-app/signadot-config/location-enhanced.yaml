@@ -18,6 +18,3 @@ spec:
           - container: hotrod
             name: MYSQL_DATABASE
             value: "hotrod_sandbox"
-          - container: hotrod
-            name: SIGNADOT_BASELINE_KIND
-            value: "default"

@@ -15,7 +15,7 @@ struct EnvironmentOption: Identifiable, Equatable {
     }
     
     static let production = EnvironmentOption(
-        displayName: "🏭 Production (Baseline)",
+        displayName: "Production (Baseline)",
         routingKey: nil,
         type: .production,
         isCustom: false
@@ -23,7 +23,7 @@ struct EnvironmentOption: Identifiable, Equatable {
     
     static func customSandbox(routingKey: String) -> EnvironmentOption {
         return EnvironmentOption(
-            displayName: "🧪 Custom Sandbox",
+            displayName: "Custom Sandbox",
             routingKey: routingKey,
             type: .sandbox,
             isCustom: true
