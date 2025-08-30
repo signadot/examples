@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Bucket
+   uuid = "ED7B0012-0F51-4392-8386-5FAAFE0B10E0"
+   type = "1"
+   version = "2.0">
+   <Breakpoints>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "250AC457-6E04-4BDC-94EB-72DE023F06C5"
+            shouldBeEnabled = "No"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "HotRodApp/Services/APIService.swift"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "27"
+            endingLineNumber = "27"
+            landmarkName = "getLocations()"
+            landmarkType = "7">
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "A0555653-C5C8-469B-9DB7-BDC4D178C703"
+            shouldBeEnabled = "Yes"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "HotRodApp/Services/APIService.swift"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "34"
+            endingLineNumber = "34"
+            landmarkName = "getLocations()"
+            landmarkType = "7">
+            <Locations>
+               <Location
+                  uuid = "A0555653-C5C8-469B-9DB7-BDC4D178C703 - 4192c0a4c31e4ba"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "(1) suspend resume partial function for HotRodApp.HotRODAPIService.getLocations() async throws -&gt; Swift.Array&lt;HotRodApp.HotRODLocation&gt;"
+                  moduleName = "HotRodApp.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/mostafa.raafat/Documents/Personal%20POCs/HotRodiOSApp/examples/hotrod-ios-app/hotrod/ios/HotRodApp/Services/APIService.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "34"
+                  endingLineNumber = "34">
+               </Location>
+               <Location
+                  uuid = "A0555653-C5C8-469B-9DB7-BDC4D178C703 - b73499cde84ac037"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "(4) suspend resume partial function for HotRodApp.HotRODAPIService.getLocations() async throws -&gt; Swift.Array&lt;HotRodApp.HotRODLocation&gt;"
+                  moduleName = "HotRodApp.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/mostafa.raafat/Documents/Personal%20POCs/HotRodiOSApp/examples/hotrod-ios-app/hotrod/ios/HotRodApp/Services/APIService.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "34"
+                  endingLineNumber = "34">
+               </Location>
+            </Locations>
+         </BreakpointContent>
+      </BreakpointProxy>
+   </Breakpoints>
+</Bucket>
