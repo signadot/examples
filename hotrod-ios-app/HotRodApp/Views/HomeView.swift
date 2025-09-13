@@ -393,9 +393,9 @@ final class HomeViewModel: ObservableObject {
         guard let appState = appState else { return }
         
         // Use real HotROD API service with routing headers based on selected environment
-        let routingHeaders = appState.selectedEnvironment.routingHeaders
+        let routingHeaders = appState.routingHeaders
         self.apiService = HotRODAPIService(
-            baseURL: appState.selectedEnvironment.baseURL,
+            baseURL: appState.baseURL,
             routingHeaders: routingHeaders
         )
     }

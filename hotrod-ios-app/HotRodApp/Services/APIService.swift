@@ -251,9 +251,9 @@ class MockAPIService: APIService {
         if shouldSimulateEnhancedFeatures {
             // Enhanced drivers with SD- license plates and fast ETA in seconds
             return [
-                Driver(id: "driver-001", name: "John Smith", location: location, eta: 2500, rating: 4.8, completedTrips: 245, licensePlate: "SD-T712345C", etaUnit: "sec"),
-                Driver(id: "driver-002", name: "Sarah Johnson", location: location, eta: 1880, rating: 4.9, completedTrips: 312, licensePlate: "SD-T798765C", etaUnit: "sec"),
-                Driver(id: "driver-003", name: "Mike Wilson", location: location, eta: 3576, rating: 4.6, completedTrips: 189, licensePlate: "SD-T754321C", etaUnit: "sec")
+                Driver(id: "driver-001", name: "John Smith", location: location, eta: 480, rating: 4.8, completedTrips: 245, licensePlate: "SD-T712345C", etaUnit: "sec"),
+                Driver(id: "driver-002", name: "Sarah Johnson", location: location, eta: 720, rating: 4.9, completedTrips: 312, licensePlate: "SD-T798765C", etaUnit: "sec"),
+                Driver(id: "driver-003", name: "Mike Wilson", location: location, eta: 180, rating: 4.6, completedTrips: 189, licensePlate: "SD-T754321C", etaUnit: "sec")
             ]
         } else {
             // Basic drivers with standard license plates and ETA in minutes
