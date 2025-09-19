@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: router
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: router
+  template:
+    metadata:
+      labels:
+        component: router
+    spec:
+      restartPolicy: Always
+      volumes:
+      - name: envoy-config
+        configMap:
+          name: envoy-router
+      - name: router-config
+        configMap:
+          name: router
+      containers:
+        - name: router
+          image: ghcr.io/wundergraph/cosmo/router:latest
+          ports:
+            - containerPort: 13002
+              name: graphql
+          env:
+            - name: CONFIG_PATH
+              value: /etc/router/config.yaml
+            - name: LISTEN_ADDR
+              value: 127.0.0.1:13002
+            - name: DEV_MODE
+              value: "true"
+            - name: DEMO_MODE
+              value: "true"
+            - name: GRAPH_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: router-token
+                  key: token
+          volumeMounts:
+          - name: router-config
+            mountPath: /etc/router
+
+        - name: envoy
+          image: envoyproxy/envoy:v1.31.0
+          args: ["-c", "/etc/envoy/envoy.yaml", "--disable-hot-restart"]
+          ports:
+          - containerPort: 3002
+            name: graphql
+          volumeMounts:
+          - name: envoy-config
+            mountPath: /etc/envoy
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: router
+spec:
+  ports:
+    - name: graphql
+      port: 3002
+  selector:
+    component: router

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: router
+data:
+  config.yaml: |
+    headers:
+      all:
+        request:
+          - op: "propagate"
+            named: "Baggage"

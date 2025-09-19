@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: products
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: products
+  template:
+    metadata:
+      labels:
+        component: products
+      annotations:
+        sidecar.signadot.com/inject: "true"
+    spec:
+      containers:
+        - name: products
+          image: signadot/wundergraph-demo-products:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 4004
+              name: graphql
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: products
+spec:
+  ports:
+    - name: graphql
+      port: 4004
+  selector:
+    component: products

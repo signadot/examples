@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: availability
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: availability
+  template:
+    metadata:
+      labels:
+        component: availability
+      annotations:
+        sidecar.signadot.com/inject: "true"
+    spec:
+      containers:
+        - name: availability
+          image: signadot/wundergraph-demo-availability:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 4007
+              name: graphql
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: availability
+spec:
+  ports:
+    - name: graphql
+      port: 4007
+  selector:
+    component: availability

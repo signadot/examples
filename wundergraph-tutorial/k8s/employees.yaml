@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: employees
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: employees
+  template:
+    metadata:
+      labels:
+        component: employees
+      annotations:
+        sidecar.signadot.com/inject: "true"
+    spec:
+      containers:
+        - name: employees
+          image: signadot/wundergraph-demo-employees:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 4001
+              name: graphql
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: employees
+spec:
+  ports:
+    - name: graphql
+      port: 4001
+  selector:
+    component: employees

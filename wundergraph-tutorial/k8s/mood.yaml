@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mood
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: mood
+  template:
+    metadata:
+      labels:
+        component: mood
+      annotations:
+        sidecar.signadot.com/inject: "true"
+    spec:
+      containers:
+        - name: mood
+          image: signadot/wundergraph-demo-mood:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 4008
+              name: graphql
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mood
+spec:
+  ports:
+    - name: graphql
+      port: 4008
+  selector:
+    component: mood
