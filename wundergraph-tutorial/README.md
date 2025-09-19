@@ -199,7 +199,7 @@ X-Feature-Flag: <routing-key>
 
 The proxy simply extracts the `sd-routing-key` value from the `Baggage` header and adds it as an `X-Feature-Flag` header, leaving the original `Baggage` header untouched.
 
-Therefore, the **request flow** works as shown in the diagram above:
+Therefore, the **request flow** works as shown in the diagram below:
 
 1. A client request arrives at the **Envoy proxy** (inside the Router Pod) on port `3002`.
 2. The proxy translates the `sd-routing-key` (found in the `Baggage` header) into the `X-Feature-Flag` header, then forwards the request to the **WunderGraph Router** (port `13002`).
