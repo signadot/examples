@@ -152,31 +152,37 @@ You should see a JSON response with `status: "healthy"`.
 
 ### 4.3 Sandbox Blueprint (`backend/sandbox.yaml`)
 
-`backend/sandbox.yaml` defines how Signadot creates a **PR‑scoped backend sandbox** from the baseline deployment:
+`backend/sandbox.yaml` defines how Signadot creates a **PR‑scoped backend sandbox** by forking the baseline Deployment:
 
 ```yaml
 name: backend-pr-PR_NUMBER
-workloads:
-  - name: vercel-signadot-backend
-    source:
-      kind: kubernetes
-      name: vercel-signadot-backend
-    patches:
-      - op: replace
-        path: spec/template/spec/containers/0/image
-        value: docker.io/DOCKERHUB_USERNAME/vercel-signadot-backend:SANDBOX_IMAGE_TAG
-defaultRouteGroup:
-  endpoints:
-    - name: backend-api
-      port: 8080
+spec:
+  cluster: CLUSTER_NAME
+  description: Sandbox environment for vercel-signadot-backend
+  forks:
+    - forkOf:
+        kind: Deployment
+        namespace: default
+        name: vercel-signadot-backend
+      customizations:
+        images:
+          - image: docker.io/DOCKERHUB_USERNAME/vercel-signadot-backend:SANDBOX_IMAGE_TAG
+        command: ["node", "server.js"]
+        env:
+          - name: PORT
+            value: "3000"
+  defaultRouteGroup:
+    endpoints:
+      - name: backend-api
+        target: http://vercel-signadot-backend.default.svc:3000
 ```
 
 Key ideas:
 
-- `name:` is replaced with a PR‑specific identifier (for example, `backend-pr-42`).
-- `value:` is replaced with the actual image reference built by backend CI (for example, `docker.io/alice/vercel-signadot-backend:branch-sha`).
-- `defaultRouteGroup` exposes an **instant backend preview URL** such as:
-  - `https://backend-api--backend-pr-42.sb.signadot.com`
+- `name` becomes PR-specific (for example, `backend-pr-42`).
+- `forks/forkOf` clones the baseline Deployment and applies minimal overrides (image, command, env).
+- The `images` customization injects the PR-specific image tag built by backend CI.
+- `defaultRouteGroup` exposes the sandbox endpoint via the service target URL (yielding URLs like `https://backend-api--backend-pr-42.sb.signadot.com`).
 
 This is the URL we will wire into `NEXT_PUBLIC_API_URL` for a hot‑reload‑style backend experience.
 
