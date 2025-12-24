@@ -6,13 +6,13 @@ Frontend developers are used to **instant feedback**: save a file, and the brows
 
 This tutorial shows how to pair **Vercel Preview Deployments** with **Signadot Sandboxes** so that:
 
-1. Every PR builds a fresh backend image and launches a **PR‑scoped backend sandbox**.
+1. Every PR can build a fresh backend image and launch a **PR‑scoped backend sandbox** (when configured with a PR‑specific image tag instead of `latest`).
 2. The frontend preview is wired to that sandbox via `NEXT_PUBLIC_API_URL` and a secure API proxy.
 3. GitHub Actions posts **both URLs** to the PR so reviewers can exercise the feature end‑to‑end.
 4. Pushing more commits to the PR updates both sides, giving a **fast-feedback, hot‑reload‑like loop** for backend and frontend together.
 
 **Time required:** 45–60 minutes  
-**Repository:** https://github.com/signadot/examples/tree/main/vercel-preview-signadot-sandoxes-cicd-connection
+**Repository:** https://github.com/signadot/examples/tree/main/vercel-preview-signadot-sandboxes-cicd-connection
 
 > **Stack note:** The sample app uses a Next.js frontend and a Node/Express backend, but the workflow applies to any framework that can read build‑time environment variables and expose a stable Kubernetes deployment for Signadot to clone.
 
@@ -67,7 +67,7 @@ This tutorial shows how to pair **Vercel Preview Deployments** with **Signadot S
 | GitHub repositories | Separate frontend (`next.js`) and backend (`express`) repos, or a monorepo |
 | Vercel account | Project wired to the frontend repo, API token for GitHub Actions |
 | Signadot account | Organization name, API key, access to a Kubernetes cluster with the Signadot Operator installed |
-| Kubernetes cluster | AWS EKS or GKE Standard (Operator does **not** run on GKE Autopilot) |
+| Kubernetes cluster | AWS EKS or GKE Standard (GKE Autopilot may have restrictions; verify Operator compatibility) |
 | Container registry | Docker Hub / GHCR / GCR for pushing backend images |
 
 > **Tip:** Ensure the Signadot Operator is installed ahead of time. The frontend workflow only verifies the operator; it does not install it.
@@ -194,12 +194,27 @@ With the baseline environment ready, configure the sample app to take advantage 
 
 ### 5.1 Frontend: Hot‑Reload‑Style Backend URL via `NEXT_PUBLIC_API_URL`
 
-The frontend (Next.js 13+) reads its backend URL from `NEXT_PUBLIC_API_URL` and automatically proxies sandbox calls through a server‑side route.
+There are two primary ways to route requests to Signadot sandboxes:
 
-**`frontend/src/lib/config/api.ts`**
+- **Chrome Extension (Recommended for developers)**: Install the [Signadot Chrome Extension](https://chromewebstore.google.com/detail/signadot/aigejiccjejdeiikegdjlofgcjhhnkim) to inject routing headers from your browser. With the extension enabled, you open your existing frontend URL (for example, your ingress/load balancer/staging URL), select a sandbox or route group in the extension, and traffic is routed to that sandbox without changing code. Set `NEXT_PUBLIC_USE_SIGNADOT_PROXY=false` in Vercel to use this method.
+
+- **API Key / Proxy Route (Alternative for reviewers & automation)**: Use a server-side proxy route that adds the `signadot-api-key` header for **authenticated preview URLs** (for example, `*.preview.signadot.com`). This works for reviewers who don't have the extension installed and for CI-driven tests, because the proxy keeps the API key server-side. It requires the proxy code below and `SIGNADOT_API_KEY` in Vercel. This is the default behavior (`NEXT_PUBLIC_USE_SIGNADOT_PROXY` defaults to `true`).
+
+The frontend (Next.js 13+) reads its backend URL from `NEXT_PUBLIC_API_URL`. The code automatically detects which method to use based on the `NEXT_PUBLIC_USE_SIGNADOT_PROXY` environment variable.
+
+**`frontend/src/lib/config/api.ts`** (Supports Both Methods)
+
+The code automatically handles both approaches based on `NEXT_PUBLIC_USE_SIGNADOT_PROXY`:
+
+> **Build‑time note:** `NEXT_PUBLIC_API_URL` is evaluated at build time by Next.js and baked into the client bundle. To change which backend a given preview uses, you must trigger a new Vercel build (for example, by pushing a commit or redeploying); changing the environment variable alone after the build does not update existing previews.
 
 ```typescript
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
+
+// Defaults to true (proxy) for backward compatibility
+// Set to false to use Chrome extension approach
+const USE_SIGNADOT_PROXY = 
+  process.env.NEXT_PUBLIC_USE_SIGNADOT_PROXY !== 'false';
 
 export function isSignadotUrl(url: string = API_URL): boolean {
   return url.includes('.preview.signadot.com') || url.includes('.sb.signadot.com');
@@ -207,21 +222,30 @@ export function isSignadotUrl(url: string = API_URL): boolean {
 
 export function getApiUrl(endpoint: string): string {
   const path = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
+  
   if (isSignadotUrl()) {
-    return `/api/proxy/${path}`;
+    if (USE_SIGNADOT_PROXY) {
+      // Proxy route adds Signadot API key header server-side for authenticated preview URLs
+      return `/api/proxy/${path}`;
+    } else {
+      // Chrome extension: use existing frontend URL; routing headers injected by the extension
+      const base = API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL;
+      return `${base}/${path}`;
+    }
   }
+  
   const base = API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL;
   return `${base}/${path}`;
 }
 
 export function getApiHeaders(): Record<string, string> {
-  return isSignadotUrl() ? {} : { 'content-type': 'application/json' };
+  return { 'content-type': 'application/json' };
 }
 ```
 
-**`frontend/src/app/api/proxy/[...path]/route.ts`**
+**`frontend/src/app/api/proxy/[...path]/route.ts`** (API Key / Proxy Approach)
 
-This route keeps the Signadot API key **server‑side** while still giving the frontend an instant backend preview:
+This route keeps the Signadot API key **server‑side** while still giving the frontend an instant backend preview. Only needed if using the proxy approach instead of the Chrome extension:
 
 ```typescript
 export async function GET(request: NextRequest, { params }: Params) {
@@ -242,7 +266,7 @@ export async function GET(request: NextRequest, { params }: Params) {
 }
 ```
 
-All sandbox requests go through `/api/proxy/*`, so `SIGNADOT_API_KEY` is never exposed in client‑side bundles.
+When using the proxy approach, all sandbox requests go through `/api/proxy/*`, so `SIGNADOT_API_KEY` is never exposed in client‑side bundles.
 
 **Example component usage**
 
@@ -323,7 +347,7 @@ Triggered on `pull_request`, this workflow creates a **PR‑scoped backend sandb
 3. **Verify the Signadot operator** namespace/pods exist (no install).
 4. **Rewrite `backend/sandbox.yaml`** with the cluster name and backend image reference.
 5. **Create the Signadot sandbox** and extract its `backend-api` URL.
-6. **Deploy to Vercel** with `NEXT_PUBLIC_API_URL` set to the sandbox endpoint and `SIGNADOT_API_KEY` as a server‑side secret.
+6. **Deploy to Vercel** with `NEXT_PUBLIC_API_URL` set to the sandbox endpoint. If using the proxy approach, also set `SIGNADOT_API_KEY` as a server‑side secret and `NEXT_PUBLIC_USE_SIGNADOT_PROXY=true` (default). If using Chrome extension, set `NEXT_PUBLIC_USE_SIGNADOT_PROXY=false`.
 7. **Comment on the PR** with both frontend and backend preview URLs.
 
 Key excerpt:
@@ -347,7 +371,9 @@ Key excerpt:
 - name: Deploy to Vercel
   uses: amondnet/vercel-action@v25
   with:
-    vercel-args: '--build-env NEXT_PUBLIC_API_URL=${{ steps.sandbox.outputs.sandbox-url }} --env SIGNADOT_API_KEY=${{ secrets.SIGNADOT_API_KEY }} --force'
+    # Proxy approach (default): Include SIGNADOT_API_KEY and NEXT_PUBLIC_USE_SIGNADOT_PROXY=true
+    # Chrome extension: Set NEXT_PUBLIC_USE_SIGNADOT_PROXY=false, omit SIGNADOT_API_KEY
+    vercel-args: '--build-env NEXT_PUBLIC_API_URL=${{ steps.sandbox.outputs.sandbox-url }} --build-env NEXT_PUBLIC_USE_SIGNADOT_PROXY=true --env SIGNADOT_API_KEY=${{ secrets.SIGNADOT_API_KEY }} --force'
 ```
 
 Secrets required in the **frontend repo**:
@@ -355,7 +381,7 @@ Secrets required in the **frontend repo**:
 | Category | Secrets |
 |----------|---------|
 | Vercel | `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` |
-| Signadot | `SIGNADOT_API_KEY`, `SIGNADOT_ORG` |
+| Signadot | `SIGNADOT_API_KEY` (only if using proxy approach), `SIGNADOT_ORG` |
 | GitHub | `BACKEND_REPO`, `GH_PAT` (to check out the backend repo) |
 | AWS | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `AWS_EKS_CLUSTER_NAME` |
 | Registry | `DOCKERHUB_USERNAME` (used for image rewrites) |
@@ -409,9 +435,8 @@ These two URLs represent your **end‑to‑end instant preview** for that PR.
 2. Open DevTools → **Network** tab.  
 3. Trigger the UI behavior that hits the backend (for example, load the page that reads `/health`).  
 4. Inspect the network requests:
-   - Requests from the browser should go to `/api/proxy/…` on the Vercel domain.
-   - The proxy (on the server side) forwards to a URL like:
-     - `https://backend-api--backend-pr-<PR_NUMBER>.sb.signadot.com/health`
+   - **If using Chrome extension**: Requests go directly to the sandbox URL (e.g., `https://backend-api--backend-pr-<PR_NUMBER>.sb.signadot.com/health`) with routing headers injected by the extension.
+   - **If using proxy approach**: Requests go to `/api/proxy/…` on the Vercel domain, which forwards to the sandbox URL.
 
 **Checkpoint: Instant backend preview**
 
@@ -439,8 +464,8 @@ To feel the **fast‑feedback loop**:
 | Issue | Checks |
 |-------|--------|
 | Sandbox creation fails | `kubectl get deployment vercel-signadot-backend -n default`, `kubectl get pods -n signadot`, confirm image exists in registry |
-| API calls from Vercel fail | Ensure `NEXT_PUBLIC_API_URL` appears in build logs, `SIGNADOT_API_KEY` is set (no `NEXT_PUBLIC_`), `/api/proxy/[...path]` exists |
-| 401/403 from sandbox | Requests must go through the proxy so the `signadot-api-key` header is added server‑side |
+| API calls from Vercel fail | Ensure `NEXT_PUBLIC_API_URL` appears in build logs. If using proxy approach: `SIGNADOT_API_KEY` is set (no `NEXT_PUBLIC_`), `/api/proxy/[...path]` exists. If using Chrome extension: extension is installed and sandbox is selected |
+| 401/403 from sandbox | If using proxy approach: requests must go through the proxy so the `signadot-api-key` header is added server‑side. If using Chrome extension: ensure extension is enabled and correct sandbox is selected |
 | AWS auth errors | Verify `AWS_EKS_CLUSTER_NAME` and `AWS_REGION` secrets; IAM needs `eks:DescribeCluster` |
 
 To debug locally:

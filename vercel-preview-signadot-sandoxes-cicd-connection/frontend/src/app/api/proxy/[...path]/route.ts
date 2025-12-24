@@ -1,14 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
- * Backend API base URL
- * Set by GitHub Actions workflow from Signadot sandbox URL in preview environments
+ * Proxy route for Signadot sandbox requests (Alternative to Chrome Extension)
+ * 
+ * This route is used when NEXT_PUBLIC_USE_SIGNADOT_PROXY=true (default).
+ * It adds the signadot-api-key header server-side to authenticate requests.
+ * 
+ * Alternative: Use the Signadot Chrome Extension (recommended) which injects
+ * headers automatically, eliminating the need for this proxy route.
+ * Set NEXT_PUBLIC_USE_SIGNADOT_PROXY=false to use the extension approach.
  */
-const BACKEND_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+
+/**
+ * Backend API base URL
+ * Set by GitHub Actions workflow from Signadot sandbox URL in preview environments.
+ * Defaults to the local backend on port 8080 during local development.
+ */
+const BACKEND_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 /**
  * Signadot API key for authenticating requests to Signadot preview URLs
  * Server-side only - set as SIGNADOT_API_KEY in Vercel (without NEXT_PUBLIC_ prefix)
+ * Only needed when using the proxy approach (not needed with Chrome extension)
  */
 const SIGNADOT_API_KEY = process.env.SIGNADOT_API_KEY || '';
 

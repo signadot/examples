@@ -18,7 +18,6 @@ env:
   # Docker registry (e.g., docker.io, ghcr.io, gcr.io)
   # Must be set as REGISTRY secret in GitHub
   REGISTRY: ${{ secrets.REGISTRY }}
-  IMAGE_TAG: ${{ github.sha }}
 
 jobs:
   build-and-push:
@@ -93,9 +92,10 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Output image reference
+        id: image-ref
         run: |
-          IMAGE_REF="${{ env.REGISTRY }}/${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
-          echo "IMAGE_REF=${IMAGE_REF}" >> $GITHUB_OUTPUT
+          IMAGE_REF="$(echo '${{ steps.meta.outputs.tags }}' | head -n1)"
+          echo "IMAGE_REF=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
           echo "::notice::Docker image built: ${IMAGE_REF}"
           echo "::notice::Use this image reference in your Signadot sandbox action"
 

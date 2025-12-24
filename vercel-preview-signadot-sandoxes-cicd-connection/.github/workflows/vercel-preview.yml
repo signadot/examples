@@ -144,7 +144,7 @@ jobs:
           
           # Fallback: extract from text output
           if [ -z "$SANDBOX_URL" ]; then
-            SANDBOX_URL=$(echo "$SANDBOX_OUTPUT" | grep -oE 'https://[^ \t]*\.preview\.signadot\.com' | head -n1)
+            SANDBOX_URL=$(echo "$SANDBOX_OUTPUT" | grep -oE 'https://[^[:space:]]+\.(preview|sb)\.signadot\.com' | head -n1)
           fi
           
           if [ -z "$SANDBOX_URL" ]; then
