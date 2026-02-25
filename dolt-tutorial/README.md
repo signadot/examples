@@ -31,11 +31,11 @@ From that point on, the agent handles most of the workflow. It creates a sandbox
 config:
   theme: default
   flowchart:
-    nodeSpacing: 10
-    rankSpacing: 20
-    padding: 7
+    nodeSpacing: 50
+    rankSpacing: 100
+    padding: 12
   themeVariables:
-    fontSize: 11px
+    fontSize: 14px
     fontFamily: monospace
 ---
 
