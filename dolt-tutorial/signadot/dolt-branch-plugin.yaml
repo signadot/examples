@@ -1,0 +1,103 @@
+# dolt-branch-plugin.yaml
+# Signadot Resource Plugin that creates and deletes Dolt database branches.
+#
+# The create step:
+#   1. Creates a new Dolt branch from main
+#   2. Outputs "location/branchname" as the database name for the sandbox pod
+#
+# The delete step:
+#   1. Force-deletes the sandbox branch
+#
+# Usage:
+#   signadot resourceplugin apply -f dolt-branch-plugin.yaml
+#
+# Prerequisites:
+#   - The 'dolt-credentials' Secret must exist in the default namespace
+#   - The Dolt server must be running at dolt-db.default.svc:3306
+
+name: dolt-branch
+spec:
+  description: Creates and deletes Dolt database branches for sandbox isolation
+
+  runner:
+    image: debian:bookworm-slim
+    namespace: default
+
+    podTemplateOverlay: |
+      spec:
+        containers:
+          - name: main
+            env:
+              - name: DOLT_HOST
+                value: "dolt-db.default.svc"
+              - name: DOLT_PORT
+                value: "3306"
+              - name: DOLT_USER
+                valueFrom:
+                  secretKeyRef:
+                    name: dolt-credentials
+                    key: username
+              - name: DOLT_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: dolt-credentials
+                    key: password
+              - name: DOLT_DATABASE
+                value: "location"
+
+  create:
+    - name: createbranch
+      script: |
+        #!/bin/bash
+        set -e
+
+        apt-get update -qq && apt-get install -y -qq default-mysql-client > /dev/null 2>&1
+
+        # Sanitize sandbox name: remove hyphens for a valid Dolt branch name.
+        # SIGNADOT_SANDBOX_NAME is injected by the Signadot Operator.
+        SAFE_NAME=$(echo "${SIGNADOT_SANDBOX_NAME}" | tr -d '-')
+        BRANCH_NAME="sandbox${SAFE_NAME}"
+
+        # Create a new branch from main.
+        mysql -h "${DOLT_HOST}" -P "${DOLT_PORT}" \
+          -u "${DOLT_USER}" -p"${DOLT_PASSWORD}" "${DOLT_DATABASE}" \
+          -e "CALL DOLT_BRANCH('${BRANCH_NAME}', 'main');"
+
+        echo "Created Dolt branch: ${BRANCH_NAME}"
+
+        # Build the branch-qualified database name using the / separator.
+        # The mysql2 Node.js driver passes this directly to Dolt as the
+        # database name. Dolt resolves it and routes the connection to the branch.
+        DB_NAME_WITH_BRANCH="${DOLT_DATABASE}/${BRANCH_NAME}"
+
+        mkdir -p /outputs
+        echo -n "${DB_NAME_WITH_BRANCH}" > /outputs/db-name
+        echo -n "${BRANCH_NAME}" > /outputs/branch-name
+
+      outputs:
+        - name: db-name
+          valueFromPath: /outputs/db-name
+        - name: branch-name
+          valueFromPath: /outputs/branch-name
+
+  delete:
+    - name: deletebranch
+      inputs:
+        - name: branch-name
+          valueFromStep:
+            name: createbranch
+            output: branch-name
+          as:
+            env: BRANCH_NAME
+      script: |
+        #!/bin/bash
+        set -e
+
+        apt-get update -qq && apt-get install -y -qq default-mysql-client > /dev/null 2>&1
+
+        # Force-delete the sandbox branch.
+        mysql -h "${DOLT_HOST}" -P "${DOLT_PORT}" \
+          -u "${DOLT_USER}" -p"${DOLT_PASSWORD}" "${DOLT_DATABASE}" \
+          -e "CALL DOLT_BRANCH('-D', '${BRANCH_NAME}');"
+
+        echo "Deleted Dolt branch: ${BRANCH_NAME}"
