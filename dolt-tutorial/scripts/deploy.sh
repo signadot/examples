@@ -86,4 +86,4 @@ echo ""
 
 echo "=== Deployment complete ==="
 echo "Create sandboxes with:"
-echo "  signadot sandbox apply -f signadot/sandbox.yaml --set cluster=<YOUR_CLUSTER>"
+echo "  signadot sandbox apply -f signadot/sandbox.yaml --set cluster=<YOUR_CLUSTER> --set image=location-service:v2"

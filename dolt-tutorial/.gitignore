@@ -1,25 +1,4 @@
-# OS
+node_modules/
 .DS_Store
-Thumbs.db
-
-# Editors
 *.swp
-*.swo
 *~
-.idea/
-.vscode/
-
-# Secrets — never commit credentials
-dolt-credentials.yaml
-*.secret
-.env
-
-# Signadot CLI output
-.signadot/
-
-# Kubernetes generated
-kubeconfig
-*.kubeconfig
-
-# Logs
-*.log

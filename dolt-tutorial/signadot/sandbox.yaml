@@ -8,7 +8,8 @@
 # this value as MYSQL_DBNAME, so all its queries go to the sandbox branch.
 #
 # Usage:
-#   signadot sandbox apply -f sandbox.yaml --set cluster=<YOUR_CLUSTER>
+#   signadot sandbox apply -f sandbox.yaml \
+#     --set cluster=<YOUR_CLUSTER> --set image=location-service:v2
 
 name: dolt-sandbox-demo
 spec:
@@ -25,6 +26,8 @@ spec:
         namespace: default
         name: location-service
       customizations:
+        images:
+          - image: "@{image}"
         env:
           - name: MYSQL_DBNAME
             container: location
