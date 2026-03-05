@@ -33,7 +33,7 @@ function getPool() {
 // GET /locations - list all locations
 app.get("/locations", async (req, res) => {
   try {
-    const [rows] = await getPool().query("SELECT * FROM locations ORDER BY id");
+    const [rows] = await getPool().query("SELECT id, name, coordinates FROM locations ORDER BY id");
     res.json(rows);
   } catch (err) {
     console.error("Error querying locations:", err.message);
@@ -45,7 +45,7 @@ app.get("/locations", async (req, res) => {
 app.get("/locations/:id", async (req, res) => {
   try {
     const [rows] = await getPool().query(
-      "SELECT * FROM locations WHERE id = ?",
+      "SELECT id, name, coordinates FROM locations WHERE id = ?",
       [req.params.id]
     );
     if (rows.length === 0) {

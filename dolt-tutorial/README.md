@@ -13,14 +13,13 @@
 
 Ephemeral sandbox environments isolate your services, but they still share the same staging database. One developer's test writes corrupt another's query results. [Dolt](https://docs.dolthub.com/) is a MySQL-compatible database with built-in Git-style version control that solves this problem. A [Signadot Resource Plugin](https://docs.signadot.com/docs/reference/resource-plugins) creates a Dolt branch when a sandbox starts and deletes it when the sandbox is removed. Every sandbox reads from its own isolated copy of the data while the baseline stays on `main`.
 
-The [Signadot MCP server](https://docs.signadot.com/docs/integrations/mcp) connects this infrastructure to your editor. An AI agent can create sandboxes, check their status, and test endpoints through native MCP tool calls instead of manual CLI commands. This tutorial uses Claude Code, but any MCP-compatible client works. See the [Signadot MCP integration guide](https://docs.signadot.com/docs/integrations/mcp) for Cursor and VS Code setup.
+The [Signadot MCP server](https://docs.signadot.com/docs/integrations/mcp) connects this infrastructure to your editor. An AI agent can create sandboxes, check their status, and test endpoints through native MCP tool calls instead of manual CLI commands. This tutorial uses Claude Code, but other MCP-compatible coding agents should work as well. See the [Signadot MCP integration guide](https://docs.signadot.com/docs/integrations/mcp) for Cursor and VS Code setup.
 
 ## What You Will Build
 
-You will deploy a Dolt SQL server, a read-only location service, and a Signadot Resource Plugin that manages Dolt branches. Then you will add a `POST /locations` endpoint to the service, build a new image, and use an AI agent to create a sandbox with an isolated Dolt branch and verify that writes on the sandbox branch do not affect the baseline.
+You will deploy a Dolt SQL server, a read-only location service, and a Signadot Resource Plugin that manages Dolt branches. Then you will use an AI agent to add a `POST /locations` endpoint to the service, build a new image, create a sandbox with an isolated Dolt branch, and verify that writes on the sandbox branch do not affect the baseline.
 
 The scenario requires both a forked service to deploy the new code and an isolated database branch to prevent test writes from polluting `main`. Neither one alone is sufficient.
-
 ```mermaid
 ---
 config:
@@ -129,7 +128,6 @@ eval $(minikube docker-env)
 Then run the deploy script:
 
 ```bash
-chmod +x scripts/*.sh
 ./scripts/deploy.sh
 ```
 
@@ -158,81 +156,22 @@ echo -n "${DOLT_DATABASE}/${BRANCH_NAME}" > /outputs/db-name
 
 The script strips hyphens from the sandbox name to comply with Dolt's branch naming rules, creates the branch, and writes the branch-qualified database name (e.g. `location/sandboxdoltsandboxdemo`) to an output file. The Signadot Operator passes this value to the forked pod. The plugin's `delete` script calls `DOLT_BRANCH('-D', ...)` to force-delete the branch when the sandbox is removed.
 
-### The Sandbox Specification
-
-The sandbox spec in `signadot/sandbox.yaml` declares a dependency on the `dolt-branch` plugin and forks the location service with an overridden image and `MYSQL_DBNAME`:
-
-```yaml
-resources:
-  - name: doltdb
-    plugin: dolt-branch
-
-forks:
-  - forkOf:
-      kind: Deployment
-      namespace: default
-      name: location-service
-    customizations:
-      images:
-        - image: "@{image}"
-      env:
-        - name: MYSQL_DBNAME
-          container: location
-          valueFrom:
-            resource:
-              name: doltdb
-              outputKey: createbranch.db-name
-
-defaultRouteGroup:
-  endpoints:
-    - name: location-api
-      target: "http://location-service.default.svc:3000"
-```
-
-The `@{image}` placeholder resolves at apply time via `--set image=location-service:v2`. The `MYSQL_DBNAME` value comes from the Resource Plugin's output.
-
 ## Developing and Testing a Feature
 
-The baseline location service only supports reads. In this section, you will add a write endpoint, build a new image, use the AI agent to deploy it to an isolated sandbox, and then verify that test writes land on the sandbox's Dolt branch without touching `main`. You write the code and build the image. The agent handles Signadot operations through the MCP server.
+The baseline location service only supports reads. In this section, the AI agent will add a write endpoint, build a new image, deploy it to an isolated sandbox, and verify that test writes land on the sandbox's Dolt branch without touching `main`. The entire workflow runs through three prompts.
 
 The examples below use [Claude Code](https://docs.anthropic.com/en/docs/claude-code/overview) with the [Signadot MCP server](https://docs.signadot.com/docs/integrations/mcp).
 
-### Step 1: Add the POST Endpoint
+### Prompt 1: Add the POST Endpoint
 
-Add the JSON middleware after `const app = express();` and the new route before the `/health` endpoint in `app/index.js`:
-
-```jsx
-app.use(express.json());
-
-app.post("/locations", async (req, res) => {
-  try {
-    const { name, coordinates } = req.body;
-    if (!name || !coordinates) {
-      return res.status(400).json({ error: "name and coordinates are required" });
-    }
-    const [result] = await getPool().query(
-      "INSERT INTO locations (name, coordinates) VALUES (?, ?)",
-      [name, coordinates]
-    );
-    res.status(201).json({ id: result.insertId, name, coordinates });
-  } catch (err) {
-    console.error("Error creating location:", err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
+```
+Add a new "POST /locations" endpoint to store new locations
+and build a location-service:v2 image.
 ```
 
-Build the updated image as `v2`:
+The agent reads `app/index.js`, adds `express.json()` middleware and a `POST /locations` route that inserts a record into the `locations` table, then runs `docker build -t location-service:v2 app/`.
 
-```bash
-docker build -t location-service:v2 app/
-```
-
-The `v2` image now sits in minikube's Docker daemon. You cannot deploy it directly to the baseline. Every test POST would insert records into the `main` branch of Dolt, and every other developer sharing that database would see them. You need an isolated environment: a forked pod running `v2` code against its own Dolt branch.
-
-### Step 2: Create the Sandbox
-
-Ask the agent to create a sandbox that runs the `v2` image on an isolated Dolt branch:
+### Prompt 2: Create the Sandbox
 
 ```
 Create a Signadot sandbox called "dolt-sandbox-demo" on my cluster
@@ -240,29 +179,27 @@ Create a Signadot sandbox called "dolt-sandbox-demo" on my cluster
 resource plugin for database isolation.
 ```
 
-The agent assembles the full sandbox specification from your prompt and presents it for review before making any changes.
+The agent presents the sandbox configuration for your review and, after you confirm, calls `create_sandbox` through the Signadot MCP server. Signadot runs the Resource Plugin (which creates a new Dolt branch from `main`), forks the location-service Deployment with the `v2` image, and points the forked pod's `MYSQL_DBNAME` at the new branch.
 
-After you confirm, the agent calls `create_sandbox` through the Signadot MCP server. Signadot runs the Resource Plugin (which creates a new Dolt branch from `main`), forks the location-service Deployment with the `v2` image, and points the forked pod's `MYSQL_DBNAME` at the new branch.
-
-Two pods are now running in the cluster: the baseline pod (v1, reading from `main`) and the forked pod (v2, reading from and writing to the sandbox branch).
+Two pods are now running: the baseline (v1, reading from `main`) and the fork (v2, reading from and writing to the sandbox branch).
 
 The routing key tells Signadot which requests should go to the forked pod:
 
 ![Signadot dashboard showing the sandbox details](./image/signadot-dashboard.png)
 
-### Step 3: Test the Change
-
-Ask the agent to exercise the POST endpoint a
-
-nd prove that the write is isolated. The test has three parts: POST a new record to the sandbox, read it back from the sandbox to confirm it was written, then read the same ID from the baseline to confirm it was not written there.
+### Prompt 3: Test the Change
 
 ```
-Use the sandbox to test the new POST endpoint. Create a location called
-"Test Coffee Shop" with coordinates "400,500". Then verify the new record
-exists in the sandbox but not in the baseline.
+You are already connected to the cluster (signadot local connect), so you
+can access cluster services directly. Access the sandbox to test the new
+POST endpoint. Create a location called "Test Coffee Shop" with coordinates
+"400,500". Then verify the new record exists in the sandbox but not in
+the baseline.
 ```
 
-All three requests hit the same URL: `http://location-service.default.svc:3000`. The `baggage: sd-routing-key` header is the only difference. Signadot routes requests with the header to the forked pod. Requests without the header go to the baseline pod. The forked pod writes to its own Dolt branch, so the test record never appears on `main`.
+The agent calls `get_sandbox` to retrieve the routing key, POSTs a new record to the sandbox, reads it back to confirm it was written, then reads the same ID from the baseline to confirm it was not written there. All requests hit the same URL. The `baggage: sd-routing-key` header is the only difference. Signadot routes requests with the header to the forked pod, and requests without it go to the baseline.
+
+![Claude code output showing everything works as expected](./image/claude-code.png)
 
 You can run the same test manually. First, extract the routing key:
 
@@ -313,6 +250,41 @@ The Resource Plugin's `delete` workflow runs automatically and drops the sandbox
 
 If you prefer the CLI or need to script sandbox operations in CI, the following commands cover the full lifecycle. All commands assume `signadot local connect` is running.
 
+### The Sandbox Specification
+
+The sandbox spec in `signadot/sandbox.yaml` declares a dependency on the `dolt-branch` plugin and forks the location service with an overridden image and `MYSQL_DBNAME`:
+
+```yaml
+resources:
+  - name: doltdb
+    plugin: dolt-branch
+
+forks:
+  - forkOf:
+      kind: Deployment
+      namespace: default
+      name: location-service
+    customizations:
+      images:
+        - image: "@{image}"
+      env:
+        - name: MYSQL_DBNAME
+          container: location
+          valueFrom:
+            resource:
+              name: doltdb
+              outputKey: createbranch.db-name
+
+defaultRouteGroup:
+  endpoints:
+    - name: location-api
+      target: "http://location-service.default.svc:3000"
+```
+
+The `@{image}` placeholder resolves at apply time via `--set image=location-service:v2`. The `MYSQL_DBNAME` value comes from the Resource Plugin's output.
+
+### CLI Lifecycle
+
 Create a sandbox:
 
 ```bash
@@ -354,6 +326,6 @@ Tear down everything, including the Dolt server, location service, PVC, Secret, 
 
 ## Conclusion
 
-Each Signadot sandbox gets its own forked microservice pod and its own Dolt database branch. The Resource Plugin handles the full branch lifecycle, and the MCP integration lets the AI agent manage sandbox provisioning and testing through native tool calls from your editor.
+Each Signadot sandbox gets its own forked microservice pod and its own Dolt database branch. The Resource Plugin handles the full branch lifecycle, and the MCP integration lets the AI agent manage the entire development workflow from your editor: writing code, building images, provisioning sandboxes, and testing in isolation.
 
 All manifests, scripts, and specs from this tutorial are available in the [Dolt tutorial repository](https://github.com/signadot/examples).
