@@ -1,0 +1,13 @@
+{
+  "name": "location-service",
+  "version": "1.0.0",
+  "description": "Minimal location service backed by Dolt",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "mysql2": "^3.11.0"
+  }
+}

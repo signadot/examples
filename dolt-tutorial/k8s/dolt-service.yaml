@@ -1,0 +1,18 @@
+# dolt-service.yaml
+# Exposes the Dolt SQL server within the cluster.
+# DNS: dolt-db.default.svc
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: dolt-db
+  labels:
+    app: dolt-db
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3306
+      targetPort: 3306
+      name: mysql
+  selector:
+    app: dolt-db

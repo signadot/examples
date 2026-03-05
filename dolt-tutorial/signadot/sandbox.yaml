@@ -1,0 +1,42 @@
+# sandbox.yaml
+# Creates a Signadot sandbox that forks the location service
+# with an isolated Dolt database branch.
+#
+# The dolt-branch Resource Plugin runs before the fork starts. It creates
+# a new Dolt branch from main and outputs the branch-qualified database
+# name (e.g., "location/sandboxdoltsandboxdemo"). The forked pod receives
+# this value as MYSQL_DBNAME, so all its queries go to the sandbox branch.
+#
+# Usage:
+#   signadot sandbox apply -f sandbox.yaml \
+#     --set cluster=<YOUR_CLUSTER> --set image=location-service:v2
+
+name: dolt-sandbox-demo
+spec:
+  cluster: "@{cluster}"
+  description: "Location service with isolated Dolt database branch"
+
+  resources:
+    - name: doltdb
+      plugin: dolt-branch
+
+  forks:
+    - forkOf:
+        kind: Deployment
+        namespace: default
+        name: location-service
+      customizations:
+        images:
+          - image: "@{image}"
+        env:
+          - name: MYSQL_DBNAME
+            container: location
+            valueFrom:
+              resource:
+                name: doltdb
+                outputKey: createbranch.db-name
+
+  defaultRouteGroup:
+    endpoints:
+      - name: location-api
+        target: "http://location-service.default.svc:3000"

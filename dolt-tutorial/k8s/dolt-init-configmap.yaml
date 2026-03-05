@@ -1,0 +1,31 @@
+# dolt-init-configmap.yaml
+# SQL init script that runs on first Dolt startup.
+# Mounted into /docker-entrypoint-initdb.d/ in the Dolt container.
+#
+# To re-seed the database, delete the PVC (dolt-data)
+# and restart the Dolt pod. The init script runs again on a fresh volume.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dolt-init-data
+data:
+  init-data.sql: |
+    CREATE DATABASE IF NOT EXISTS location;
+    USE location;
+
+    CREATE TABLE IF NOT EXISTS locations (
+        id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        name        VARCHAR(255) NOT NULL UNIQUE,
+        coordinates VARCHAR(255) NOT NULL
+    );
+
+    INSERT INTO locations (id, name, coordinates) VALUES
+        (1,   'My Home',                 '231,773'),
+        (123, 'Rachel''s Floral Designs', '115,277'),
+        (392, 'Trom Chocolatier',        '577,322'),
+        (567, 'Amazing Coffee Roasters', '211,653'),
+        (731, 'Japanese Desserts',       '728,326');
+
+    CALL DOLT_ADD('.');
+    CALL DOLT_COMMIT('-m', 'Seed location data');
