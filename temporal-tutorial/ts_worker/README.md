@@ -61,6 +61,52 @@ This example solves that with a two-layer design:
 - **Throws a plain `Error` when the task isn't for this worker.** In the TypeScript SDK, an error that is not a `TemporalFailure` fails the *workflow task*, not the workflow. The server retries the task until a worker that matches the routing key polls it — the same polling-based distribution the Python worker uses. Commands from the failed task (including the local activity marker) are discarded, so the next worker re-runs its own check.
 - **Propagates the `_tracer-data` header** onto every activity, local activity, child workflow, signal, and continue-as-new the workflow schedules, by copying the payload verbatim in an outbound interceptor. This is deliberately a pure string copy instead of the OTel SDK propagators: workflow isolates are reused across workflow runs (`reuseV8Context`), and keeping mutable OpenTelemetry runtime state out of the isolate keeps every run and replay identical.
 
+#### How the `signadotShouldProcess` local activity bridges the two runtimes
+
+The local activity is the sanctioned escape hatch from the deterministic
+isolate to the Node.js side, and it is split across three places:
+
+- **Referenced from** `src/signadot/workflow-interceptors.ts` (V8 isolate).
+  `proxyLocalActivities<{ signadotShouldProcess(...) }>()` returns a typed
+  *stub* — the isolate never imports the implementation (it can't; no Node.js
+  APIs). Awaiting the stub emits a *schedule-local-activity command* by name
+  and suspends.
+- **Implemented in** `src/signadot/worker.ts` (Node.js). `SandboxAwareWorker`
+  defines `signadotShouldProcess` as a plain async closure over the
+  `RoutesAPIClient` and registers it alongside the application's activities.
+  Nothing about the function itself is "local" — locality is chosen by the
+  caller (`proxyLocalActivities` vs `proxyActivities`).
+- **Runs on** the Node.js side of **the same worker process that is executing
+  the workflow task**. That is the property that makes the design correct: a
+  regular activity would be dispatched through the Temporal server onto the
+  task queue and could be picked up by *any* worker, so the answer to "should
+  I process this?" could come from the wrong worker's routing cache. A local
+  activity never leaves the process.
+
+The lifecycle of one workflow task:
+
+1. A worker polls the task queue and receives the workflow task; the isolate
+   runs the inbound interceptor before the workflow function.
+2. The stub emits the schedule-local-activity command; the isolate yields to
+   the Node.js side, which executes `signadotShouldProcess` in-process
+   (`ctx.info.isLocal === true`) against this worker's routing cache and
+   returns the boolean into the isolate.
+3. If `true`: the workflow runs, and when the workflow task completes, the
+   local activity result is recorded in history as a **marker event**. On any
+   future replay (worker restart, or baseline taking over after the sandbox is
+   deleted) the marker replays the recorded result — the function is *not*
+   re-executed, which keeps replay deterministic.
+4. If `false`: the interceptor throws a plain `Error`, failing the workflow
+   task. All commands from that task — including the marker — are discarded,
+   and the server retries until a matching worker runs its own check.
+
+Two guardrails to be aware of: the activity interceptor skips the routing
+check for local activities (otherwise `signadotShouldProcess` would be subject
+to the routing check it implements), and a *failure* of the local activity is
+caught and re-thrown as a plain `Error` — letting the `ActivityFailure` (a
+`TemporalFailure`) propagate would fail the whole workflow instead of just
+retrying the task.
+
 ### 2. Activity task routing + OTel Baggage bridging (Node.js side)
 
 `SignadotActivityInboundInterceptor` (`src/signadot/activity-interceptor.ts`) runs on the Node.js side with no determinism constraints and does two things:
