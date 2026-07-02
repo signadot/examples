@@ -1,0 +1,27 @@
+{
+  "name": "temporal-money-transfer-ts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sandbox-aware Temporal worker (TypeScript SDK) with Signadot routing-key isolation",
+  "main": "lib/worker.js",
+  "scripts": {
+    "build": "tsc",
+    "worker": "node lib/worker.js",
+    "starter": "node lib/starter.js"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/context-async-hooks": "^2.8.0",
+    "@opentelemetry/core": "^2.8.0",
+    "@temporalio/activity": "^1.19.0",
+    "@temporalio/client": "^1.19.0",
+    "@temporalio/common": "^1.19.0",
+    "@temporalio/interceptors-opentelemetry": "^1.19.0",
+    "@temporalio/worker": "^1.19.0",
+    "@temporalio/workflow": "^1.19.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}

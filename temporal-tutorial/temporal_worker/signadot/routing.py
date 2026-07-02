@@ -5,7 +5,7 @@ import aiohttp
 from typing import Set, Optional
 from urllib.parse import urlencode, urlunparse, urlparse, ParseResult
 import logging
-logger = logging.getLogger("temporal_worker.routing")
+logger = logging.getLogger("temporal_worker.signadot.routing")
 
 # All config values are now read from environment variables, with safe fallbacks
 class RoutesAPIClient:

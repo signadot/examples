@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: temporal-worker-ts
+  labels:
+    app: temporal-worker-ts
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: temporal-worker-ts
+  template:
+    metadata:
+      labels:
+        app: temporal-worker-ts
+      annotations:
+        sidecar.signadot.com/inject: "true"
+    spec:
+      containers:
+        - name: temporal-worker-ts
+          image: "temporal-money-transfer-ts:v1.0"
+          env:
+            - name: TASK_QUEUE
+              value: "money-transfer-ts"
+            - name: TEMPORAL_SERVER_URL
+              value: "temporal.temporal.svc:7233"
+            - name: ROUTES_API_ROUTE_SERVER_ADDR
+              value: "http://routeserver.signadot.svc:7778"
+            - name: ROUTES_API_BASELINE_KIND
+              value: "Deployment"
+            - name: ROUTES_API_BASELINE_NAMESPACE
+              value: "temporal"
+            - name: ROUTES_API_BASELINE_NAME
+              value: "temporal-worker-ts"
+            - name: ROUTES_API_REFRESH_INTERVAL_SECONDS
+              value: "120"
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1"
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL

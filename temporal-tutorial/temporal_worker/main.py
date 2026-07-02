@@ -1,7 +1,7 @@
 import logging_config  # global logging config must be first
 import os
 import asyncio
-from sandbox_aware_worker import SandboxAwareWorker
+from signadot import SandboxAwareWorker
 from workflows import MoneyTransferWorkflow
 from activities import BankingActivities
 

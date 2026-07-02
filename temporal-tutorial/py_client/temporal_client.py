@@ -11,19 +11,21 @@ async def start_workflow_with_routing(payment_details: PaymentDetails) -> Dict:
     Starts the MoneyTransferWorkflow with OpenTelemetry context propagation.
     """
     temporal_server_url = os.getenv("TEMPORAL_SERVER_URL", "temporal.temporal:7233")
-    
+    # Use "money-transfer-ts" to run against the TypeScript worker instead
+    task_queue = os.getenv("TASK_QUEUE", "money-transfer")
+
     # Connect with TracingInterceptor for OTel context propagation
     client = await Client.connect(
         temporal_server_url,
         interceptors=[TracingInterceptor()]
     )
-    
+
     workflow_id = f"money-transfer-{uuid.uuid4()}"
     handle = await client.start_workflow(
         "MoneyTransferWorkflow",
         payment_details,
         id=workflow_id,
-        task_queue="money-transfer"
+        task_queue=task_queue
     )
     
     return {
