@@ -8,6 +8,11 @@ from models import WithdrawRequest, WithdrawResponse, DepositRequest, DepositRes
 import logging
 logger = logging.getLogger("temporal_worker.product.activities")
 
+# NOTE: activities contain pure application logic. Signadot routing and
+# OpenTelemetry context propagation are handled entirely by the platform layer
+# (see the signadot package): outbound HTTP calls made from these activities
+# with an instrumented client automatically carry the sd-routing-key baggage.
+
 class BankingActivities:
     """Banking activities implementation"""
     
@@ -100,6 +105,6 @@ class BankingActivities:
         """Simulate updating account balance in database"""
         # In real implementation, this would update actual database
         logger.info(f"Updated balance for {account_id}: {new_balance}")
-        
+
         # Simulate database update delay
         await asyncio.sleep(0.1)

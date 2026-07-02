@@ -7,16 +7,25 @@ from typing import List, Any
 from temporalio.worker import Worker
 from temporalio.client import Client
 from temporalio.contrib.opentelemetry import TracingInterceptor
+from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
 
-from routing import RoutesAPIClient
-from interceptors import SelectiveTaskInterceptor
+from .routing import RoutesAPIClient
+from .interceptors import SelectiveTaskInterceptor
 
-logger = logging.getLogger("temporal_worker.sandbox_aware_worker")
+logger = logging.getLogger("temporal_worker.signadot.worker")
+
+# Instrument aiohttp so outbound HTTP calls made from activities automatically
+# carry the OTel context, including the sd-routing-key baggage bridged by
+# SelectiveTaskInterceptor. Use the matching instrumentation package for other
+# HTTP clients (requests, httpx, ...).
+AioHttpClientInstrumentor().instrument()
 
 class SandboxAwareWorker:
     """
-    A Temporal worker that automatically handles Signadot sandbox routing and context propagation.
-    Developers can extend this class to add their domain-specific workflows and activities.
+    A Temporal worker that automatically handles Signadot sandbox routing and
+    context propagation. Platform-owned: application developers construct it
+    with their domain-specific workflows and activities and call start() --
+    everything Signadot- and OpenTelemetry-specific is wired up here.
     """
     
     def __init__(self, task_queue: str, workflows: List[Any], activities: List[Any]):

@@ -1,16 +1,19 @@
 # Temporal SDK
-temporalio==1.14.1
+temporalio==1.18.2
 
 # HTTP client for Routes API
-aiohttp==3.9.0
+aiohttp==3.13.5
 
 # OpenTelemetry SDK and Instrumentation
-opentelemetry-api>=1.23.0
-opentelemetry-sdk>=1.23.0
-opentelemetry-instrumentation==0.55b1
-opentelemetry-instrumentation-asgi==0.55b1
-opentelemetry-semantic-conventions==0.55b1
-opentelemetry-util-http==0.55b1
+opentelemetry-api>=1.41.1
+opentelemetry-sdk>=1.41.1
+opentelemetry-instrumentation==0.62b1
+opentelemetry-instrumentation-asgi==0.62b1
+# Auto-injects traceparent + baggage headers on outbound aiohttp calls made
+# from activities (see activities.py / interceptors.py)
+opentelemetry-instrumentation-aiohttp-client==0.62b1
+opentelemetry-semantic-conventions==0.62b1
+opentelemetry-util-http==0.62b1
 
 # Additional dependencies for production
-python-dotenv==1.0.0
+python-dotenv==1.2.1

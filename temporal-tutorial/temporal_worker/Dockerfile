@@ -1,4 +1,4 @@
-FROM python:3.9-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
@@ -11,14 +11,14 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy the platform layer (owned by the platform team)
+COPY signadot/ signadot/
+
 # Copy the application code
 COPY main.py .
-COPY sandbox_aware_worker.py .
 COPY workflows.py .
 COPY activities.py .
 COPY models.py .
-COPY routing.py .
-COPY interceptors.py .
 COPY logging_config.py .
 
 EXPOSE 8080
