@@ -1,0 +1,19 @@
+name: modal-route-dev
+spec:
+  description: HotROD route service under development in a Modal sandbox
+  cluster: "@{cluster}"
+  ttl:
+    duration: 1d
+  local:
+  - name: modal-route
+    from:
+      kind: Deployment
+      namespace: "@{namespace}"
+      name: route
+    mappings:
+    - port: 8083
+      toLocal: "localhost:8083"
+  defaultRouteGroup:
+    endpoints:
+    - name: frontend
+      target: "http://frontend.@{namespace}.svc:8080"
