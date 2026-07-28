@@ -1,4 +1,4 @@
-# Cloud Dev Environments: Coding Agents in Modal Sandboxes with Signadot
+# Background Coding Agents: End-to-End Testing with Modal Sandboxes and Signadot
 
 ## Prerequisites
 
