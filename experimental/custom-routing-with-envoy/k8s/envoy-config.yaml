@@ -61,26 +61,41 @@ data:
                         function envoy_on_request(request_handle)
                           local rkey = request_handle:headers():get("Ot-Baggage-Sd-Routing-Key")
                           if rkey ~= nil and rkey ~= '' then
+                            -- The routeserver's HTTP API takes the baseline workload as
+                            -- query parameters and filters by routing key server-side.
                             local headers, body = request_handle:httpCall(
                             "signadot_router",
                             {
                               [":method"] = "GET",
-                              [":path"] = "/apis/apps/v1/namespaces/httpbin/deployments/httpbin/routes",
+                              [":path"] = "/api/v1/workloads/routing-rules"
+                                .. "?baselineKind=Deployment"
+                                .. "&baselineNamespace=httpbin"
+                                .. "&baselineName=httpbin"
+                                .. "&routingKey=" .. rkey,
                               [":authority"] = "signadot_router"
                             },
                             "",
                             5000)
 
-                            local parsed = {}
-                            parsed = JSON:decode(body)
-                            
-                            for i,v in ipairs(parsed[1].routes) do
-                              if v.workspace == rkey then
-                                local dest = v.targetIP .. ":" .. v.targetPort
-                                request_handle:headers():add("X-Host-Port", dest)
-                                request_handle:headers():add("X-SD-DST-ROUTE", dest)
-                                request_handle:logInfo("routing to: ".. dest)
-                                return
+                            local parsed = JSON:decode(body)
+                            local rules = (parsed or {}).routingRules or {}
+
+                            -- Destinations are grouped by the port on the baseline
+                            -- workload, so pick the one for the httpbin container port
+                            -- (80) -- the same port the baseline branch below uses.
+                            for _, rule in ipairs(rules) do
+                              if rule.routingKey == rkey then
+                                for _, mapping in ipairs(rule.mappings or {}) do
+                                  if mapping.workloadPort == 80 then
+                                    for _, dst in ipairs(mapping.destinations or {}) do
+                                      local dest = dst.host .. ":" .. dst.port
+                                      request_handle:headers():add("X-Host-Port", dest)
+                                      request_handle:headers():add("X-SD-DST-ROUTE", dest)
+                                      request_handle:logInfo("routing to: ".. dest)
+                                      return
+                                    end
+                                  end
+                                end
                               end
                             end
                           end
@@ -124,7 +139,7 @@ data:
                 address:
                   socket_address:
                     address: "routeserver.signadot.svc.cluster.local"
-                    port_value: 8080
+                    port_value: 7778
       - name: dynamic_forward_proxy_cluster
         connect_timeout: 1s
         lb_policy: CLUSTER_PROVIDED
