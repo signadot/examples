@@ -16,6 +16,7 @@ export class RoutesAPIClient {
   private readonly baselineName: string;
   private routingKeysCache: Set<string> = new Set();
   private refreshTimer?: NodeJS.Timeout;
+  private refreshInFlight?: Promise<void>;
 
   constructor(sandboxName: string) {
     this.sandboxName = sandboxName;
@@ -41,8 +42,7 @@ export class RoutesAPIClient {
     try {
       const response = await fetch(url);
       if (!response.ok) {
-        logError(`Error fetching routes. Status: ${response.status}, Body: ${await response.text()}`);
-        return;
+        throw new Error(`Status: ${response.status}, Body: ${await response.text()}`);
       }
       const data = (await response.json()) as { routingRules?: Array<{ routingKey?: string }> };
       const newKeys = new Set<string>();
@@ -59,15 +59,29 @@ export class RoutesAPIClient {
       this.routingKeysCache = newKeys;
     } catch (err) {
       logError(`Error during route fetch: ${err}`);
+      throw err;
     }
+  }
+
+  private refresh(): Promise<void> {
+    if (this.refreshInFlight !== undefined) {
+      return this.refreshInFlight;
+    }
+    const inFlight = this.fetchAndUpdate().finally(() => {
+      this.refreshInFlight = undefined;
+    });
+    this.refreshInFlight = inFlight;
+    return inFlight;
   }
 
   /** Start the periodic cache refresh. Performs an initial fetch immediately. */
   async startPolling(refreshIntervalSeconds: number): Promise<void> {
     const target = this.sandboxName ? `sandbox '${this.sandboxName}'` : 'baseline';
     log(`Starting periodic cache updater for ${target} with ${refreshIntervalSeconds}s polling interval`);
-    await this.fetchAndUpdate();
-    this.refreshTimer = setInterval(() => void this.fetchAndUpdate(), refreshIntervalSeconds * 1000);
+    await this.refresh();
+    this.refreshTimer = setInterval(() => {
+      void this.refresh().catch(() => undefined);
+    }, refreshIntervalSeconds * 1000);
     this.refreshTimer.unref();
   }
 
@@ -83,13 +97,19 @@ export class RoutesAPIClient {
    * processed by this worker:
    * - Sandbox worker: only process routing keys that route to this sandbox.
    * - Baseline worker: process everything EXCEPT routing keys that route to
-   *   some sandbox (unknown/stale keys fall back to baseline).
+   *   some sandbox. Unknown non-empty keys trigger a refresh before fallback.
    */
-  shouldProcess(routingKey: string): boolean {
-    if (this.sandboxName) {
-      return routingKey !== '' && this.routingKeysCache.has(routingKey);
+  async shouldProcess(routingKey: string): Promise<boolean> {
+    if (routingKey === '') {
+      return this.sandboxName === '';
     }
-    return routingKey === '' || !this.routingKeysCache.has(routingKey);
+    if (!this.routingKeysCache.has(routingKey)) {
+      await this.refresh();
+    }
+    if (this.sandboxName) {
+      return this.routingKeysCache.has(routingKey);
+    }
+    return !this.routingKeysCache.has(routingKey);
   }
 }
 

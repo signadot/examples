@@ -5,8 +5,16 @@ spec:
     team: backend
   cluster: "@{cluster}"
   description: Testing temporal sandboxes
+  defaultRouteGroup:
+    endpoints:
+    - name: web-client
+      target: http://temporal-py-client-ui.temporal.svc:8080
   forks:
   - forkOf:
       kind: Deployment
       namespace: temporal
       name: temporal-worker
+    customizations:
+      images:
+      - container: temporal-worker
+        image: "@{image}"

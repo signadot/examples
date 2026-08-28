@@ -1,10 +1,9 @@
-# see https://www.signadot.com/docs/reference/sandboxes/spec
-name: temporal-worker-ts-sandbox
+name: temporal-worker-java-sandbox
 spec:
   labels:
     team: backend
   cluster: "@{cluster}"
-  description: Testing temporal sandboxes (TypeScript worker)
+  description: Testing temporal sandboxes
   defaultRouteGroup:
     endpoints:
     - name: web-client
@@ -13,8 +12,8 @@ spec:
   - forkOf:
       kind: Deployment
       namespace: temporal
-      name: temporal-worker-ts
+      name: temporal-worker-java
     customizations:
       images:
-      - container: temporal-worker-ts
+      - container: temporal-worker-java
         image: "@{image}"

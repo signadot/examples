@@ -1,29 +1,29 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: temporal-worker-ts
+  name: temporal-worker-go
   labels:
-    app: temporal-worker-ts
+    app: temporal-worker-go
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: temporal-worker-ts
+      app: temporal-worker-go
   template:
     metadata:
       labels:
-        app: temporal-worker-ts
+        app: temporal-worker-go
       annotations:
         sidecar.signadot.com/inject: "true"
     spec:
       containers:
-        - name: temporal-worker-ts
-          image: "temporal-money-transfer-ts:v1.0"
+        - name: temporal-worker-go
+          image: "temporal-money-transfer-go:v1.0"
           env:
             - name: TASK_QUEUE
-              value: "money-transfer-ts"
+              value: "money-transfer-go"
             - name: TEMPORAL_SERVER_URL
-              value: "temporal.temporal.svc:7233"
+              value: "temporal.temporal.svc.cluster.local:7233"
             - name: ROUTES_API_ROUTE_SERVER_ADDR
               value: "http://routeserver.signadot.svc:7778"
             - name: ROUTES_API_BASELINE_KIND
@@ -31,20 +31,37 @@ spec:
             - name: ROUTES_API_BASELINE_NAMESPACE
               value: "temporal"
             - name: ROUTES_API_BASELINE_NAME
-              value: "temporal-worker-ts"
+              value: "temporal-worker-go"
             - name: ROUTES_API_REFRESH_INTERVAL_SECONDS
-              value: "120"
+              value: "5"
           resources:
             requests:
-              memory: "512Mi"
-              cpu: "250m"
+              memory: "256Mi"
+              cpu: "200m"
             limits:
-              memory: "1Gi"
-              cpu: "1"
+              memory: "512Mi"
+              cpu: "500m"
           securityContext:
             runAsNonRoot: true
-            runAsUser: 1000
             allowPrivilegeEscalation: false
             capabilities:
               drop:
                 - ALL
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: temporal-worker-go
+  labels:
+    app: temporal-worker-go
+spec:
+  type: ClusterIP
+  selector:
+    app: temporal-worker-go
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+      name: http

@@ -1,29 +1,32 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: temporal-worker-ts
+  name: temporal-worker-java
   labels:
-    app: temporal-worker-ts
+    app: temporal-worker-java
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: temporal-worker-ts
+      app: temporal-worker-java
   template:
     metadata:
       labels:
-        app: temporal-worker-ts
+        app: temporal-worker-java
       annotations:
         sidecar.signadot.com/inject: "true"
     spec:
       containers:
-        - name: temporal-worker-ts
-          image: "temporal-money-transfer-ts:v1.0"
+        - name: temporal-worker-java
+          image: "temporal-money-transfer-java:v1.0"
+          ports:
+            - containerPort: 8080
+              name: http
           env:
             - name: TASK_QUEUE
-              value: "money-transfer-ts"
+              value: "money-transfer-java"
             - name: TEMPORAL_SERVER_URL
-              value: "temporal.temporal.svc:7233"
+              value: "temporal.temporal.svc.cluster.local:7233"
             - name: ROUTES_API_ROUTE_SERVER_ADDR
               value: "http://routeserver.signadot.svc:7778"
             - name: ROUTES_API_BASELINE_KIND
@@ -31,20 +34,39 @@ spec:
             - name: ROUTES_API_BASELINE_NAMESPACE
               value: "temporal"
             - name: ROUTES_API_BASELINE_NAME
-              value: "temporal-worker-ts"
+              value: "temporal-worker-java"
             - name: ROUTES_API_REFRESH_INTERVAL_SECONDS
-              value: "120"
+              value: "5"
           resources:
             requests:
-              memory: "512Mi"
-              cpu: "250m"
+              memory: "256Mi"
+              cpu: "200m"
             limits:
-              memory: "1Gi"
-              cpu: "1"
+              memory: "512Mi"
+              cpu: "500m"
           securityContext:
             runAsNonRoot: true
             runAsUser: 1000
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop:
                 - ALL
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: temporal-worker-java
+  labels:
+    app: temporal-worker-java
+spec:
+  type: ClusterIP
+  selector:
+    app: temporal-worker-java
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+      name: http

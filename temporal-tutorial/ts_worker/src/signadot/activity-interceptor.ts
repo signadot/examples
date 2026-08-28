@@ -37,7 +37,7 @@ export class SignadotActivityInboundInterceptor implements ActivityInboundCallsI
     const isLocal = this.ctx.info.isLocal;
     if (!isLocal) {
       const routingKey = routingKeyFromHeaders(input.headers);
-      if (!this.routesClient.shouldProcess(routingKey)) {
+      if (!(await this.routesClient.shouldProcess(routingKey))) {
         // Fails only this attempt; the server retries the activity (per its
         // retry policy) until a worker that matches the routing key picks it up.
         throw new Error(
