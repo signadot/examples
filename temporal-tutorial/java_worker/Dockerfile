@@ -2,6 +2,11 @@ FROM maven:3.9-eclipse-temurin-21 AS builder
 
 WORKDIR /build
 COPY pom.xml .
+
+# Cache the dependency tree in its own layer so source-only changes
+# don't re-download every dependency
+RUN mvn -q -B dependency:go-offline
+
 COPY src ./src
 
 RUN mvn -q -DskipTests package

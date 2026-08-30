@@ -1,23 +1,38 @@
 package com.signadot.temporaldemo.signadot;
 
-import io.opentelemetry.api.baggage.Baggage;
+import io.opentelemetry.api.baggage.propagation.W3CBaggagePropagator;
+import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
+import io.opentelemetry.context.propagation.TextMapGetter;
 import io.temporal.activity.ActivityExecutionContext;
 import io.temporal.common.interceptors.ActivityInboundCallsInterceptor;
 import io.temporal.common.interceptors.ActivityInboundCallsInterceptorBase;
 import io.temporal.failure.ApplicationFailure;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.time.Duration;
+import java.util.Map;
 
-// ENG-REVIEW: verify ActivityInboundCallsInterceptorBase is the correct base
-// class for wrapping `next` in temporal-sdk 1.30.x.
 public class ActivityRoutingInterceptor extends ActivityInboundCallsInterceptorBase {
     private static final Logger logger = LoggerFactory.getLogger(ActivityRoutingInterceptor.class);
-    private static final String SD_ROUTING_KEY = "sd-routing-key";
+
+    private static final TextMapGetter<Map<String, String>> CARRIER_GETTER =
+        new TextMapGetter<>() {
+            @Override
+            public Iterable<String> keys(Map<String, String> carrier) {
+                return carrier.keySet();
+            }
+
+            @Override
+            public String get(Map<String, String> carrier, String key) {
+                return carrier == null ? null : carrier.get(key);
+            }
+        };
 
     private final RoutesClient routesClient;
     private final String workerIdent;
+    private ActivityExecutionContext activityContext;
 
     public ActivityRoutingInterceptor(
         ActivityInboundCallsInterceptor next,
@@ -30,41 +45,51 @@ public class ActivityRoutingInterceptor extends ActivityInboundCallsInterceptorB
 
     @Override
     public void init(ActivityExecutionContext context) {
+        this.activityContext = context;
         super.init(context);
     }
 
     @Override
     public ActivityOutput execute(ActivityInput input) {
-        // ENG-REVIEW: verify ActivityInput exposes the header map as
-        // getHeader().getValues() (Map<String, Payload>) in temporal-sdk 1.30.x.
-        String routingKey = OTelHeaderParsing.extractRoutingKeyFromHeaders(input.getHeader().getValues());
+        // Local activities always run on the worker that is executing the
+        // workflow task and are retried on that same worker, so a routing
+        // rejection could never migrate them elsewhere — skip the check
+        // (the Go and TypeScript workers do the same).
+        boolean isLocal = activityContext != null && activityContext.getInfo().isLocal();
 
-        if (!routesClient.shouldProcess(routingKey)) {
-            String errorMsg = String.format(
-                "Activity/Worker cannot handle routing key: %s - Worker: %s",
-                routingKey, workerIdent);
-            logger.info(errorMsg);
-            // Retryable by design: the server redelivers until the right worker
-            // claims the task.
-            // ENG-REVIEW: set nextRetryDelay (~1s) on this failure so wrong-worker
-            // bounces skip exponential backoff; confirm the 1.30.x API for it
-            // (ApplicationFailure builder vs newFailureWithCause overloads).
-            throw ApplicationFailure.newFailure(errorMsg, "RoutingKeyNotHandled");
+        Map<String, String> carrier = OTelHeaderParsing.extractCarrier(
+            input.getHeader() != null ? input.getHeader().getValues() : null);
+        String routingKey = OTelHeaderParsing.routingKeyFromCarrier(carrier);
+
+        if (!isLocal) {
+            if (!routesClient.shouldProcess(routingKey)) {
+                String errorMsg = String.format(
+                    "Activity/Worker cannot handle routing key: %s - Worker: %s",
+                    routingKey, workerIdent);
+                logger.info(errorMsg);
+                // Retryable by design: the server redelivers until the right
+                // worker claims the task. The 1s next-retry delay keeps
+                // wrong-worker bounces fast instead of following the app's
+                // backoff curve.
+                throw ApplicationFailure.newFailureWithCauseAndDelay(
+                    errorMsg, "RoutingKeyNotHandled", null, Duration.ofSeconds(1));
+            }
+
+            logger.info("[Worker:{}] Activity: Processing task with routing key '{}'",
+                workerIdent, routingKey);
         }
 
-        logger.info("[Worker:{}] Activity: Processing task with routing key '{}'",
-            workerIdent, routingKey);
-
-        if (routingKey.isEmpty()) {
+        if (carrier == null) {
             return super.execute(input);
         }
 
-        // Bridge the routing key into OTel Baggage for the duration of the
-        // activity, so outbound HTTP calls made by activity code carry
-        // `baggage: sd-routing-key=...` and route correctly downstream. The
-        // SDK's tracing interceptors do not do this for activities on their own.
-        Baggage baggage = Baggage.builder().put(SD_ROUTING_KEY, routingKey).build();
-        Context otelContext = Context.current().with(baggage);
+        // Restore the full OTel context (trace context plus ALL baggage
+        // members, not just the routing key) around the activity, so outbound
+        // calls made with an OTel-instrumented HTTP client carry
+        // `baggage: sd-routing-key=...` plus trace correlation downstream.
+        Context otelContext = W3CBaggagePropagator.getInstance().extract(
+            W3CTraceContextPropagator.getInstance().extract(Context.root(), carrier, CARRIER_GETTER),
+            carrier, CARRIER_GETTER);
         try (Scope ignored = otelContext.makeCurrent()) {
             return super.execute(input);
         }

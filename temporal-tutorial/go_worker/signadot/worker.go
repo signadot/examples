@@ -6,7 +6,10 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
+	"time"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/interceptor"
@@ -79,6 +82,15 @@ type SandboxAwareWorker struct {
 
 // New creates and starts a sandbox-aware worker
 func New(ctx context.Context, cfg *WorkerConfig, registerFunc func(worker.Registry) error) (*SandboxAwareWorker, error) {
+	// Register the W3C trace-context and baggage propagators globally so the
+	// baggage bridged into activity contexts is actually injected by
+	// OTel-instrumented HTTP clients (e.g. otelhttp). Without a registered
+	// propagator the global default is a no-op.
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
+		propagation.TraceContext{},
+		propagation.Baggage{},
+	))
+
 	// Create Temporal client
 	tc, err := client.Dial(client.Options{
 		HostPort: cfg.TemporalServerURL,
@@ -100,6 +112,9 @@ func New(ctx context.Context, cfg *WorkerConfig, registerFunc func(worker.Regist
 		cfg.BaselineNamespace,
 		cfg.BaselineName,
 	)
+	if cfg.RefreshIntervalSecs > 0 {
+		routesClient.SetRefreshInterval(time.Duration(cfg.RefreshIntervalSecs) * time.Second)
+	}
 
 	// Start background polling
 	if err := routesClient.StartPolling(ctx); err != nil {
@@ -118,17 +133,20 @@ func New(ctx context.Context, cfg *WorkerConfig, registerFunc func(worker.Regist
 		return should, nil
 	}
 
+	// Compute one worker identity used for both the Temporal server identity
+	// and interceptor log lines, so they always correlate.
+	sandboxLabel := cfg.SandboxName
+	if sandboxLabel == "" {
+		sandboxLabel = "baseline"
+	}
+	workerIdent := fmt.Sprintf("sandbox=%s task_queue=%s", sandboxLabel, cfg.TaskQueue)
+
 	// Create interceptor
-	taskInterceptor := NewSelectiveTaskInterceptor(
-		routesClient,
-		cfg.SandboxName,
-		cfg.TaskQueue,
-		shouldProcessFunc,
-	)
+	taskInterceptor := NewSelectiveTaskInterceptor(routesClient, workerIdent)
 
 	// Create worker with interceptors
 	w := worker.New(tc, cfg.TaskQueue, worker.Options{
-		Identity: fmt.Sprintf("sandbox=%s task_queue=%s", cfg.SandboxName, cfg.TaskQueue),
+		Identity: workerIdent,
 		Interceptors: []interceptor.WorkerInterceptor{
 			taskInterceptor,
 		},

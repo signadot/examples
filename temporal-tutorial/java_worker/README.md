@@ -13,8 +13,9 @@ The worker is structured into two layers:
 
 **Platform Layer** (`signadot/` package)
 - `RoutesClient`: Polls the Signadot routeserver for routing rules (every 5 seconds by default)
-- `WorkflowRoutingInterceptor`: Workflow-level routing check; rejects unmatched routing keys with a RuntimeException to fail only the workflow task (server retries)
-- `ActivityRoutingInterceptor`: Activity-level routing check; rejects with retryable ApplicationFailure (~1s next retry)
+- `WorkflowRoutingInterceptor`: Workflow-level routing check. Since workflow code must not read mutable process state, the decision runs as a local activity (`signadotShouldProcess`) whose result is recorded in history, keeping replays deterministic — the same pattern as the Go and TypeScript workers. Unmatched routing keys are rejected with a RuntimeException, which fails only the workflow task (server retries)
+- `ActivityRoutingInterceptor`: Activity-level routing check; rejects with retryable ApplicationFailure carrying a 1s next-retry delay, and restores the OTel context (trace + baggage) around the activity so outbound calls made with an OTel-instrumented HTTP client carry the routing key downstream
+- `SignadotRoutingActivities`: The platform-provided local activity backing the workflow routing check
 - `SandboxAwareWorkerFactory`: Wires all platform components with the Temporal SDK
 
 ## Routing Key Isolation

@@ -28,7 +28,9 @@ public class BankingActivitiesImpl implements BankingActivities {
         BigDecimal amount = new BigDecimal(request.getAmount());
 
         if (currentBalance.compareTo(amount) < 0) {
-            throw ApplicationFailure.newFailure(
+            // Non-retryable: a deterministic business failure would produce
+            // the same result on every retry.
+            throw ApplicationFailure.newNonRetryableFailure(
                 String.format("Insufficient funds: balance=%s, requested=%s", currentBalance, amount),
                 "InsufficientFunds"
             );

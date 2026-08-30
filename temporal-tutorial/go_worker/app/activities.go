@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"go.temporal.io/sdk/activity"
+	"go.temporal.io/sdk/temporal"
 )
 
 // BankingActivities implements money transfer activities.
@@ -28,7 +29,13 @@ func (a *BankingActivities) Withdraw(ctx context.Context, req WithdrawRequest) (
 	}
 
 	if balance.Cmp(reqAmount) < 0 {
-		return nil, fmt.Errorf("insufficient funds: balance=%v, requested=%s", balance, req.Amount)
+		// Non-retryable: a deterministic business failure would produce the
+		// same result on every retry.
+		return nil, temporal.NewNonRetryableApplicationError(
+			fmt.Sprintf("insufficient funds: balance=%v, requested=%s", balance, req.Amount),
+			"InsufficientFunds",
+			nil,
+		)
 	}
 
 	// Simulate processing

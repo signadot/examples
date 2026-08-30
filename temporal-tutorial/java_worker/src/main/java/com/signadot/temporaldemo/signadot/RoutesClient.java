@@ -7,16 +7,26 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class RoutesClient {
     private static final Logger logger = LoggerFactory.getLogger(RoutesClient.class);
+
+    /**
+     * Rate limit for cache refreshes triggered by lookups of unknown routing
+     * keys, so a stream of foreign-keyed tasks cannot turn every task into a
+     * routeserver round trip.
+     */
+    private static final long MISS_REFRESH_MIN_INTERVAL_MS = 1_000;
 
     private final String sandboxName;
     private final String routeServerAddr;
@@ -28,6 +38,8 @@ public class RoutesClient {
     private final OkHttpClient httpClient = new OkHttpClient();
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final AtomicReference<Set<String>> routingKeysCache = new AtomicReference<>(new HashSet<>());
+    private final AtomicLong lastFetchAtMs = new AtomicLong(0);
+    private final ReentrantLock missRefreshLock = new ReentrantLock();
     private ScheduledExecutorService refreshExecutor;
 
     public RoutesClient(String sandboxName) {
@@ -57,15 +69,16 @@ public class RoutesClient {
     }
 
     private String urlEncode(String value) {
-        try {
-            return java.net.URLEncoder.encode(value, "UTF-8");
-        } catch (java.io.UnsupportedEncodingException e) {
-            return value;
-        }
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
-    private void fetchAndUpdate() {
+    /**
+     * Queries the routeserver and updates the cache. Returns true on success;
+     * on failure the old cache is retained.
+     */
+    private boolean fetchAndUpdate() {
         String url = buildRoutesUrl();
+        lastFetchAtMs.set(System.currentTimeMillis());
         try {
             Request request = new Request.Builder()
                 .url(url)
@@ -76,7 +89,7 @@ public class RoutesClient {
                 if (!response.isSuccessful()) {
                     logger.error("RoutesClient: Error fetching routes. Status: {}, Body: {}",
                         response.code(), response.body() != null ? response.body().string() : "");
-                    return;
+                    return false;
                 }
 
                 String body = response.body() != null ? response.body().string() : "";
@@ -87,7 +100,7 @@ public class RoutesClient {
                 if (routingRules != null && routingRules.isArray()) {
                     for (JsonNode rule : routingRules) {
                         JsonNode routingKey = rule.get("routingKey");
-                        if (routingKey != null && !routingKey.isNull()) {
+                        if (routingKey != null && !routingKey.isNull() && !routingKey.asText().isEmpty()) {
                             newKeys.add(routingKey.asText());
                         }
                     }
@@ -98,19 +111,30 @@ public class RoutesClient {
                     logger.info("RoutesClient: Routing keys updated: {}", newKeys);
                 }
                 routingKeysCache.set(newKeys);
+                return true;
             }
         } catch (Exception e) {
             logger.error("RoutesClient: Error during route fetch: {}", e.getMessage(), e);
+            return false;
         }
     }
 
+    /**
+     * Starts the periodic cache refresh. The initial fetch is synchronous and
+     * fatal on error: starting a worker with an empty cache would let a
+     * baseline worker accept sandbox-routed tasks (an isolation violation),
+     * so we fail fast and let the orchestrator restart the pod. Same behavior
+     * as the Go and TypeScript workers.
+     */
     public void startPolling() {
         String target = sandboxName.isEmpty() ? "baseline" : "sandbox '" + sandboxName + "'";
         logger.info("RoutesClient: Starting periodic cache updater for {} with {}s polling interval",
             target, refreshIntervalSeconds);
 
-        // Perform initial fetch
-        fetchAndUpdate();
+        if (!fetchAndUpdate()) {
+            throw new IllegalStateException(
+                "RoutesClient: initial routes fetch failed; refusing to start with an empty routing cache");
+        }
 
         // Start periodic refresh
         refreshExecutor = Executors.newScheduledThreadPool(1, r -> {
@@ -140,23 +164,47 @@ public class RoutesClient {
         }
     }
 
+    /**
+     * Determines if a workflow/activity with the given routing key should be
+     * processed by this worker. A miss on a non-empty key triggers a
+     * rate-limited synchronous refresh so a sandbox worker can pick up a key
+     * created between polls; refresh failures are tolerated and the decision
+     * always falls back to the (possibly stale) cache. Callable from activity
+     * code only — never from workflow code (it does I/O).
+     */
     public boolean shouldProcess(String routingKey) {
-        if (routingKey == null) {
-            routingKey = "";
+        if (routingKey == null || routingKey.isEmpty()) {
+            return sandboxName.isEmpty();
+        }
+
+        if (!routingKeysCache.get().contains(routingKey)) {
+            refreshOnMiss();
         }
 
         Set<String> currentCache = routingKeysCache.get();
+        boolean inCache = currentCache.contains(routingKey);
+        boolean should = sandboxName.isEmpty() ? !inCache : inCache;
+        logger.debug("{} worker: routing_key={}, cache={}, should_process={}",
+            sandboxName.isEmpty() ? "Baseline" : "Sandbox", routingKey, currentCache, should);
+        return should;
+    }
 
-        if (!sandboxName.isEmpty()) {
-            boolean should = !routingKey.isEmpty() && currentCache.contains(routingKey);
-            logger.debug("Sandbox worker: routing_key={}, cache={}, should_process={}",
-                routingKey, currentCache, should);
-            return should;
-        } else {
-            boolean should = routingKey.isEmpty() || !currentCache.contains(routingKey);
-            logger.debug("Baseline worker: routing_key={}, cache={}, should_process={}",
-                routingKey, currentCache, should);
-            return should;
+    /**
+     * Refreshes the cache at most once per MISS_REFRESH_MIN_INTERVAL_MS.
+     * Concurrent callers don't wait for an in-flight refresh; they proceed
+     * with the current cache.
+     */
+    private void refreshOnMiss() {
+        if (!missRefreshLock.tryLock()) {
+            return;
+        }
+        try {
+            if (System.currentTimeMillis() - lastFetchAtMs.get() < MISS_REFRESH_MIN_INTERVAL_MS) {
+                return;
+            }
+            fetchAndUpdate();
+        } finally {
+            missRefreshLock.unlock();
         }
     }
 

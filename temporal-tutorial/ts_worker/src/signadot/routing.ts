@@ -8,6 +8,13 @@
 const log = (msg: string) => console.log(`[RoutesAPIClient] ${msg}`);
 const logError = (msg: string) => console.error(`[RoutesAPIClient] ${msg}`);
 
+/**
+ * Rate limit for cache refreshes triggered by lookups of unknown routing
+ * keys, so a stream of foreign-keyed tasks cannot turn every task into a
+ * routeserver round trip.
+ */
+const MISS_REFRESH_MIN_INTERVAL_MS = 1_000;
+
 export class RoutesAPIClient {
   private readonly sandboxName: string;
   private readonly routeServerAddr: string;
@@ -17,6 +24,7 @@ export class RoutesAPIClient {
   private routingKeysCache: Set<string> = new Set();
   private refreshTimer?: NodeJS.Timeout;
   private refreshInFlight?: Promise<void>;
+  private lastFetchAtMs = 0;
 
   constructor(sandboxName: string) {
     this.sandboxName = sandboxName;
@@ -39,6 +47,7 @@ export class RoutesAPIClient {
 
   private async fetchAndUpdate(): Promise<void> {
     const url = this.buildRoutesUrl();
+    this.lastFetchAtMs = Date.now();
     try {
       const response = await fetch(url);
       if (!response.ok) {
@@ -74,7 +83,12 @@ export class RoutesAPIClient {
     return inFlight;
   }
 
-  /** Start the periodic cache refresh. Performs an initial fetch immediately. */
+  /**
+   * Start the periodic cache refresh. The initial fetch is synchronous and
+   * fatal on error: starting a worker with an empty cache would let a
+   * baseline worker accept sandbox-routed tasks (an isolation violation),
+   * so we fail fast and let the orchestrator restart the pod.
+   */
   async startPolling(refreshIntervalSeconds: number): Promise<void> {
     const target = this.sandboxName ? `sandbox '${this.sandboxName}'` : 'baseline';
     log(`Starting periodic cache updater for ${target} with ${refreshIntervalSeconds}s polling interval`);
@@ -97,14 +111,26 @@ export class RoutesAPIClient {
    * processed by this worker:
    * - Sandbox worker: only process routing keys that route to this sandbox.
    * - Baseline worker: process everything EXCEPT routing keys that route to
-   *   some sandbox. Unknown non-empty keys trigger a refresh before fallback.
+   *   some sandbox (unknown/stale keys fall back to baseline).
+   *
+   * An unknown non-empty key triggers a rate-limited refresh, so a sandbox
+   * worker can pick up a key created between polls. Refresh failures are
+   * tolerated: the decision always falls back to the (possibly stale) cache,
+   * and a routeserver outage never turns into task failures.
    */
   async shouldProcess(routingKey: string): Promise<boolean> {
     if (routingKey === '') {
       return this.sandboxName === '';
     }
-    if (!this.routingKeysCache.has(routingKey)) {
-      await this.refresh();
+    if (
+      !this.routingKeysCache.has(routingKey) &&
+      Date.now() - this.lastFetchAtMs >= MISS_REFRESH_MIN_INTERVAL_MS
+    ) {
+      try {
+        await this.refresh();
+      } catch (err) {
+        logError(`Refresh on cache miss failed; falling back to cached routing keys: ${err}`);
+      }
     }
     if (this.sandboxName) {
       return this.routingKeysCache.has(routingKey);

@@ -168,10 +168,12 @@ docker run temporal-money-transfer-ts:v1.0
 kubectl apply -f ../k8s/ts-worker-deployment.yaml
 ```
 
-Create a sandbox that forks the TypeScript worker:
+Create a sandbox that forks the TypeScript worker with your changed image:
 
 ```bash
-signadot sandbox apply -f ../sandbox/ts-worker-sandbox.yaml --set cluster=<your-cluster>
+signadot sandbox apply -f ../sandbox/ts-worker-sandbox.yaml \
+  --set cluster=<your-cluster> \
+  --set image=temporal-money-transfer-ts:sandbox
 ```
 
 ## Environment Variables

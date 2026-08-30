@@ -8,13 +8,13 @@ The worker enforces deterministic replay semantics while supporting sandbox rout
 
 - **Workflow interceptor**: Since Go workflow code is deterministic and cannot perform I/O, the routing decision is delegated to a **local activity** (`signadotShouldProcess`). Its recorded result in the workflow history ensures replays are deterministic: once a worker accepts a workflow, later replays see the recorded decision and proceed without re-querying the routeserver.
 
-- **Activity interceptor**: Non-local activities consult the routing cache directly. Additionally, the OTel context from task headers is restored around activity execution so outbound HTTP calls automatically carry the `sd-routing-key` baggage and route correctly downstream.
+- **Activity interceptor**: Non-local activities consult the routing cache directly; a wrong-worker rejection is a retryable failure with a ~1s next-retry delay, so the server quickly redelivers the task until the matching worker claims it. (Note: for *workflow* tasks the Go SDK reports a failure only on the first rejected attempt; later attempts on the wrong worker wait out the workflow task timeout, so sandbox handoff of a workflow task can take up to that timeout.) Additionally, the OTel context from task headers is restored around activity execution, so outbound calls made with an OTel-instrumented HTTP client (e.g. `otelhttp`) automatically carry the `sd-routing-key` baggage and route correctly downstream.
 
 - **Application code**: Pure domain logic (workflows and activities) contains zero Signadot or OTel code. The platform layer in the `signadot` package handles all routing, caching, and context propagation.
 
 ## Running
 
-Set environment variables and run:
+The addresses below assume the Temporal server and Signadot routeserver are reachable on localhost — when they run in a cluster, use [`signadot local connect`](https://www.signadot.com/docs/reference/cli/local) to make them reachable first. Set environment variables and run:
 
 ```bash
 export TASK_QUEUE="money-transfer-go"

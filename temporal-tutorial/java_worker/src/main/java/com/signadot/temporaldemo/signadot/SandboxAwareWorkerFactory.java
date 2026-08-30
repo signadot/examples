@@ -43,10 +43,6 @@ public class SandboxAwareWorkerFactory {
 
         WorkflowClient workflowClient = WorkflowClient.newInstance(serviceStubs);
 
-        // ENG-REVIEW: Temporal Java SDK interceptor registration pattern needs verification
-        // The SDK's interceptor API differs from Python/TypeScript; this implementation
-        // follows the common pattern but exact method names and lifecycle should be checked
-        // against the latest SDK documentation.
         WorkerFactoryOptions factoryOptions = WorkerFactoryOptions.newBuilder()
             .setWorkerInterceptors(new WorkflowRoutingInterceptor(routesClient, workerIdent))
             .build();
@@ -57,6 +53,10 @@ public class SandboxAwareWorkerFactory {
         for (Class<?> workflowClass : workflowClasses) {
             worker.registerWorkflowImplementationTypes(workflowClass);
         }
+
+        // Platform-provided local activity used by the workflow routing check
+        worker.registerActivitiesImplementations(
+            new SignadotRoutingActivitiesImpl(routesClient, workerIdent));
 
         logger.info("Worker created successfully: {}", workerIdent);
         resourcesByWorker.put(worker, new WorkerResources(workerFactory, serviceStubs, routesClient));
