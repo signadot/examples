@@ -24,5 +24,9 @@ Thumbs.db
 # Logs
 *.log
 
+# Java build output
+java_worker/target/
+java_worker/dependency-reduced-pom.xml
+
 # Environment files (keep .env.example but not .env)
 .env

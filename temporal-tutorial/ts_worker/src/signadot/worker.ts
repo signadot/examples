@@ -50,7 +50,7 @@ export class SandboxAwareWorker {
     // Platform-provided local activity used by the workflow routing check.
     // Merged in last so applications cannot accidentally shadow it.
     const signadotShouldProcess = async (routingKey: string): Promise<boolean> => {
-      const should = routesClient.shouldProcess(routingKey);
+      const should = await routesClient.shouldProcess(routingKey);
       console.log(`[Worker:${workerIdent}] signadotShouldProcess('${routingKey}') -> ${should}`);
       return should;
     };

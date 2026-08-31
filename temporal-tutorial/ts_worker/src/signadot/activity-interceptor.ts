@@ -17,6 +17,7 @@
  *    not do by themselves.
  */
 import { context as otelContext } from '@opentelemetry/api';
+import { ApplicationFailure } from '@temporalio/common';
 import type { ActivityInboundCallsInterceptor, ActivityExecuteInput, Next } from '@temporalio/worker';
 import type { Context as ActivityContext } from '@temporalio/activity';
 import { routingKeyFromHeaders } from './tracer-headers';
@@ -37,12 +38,15 @@ export class SignadotActivityInboundInterceptor implements ActivityInboundCallsI
     const isLocal = this.ctx.info.isLocal;
     if (!isLocal) {
       const routingKey = routingKeyFromHeaders(input.headers);
-      if (!this.routesClient.shouldProcess(routingKey)) {
-        // Fails only this attempt; the server retries the activity (per its
-        // retry policy) until a worker that matches the routing key picks it up.
-        throw new Error(
-          `Activity/Worker cannot handle routing key: '${routingKey}' - Worker: ${this.workerIdent}`
-        );
+      if (!(await this.routesClient.shouldProcess(routingKey))) {
+        // Fails only this attempt. The explicit next-retry delay keeps
+        // wrong-worker bounces at 1 second instead of following the app's
+        // backoff curve.
+        throw ApplicationFailure.create({
+          message: `Activity/Worker cannot handle routing key: '${routingKey}' - Worker: ${this.workerIdent}`,
+          type: 'RoutingKeyNotHandled',
+          nextRetryDelay: 1_000,
+        });
       }
       console.log(
         `[Worker:${this.workerIdent}] Activity: ${this.ctx.info.activityType}: Processing task with routing key '${routingKey}'`

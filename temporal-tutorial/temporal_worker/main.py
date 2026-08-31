@@ -8,10 +8,10 @@ from activities import BankingActivities
 async def main():
     # Get task queue from environment
     task_queue = os.environ["TASK_QUEUE"]
-    
+
     # Create banking activities instance
     banking_activities = BankingActivities()
-    
+
     # Create the SandboxAware worker
     worker = SandboxAwareWorker(
         task_queue=task_queue,
@@ -21,7 +21,7 @@ async def main():
             banking_activities.deposit,
         ]
     )
-    
+
     # Start the worker
     await worker.start()
 
