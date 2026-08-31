@@ -111,7 +111,7 @@ retrying the task.
 
 `SignadotActivityInboundInterceptor` (`src/signadot/activity-interceptor.ts`) runs on the Node.js side with no determinism constraints and does two things:
 
-- **Routing check**: extracts the routing key from the activity headers and rejects tasks this worker shouldn't process (the failed attempt is retried per the activity retry policy until the right worker picks it up). Local activities are exempt: they always run on the worker that's executing the workflow task, which already passed the workflow-level check.
+- **Routing check**: extracts the routing key from the activity headers and rejects tasks this worker shouldn't process with a retryable `ApplicationFailure`. Its explicit 1-second next-retry delay keeps wrong-worker bounces from following the application's backoff curve. Local activities are exempt: they always run on the worker that's executing the workflow task, which already passed the workflow-level check.
 - **Baggage bridging**: restores the OTel context from the headers **around the activity execution**, so `sd-routing-key` is in OTel Baggage while your activity code runs. Any outbound HTTP call made from an activity carries `baggage: sd-routing-key=...` and gets routed to the right sandboxes downstream. (The SDKs do not do this by themselves; it is the same gap the Python worker closes — see `../temporal_worker/README.md`.) The worker logs the effective outbound headers per activity so this is easy to verify.
 
 To have HTTP clients inject those headers automatically, run the OTel NodeSDK with `@opentelemetry/instrumentation-undici` (for `fetch`) or `@opentelemetry/instrumentation-http`; this example keeps the setup minimal (`src/signadot/otel.ts`).

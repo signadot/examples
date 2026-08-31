@@ -52,8 +52,8 @@ public class ActivityRoutingInterceptor extends ActivityInboundCallsInterceptorB
     @Override
     public ActivityOutput execute(ActivityInput input) {
         // Local activities always run on the worker that is executing the
-        // workflow task and are retried on that same worker, so a routing
-        // rejection could never migrate them elsewhere — skip the check
+        // workflow task and are retried on that same worker. A routing
+        // rejection cannot migrate them elsewhere, so skip the check
         // (the Go and TypeScript workers do the same).
         boolean isLocal = activityContext != null && activityContext.getInfo().isLocal();
 
