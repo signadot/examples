@@ -1,0 +1,26 @@
+# ALTERNATIVE to pubsub-redis.yaml: the same demo on Kafka.
+#
+#   kubectl -n dapr-demo apply -f ../../selective-consumption-with-kafka/k8s/pieces/kafka.yaml
+#   kubectl -n dapr-demo delete component pubsub
+#   kubectl -n dapr-demo apply -f k8s/dapr/pubsub-kafka.yaml
+#   kubectl -n dapr-demo rollout restart deploy/checkout deploy/order-processor
+#
+# The consumer group defaults to the app-id here too. Kafka record headers are
+# delivered to subscribers as HTTP headers, so a publisher could also pass the
+# routing context as `?metadata.baggage=...` instead of a CloudEvent attribute.
+# Docs: https://docs.dapr.io/reference/components-reference/supported-pubsub/setup-apache-kafka/
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: pubsub
+  namespace: dapr-demo
+spec:
+  type: pubsub.kafka
+  version: v1
+  metadata:
+    - name: brokers
+      value: kafka-headless.dapr-demo.svc:9092
+    - name: authType
+      value: none
+    - name: initialOffset
+      value: newest   # a new sandbox consumer group must not replay history

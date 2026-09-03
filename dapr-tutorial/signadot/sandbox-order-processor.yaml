@@ -1,0 +1,32 @@
+# Use case 2: fork `order-processor` and let it consume selectively.
+#
+# A distinct app-id is required (see sandbox-checkout.yaml) and is also what
+# gives the fork its own pub/sub consumer group: it receives every message and
+# the Routes API decides which ones it acts on.
+name: dapr-order-processor-sbx
+spec:
+  cluster: "@{cluster}"
+  description: "order-processor fork under its own Dapr app-id"
+  labels:
+    demo: dapr
+  forks:
+    - forkOf:
+        kind: Deployment
+        namespace: dapr-demo
+        name: order-processor
+      customizations:
+        # images:
+        #   - container: order-processor
+        #     image: "@{image}"
+        patch:
+          type: strategic
+          value: |
+            spec:
+              template:
+                metadata:
+                  annotations:
+                    dapr.io/app-id: order-processor-sbx
+  defaultRouteGroup:
+    endpoints:
+      - name: frontend
+        target: http://frontend.dapr-demo.svc:8080

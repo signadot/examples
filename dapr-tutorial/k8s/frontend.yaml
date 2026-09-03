@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: dapr-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+      annotations:
+        dapr.io/enabled: "true"
+        dapr.io/app-id: "frontend"
+        dapr.io/app-port: "8080"
+        dapr.io/enable-api-logging: "true"
+    spec:
+      containers:
+        - name: frontend
+          image: dapr-signadot-demo:v1.0
+          imagePullPolicy: IfNotPresent
+          command: ["uvicorn", "frontend.main:app", "--host", "0.0.0.0", "--port", "8080"]
+          ports:
+            - containerPort: 8080
+              name: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: dapr-demo
+spec:
+  selector:
+    app: frontend
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http

@@ -1,0 +1,15 @@
+# Combine both sandboxes under one routing key: a request carrying it hits the
+# checkout fork AND has its order processed by the order-processor fork.
+# Docs: https://www.signadot.com/docs/reference/route-groups/spec
+name: dapr-demo
+spec:
+  cluster: "@{cluster}"
+  description: "checkout and order-processor sandboxes together"
+  match:
+    any:
+      - label:
+          key: demo
+          value: dapr
+  endpoints:
+    - name: frontend
+      target: http://frontend.dapr-demo.svc:8080

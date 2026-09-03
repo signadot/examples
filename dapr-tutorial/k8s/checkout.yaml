@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: checkout
+  namespace: dapr-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: checkout
+  template:
+    metadata:
+      labels:
+        app: checkout
+      annotations:
+        dapr.io/enabled: "true"
+        dapr.io/app-id: "checkout"
+        dapr.io/app-port: "8080"
+        dapr.io/enable-api-logging: "true"
+        # Signadot DevMesh sidecar: routes inbound requests that carry a
+        # routing key to the matching sandbox fork of this workload.
+        sidecar.signadot.com/inject: "true"
+    spec:
+      containers:
+        - name: checkout
+          image: dapr-signadot-demo:v1.0
+          imagePullPolicy: IfNotPresent
+          command: ["uvicorn", "checkout.main:app", "--host", "0.0.0.0", "--port", "8080"]
+          ports:
+            - containerPort: 8080
+              name: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: checkout
+  namespace: dapr-demo
+spec:
+  selector:
+    app: checkout
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http

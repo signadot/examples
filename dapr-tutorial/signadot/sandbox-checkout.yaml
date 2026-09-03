@@ -1,0 +1,35 @@
+# Use case 1: fork `checkout` and route service invocations to it.
+#
+# The fork MUST run under its own Dapr app-id. Dapr's operator keys the
+# `<app-id>-dapr` Service on the app-id; two Deployments with the same app-id
+# in one namespace fight over that Service (baseline traffic leaks into the
+# sandbox, and deleting the sandbox deletes the baseline's Service).
+# Spec reference: https://www.signadot.com/docs/reference/sandboxes/spec
+name: dapr-checkout-sbx
+spec:
+  cluster: "@{cluster}"
+  description: "checkout fork under its own Dapr app-id"
+  labels:
+    demo: dapr
+  forks:
+    - forkOf:
+        kind: Deployment
+        namespace: dapr-demo
+        name: checkout
+      customizations:
+        # Uncomment to test a changed image:
+        # images:
+        #   - container: checkout
+        #     image: "@{image}"
+        patch:
+          type: strategic
+          value: |
+            spec:
+              template:
+                metadata:
+                  annotations:
+                    dapr.io/app-id: checkout-sbx
+  defaultRouteGroup:
+    endpoints:
+      - name: frontend
+        target: http://frontend.dapr-demo.svc:8080

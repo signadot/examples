@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-processor
+  namespace: dapr-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order-processor
+  template:
+    metadata:
+      labels:
+        app: order-processor
+      annotations:
+        dapr.io/enabled: "true"
+        dapr.io/app-id: "order-processor"
+        dapr.io/app-port: "8080"
+        dapr.io/enable-api-logging: "true"
+        sidecar.signadot.com/inject: "true"
+    spec:
+      containers:
+        - name: order-processor
+          image: dapr-signadot-demo:v1.0
+          imagePullPolicy: IfNotPresent
+          command: ["uvicorn", "order_processor.main:app", "--host", "0.0.0.0", "--port", "8080"]
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            # Identity of the baseline workload, used to query the Routes API.
+            # SIGNADOT_SANDBOX_NAME is injected automatically into sandbox forks.
+            - name: BASELINE_NAME
+              value: order-processor
+            - name: BASELINE_NAMESPACE
+              value: dapr-demo
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-processor
+  namespace: dapr-demo
+spec:
+  selector:
+    app: order-processor
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http
