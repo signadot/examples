@@ -1,0 +1,30 @@
+# Use case 1: make Dapr service invocation routable by Signadot.
+#
+# Normally `invoke/checkout` goes sidecar -> sidecar over gRPC (port 50002, mTLS).
+# On that hop the routing key sits inside the protobuf body, so neither Signadot
+# DevMesh nor Istio can see it. Declaring an HTTPEndpoint with the SAME NAME as
+# the app-id makes the caller's sidecar send a plain HTTP request to the app's
+# Kubernetes Service instead. Dapr checks HTTPEndpoint names before app-ids, so
+# callers do not change at all: they still `invoke/checkout`.
+#
+# The request now traverses Service -> baseline pod -> Signadot sidecar, which
+# reads `baggage` and forwards sandbox traffic to the fork.
+#
+# Trade-off: the callee's sidecar is bypassed for inbound calls (no Dapr mTLS or
+# access-control on this hop). See README, "How it works".
+# Docs: https://docs.dapr.io/developing-applications/building-blocks/service-invocation/howto-invoke-non-dapr-endpoints/
+apiVersion: dapr.io/v1alpha1
+kind: HTTPEndpoint
+metadata:
+  name: checkout
+  namespace: dapr-demo
+spec:
+  baseUrl: http://checkout.dapr-demo.svc.cluster.local:8080
+---
+apiVersion: dapr.io/v1alpha1
+kind: HTTPEndpoint
+metadata:
+  name: order-processor
+  namespace: dapr-demo
+spec:
+  baseUrl: http://order-processor.dapr-demo.svc.cluster.local:8080

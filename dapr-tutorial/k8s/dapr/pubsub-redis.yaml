@@ -1,0 +1,20 @@
+# Dapr pub/sub component backed by Redis Streams.
+# Swap for pubsub-kafka.yaml to run the same demo on Kafka.
+#
+# consumerID defaults to the app-id, so each app-id (the baseline and every
+# sandbox fork) is its own consumer group and receives every message. That is
+# what makes selective consumption in order-processor possible.
+# Docs: https://docs.dapr.io/reference/components-reference/supported-pubsub/setup-redis-pubsub/
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: pubsub
+  namespace: dapr-demo
+spec:
+  type: pubsub.redis
+  version: v1
+  metadata:
+    - name: redisHost
+      value: redis.dapr-demo.svc.cluster.local:6379
+    - name: redisPassword
+      value: ""
