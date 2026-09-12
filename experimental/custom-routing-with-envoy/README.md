@@ -78,7 +78,10 @@ See [k8s/envoy-config.yaml](k8s/envoy-config.yaml).
 The routing logic on the envoy proxy makes use of a lua filter to process the
 request, extract the routing-key, and then making a query to the `signadot`
 operator's routeserver component to fetch any routing rules associated with that
-particular routing-key. 
+particular routing-key. The query goes to the routeserver's HTTP API,
+`GET /api/v1/workloads/routing-rules` on port 7778, which returns the rules for
+a baseline workload grouped by the port they apply to; the filter picks the
+destination for the httpbin container port. 
 
 Once the destination is found, a header is added and re-routing is performed by
 envoy's [Dynamic Forward Proxy](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/http/http_proxy) feature.
