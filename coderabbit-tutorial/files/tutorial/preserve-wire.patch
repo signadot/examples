@@ -1,0 +1,37 @@
+--- a/services/driver/interface.go
++++ b/services/driver/interface.go
+@@ -5,8 +5,8 @@
+ )
+ 
+ type DispatchRequest struct {
+-	PickupLocation  *location.Location `json:"pickupLocation"`
+-	DropoffLocation *location.Location `json:"dropoffLocation"`
++	Pickup  *location.Location `json:"pickupLocation"`
++	Dropoff *location.Location `json:"dropoffLocation"`
+ }
+ 
+ type Driver struct {
+--- a/services/driver/best_eta.go
++++ b/services/driver/best_eta.go
+@@ -46,7 +46,7 @@
+ 	defer span.End()
+ 
+ 	// get all routes from the drivers to the pick up location
+-	results := eta.getRoutes(ctx, dispatchReq.PickupLocation, drivers)
++	results := eta.getRoutes(ctx, dispatchReq.Pickup, drivers)
+ 	eta.logger.For(ctx).Info("Found routes", zap.Any("routes", results))
+ 
+ 	// search the one with the best ETA
+--- a/services/frontend/dispatcher.go
++++ b/services/frontend/dispatcher.go
+@@ -95,8 +95,8 @@
+ 	defer span.End()
+ 
+ 	driverRequest := driver.DispatchRequest{
+-		PickupLocation:  pickupLoc,
+-		DropoffLocation: dropoffLoc,
++		Pickup:  pickupLoc,
++		Dropoff: dropoffLoc,
+ 	}
+ 	msgBody, err := json.Marshal(driverRequest)
+ 	if err != nil {

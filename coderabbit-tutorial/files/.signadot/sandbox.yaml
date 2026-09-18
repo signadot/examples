@@ -1,0 +1,25 @@
+name: "@{name}"
+spec:
+  description: "Driver sandbox for PR @{pr}"
+  cluster: "@{cluster}"
+  labels:
+    signadot/github-repo: "@{repo}"
+    signadot/github-pull-request: "@{pr}"
+  forks:
+    - forkOf:
+        kind: Deployment
+        name: driver
+        namespace: "@{namespace}"
+      customizations:
+        images:
+          - container: hotrod
+            image: "@{image}"
+        patch:
+          type: strategic
+          value: |
+            spec:
+              template:
+                spec:
+                  containers:
+                    - name: hotrod
+                      imagePullPolicy: IfNotPresent

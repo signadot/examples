@@ -1,0 +1,25 @@
+name: "@{runner}"
+spec:
+  cluster: "@{cluster}"
+  namespace: signadot-tests
+  jobTimeout: 15m
+  image: mcr.microsoft.com/playwright:v1.45.1-jammy
+  podTemplate:
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: main
+          image: mcr.microsoft.com/playwright:v1.45.1-jammy
+          volumeMounts:
+            - name: git-read
+              mountPath: /var/run/hotrod-git
+              readOnly: true
+      volumes:
+        - name: git-read
+          secret:
+            secretName: hotrod-git-read
+            defaultMode: 0400
+            optional: true
+  scaling:
+    manual:
+      desiredPods: 1

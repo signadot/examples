@@ -1,0 +1,26 @@
+--- a/services/driver/interface.go
++++ b/services/driver/interface.go
+@@ -5,8 +5,8 @@
+ )
+ 
+ type DispatchRequest struct {
+-	PickupLocation  *location.Location `json:"pickupLocation"`
+-	DropoffLocation *location.Location `json:"dropoffLocation"`
++	PickupLocation  *location.Location `json:"pickup_location"`
++	DropoffLocation *location.Location `json:"dropoff_location"`
+ }
+ 
+ type Driver struct {
+--- a/services/driver/best_eta.go
++++ b/services/driver/best_eta.go
+@@ -44,6 +44,10 @@
+ 	drivers []*Driver) (*Response, error) {
+ 	ctx, span := eta.tracer.Start(ctx, "CalculateBestRoute", trace.WithSpanKind(trace.SpanKindClient))
+ 	defer span.End()
++
++	if dispatchReq.PickupLocation == nil {
++		return nil, errors.New("dispatch request is missing a pickup location")
++	}
+ 
+ 	// get all routes from the drivers to the pick up location
+ 	results := eta.getRoutes(ctx, dispatchReq.PickupLocation, drivers)

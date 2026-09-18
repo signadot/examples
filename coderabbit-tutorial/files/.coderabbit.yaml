@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+reviews:
+  auto_review:
+    enabled: true
+    base_branches: [".*"]
+  tools:
+    github-checks:
+      enabled: true
+  finishing_touches:
+    fix_ci:
+      enabled: true
+  path_instructions:
+    - path: "services/driver/**"
+      instructions: |
+        The frontend and driver deploy independently. Signadot E2E forks
+        only the driver at the PR head; the frontend stays at baseline.
+        Review Kafka DTO changes for compatibility with existing producers.
+        Distinguish source-based risks from observed test failures.
+        When CI fails, cite the failing assertion and explain its path
+        through dispatch, Kafka decoding, and driver notifications.
+        Preserve support for deployed producers when proposing a fix.
+    - path: "playwright-tests/**"
+      instructions: |
+        These are functional ride-dispatch tests, not load tests.
+        Check sandbox readiness, routing, and the tested SHA before
+        attributing a failure to application code. Do not remove assertions
+        or extend timeouts merely to make a failing check pass.
+        State which behavior a passing run covers and what remains untested.

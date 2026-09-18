@@ -1,0 +1,49 @@
+spec:
+  namePrefix: hotrod-cr-e2e
+  runnerGroup: "@{runner}"
+  script: |
+    #!/bin/bash
+    set -euo pipefail
+    export GIT_TERMINAL_PROMPT=0
+    git init hotrod
+    cd hotrod
+    if [ -s /var/run/hotrod-git/id_ed25519 ]; then
+      # A repository-scoped, read-only deploy key is mounted by the runner.
+      export GIT_SSH_COMMAND="ssh -i /var/run/hotrod-git/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/var/run/hotrod-git/known_hosts"
+      git remote add origin "git@github.com:@{repo}.git"
+    else
+      git remote add origin "https://github.com/@{repo}.git"
+    fi
+    git fetch --depth=1 origin "@{sha}"
+    git checkout --detach FETCH_HEAD
+    test "$(git rev-parse HEAD)" = "@{sha}"
+    unset GIT_SSH_COMMAND
+    export HOTROD_NAMESPACE="@{namespace}" CI=true
+    export CYPRESS_INSTALL_BINARY=0 PLAYWRIGHT_HTML_OPEN=never
+    : "${SIGNADOT_ROUTING_KEY:?Sandbox routing key missing}"
+    printf 'Testing revision %s in sandbox %s\n' "@{sha}" "@{sandbox}"
+    npm ci
+
+    set +e
+    npx playwright test playwright-tests/basic.spec.ts \
+      --reporter=list,github 2>&1 | tee playwright.log
+    test_exit=${PIPESTATUS[0]}
+    set -e
+
+    # Playwright records traces and videos under test-results; keep them.
+    if [ -d test-results ]; then
+      tar czf playwright-traces.tgz test-results || true
+    fi
+
+    # Keep assertion details at the end, after setup output.
+    printf '\n--- Playwright result (last 40 KB, up to 100 lines) ---\n'
+    tail -c 40000 playwright.log | tail -n 100
+    printf '\nPR_HEAD=%s\nSANDBOX=%s\nNAMESPACE=%s\n' \
+      "@{sha}" "@{sandbox}" "$HOTROD_NAMESPACE"
+    printf 'PLAYWRIGHT_EXIT_CODE=%s\n' "$test_exit"
+    exit "$test_exit"
+  routingContext:
+    sandbox: "@{sandbox}"
+  uploadArtifact:
+    - path: hotrod/playwright.log
+    - path: hotrod/playwright-traces.tgz

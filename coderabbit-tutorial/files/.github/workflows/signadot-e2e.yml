@@ -1,0 +1,126 @@
+name: Signadot E2E
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+# A PR keeps one sandbox; finish its current run before updating it.
+concurrency:
+  group: signadot-${{ github.repository_id }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+env:
+  PR_SHA: ${{ github.event.pull_request.head.sha }}
+  PR_NUMBER: ${{ github.event.pull_request.number }}
+  REPO: ${{ github.repository }}
+  REPO_ID: ${{ github.repository_id }}
+  CLUSTER: ${{ vars.SIGNADOT_CLUSTER }}
+  HOTROD_NAMESPACE: ${{ vars.HOTROD_NAMESPACE }}
+  TARGET_ARCH: ${{ vars.HOTROD_ARCH || 'amd64' }}
+  RUNNER_GROUP: ${{ vars.SIGNADOT_RUNNER_GROUP }}
+
+jobs:
+  build:
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.ref.outputs.image }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Validate inputs and derive names
+        run: bash .signadot/scripts/ci-inputs.sh >> "$GITHUB_ENV"
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: yarn
+          cache-dependency-path: services/frontend/react_app/yarn.lock
+      - name: Test and build HotROD
+        run: bash .signadot/scripts/build.sh
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push the PR image
+        id: image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          platforms: linux/${{ env.TARGET_ARCH }}
+          provenance: false
+          push: true
+          tags: ${{ env.IMAGE_TAG }}
+      - name: Record the immutable image reference
+        id: ref
+        env:
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || exit 1
+          echo "image=${IMAGE_REPOSITORY}@${DIGEST}" >> "$GITHUB_OUTPUT"
+
+  e2e:
+    name: Playwright against a Signadot sandbox
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Validate inputs and derive names
+        run: bash .signadot/scripts/ci-inputs.sh >> "$GITHUB_ENV"
+      - name: Install the Signadot CLI
+        env:
+          SIGNADOT_CLI_VERSION: v1.8.0
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/signadot/cli/f6e4f7a0744dcf7c8b22a92f4d046815fd76e8bc/scripts/install.sh -o /tmp/signadot-install.sh
+          sh /tmp/signadot-install.sh
+          signadot --version
+      - name: Create or update the PR sandbox
+        env:
+          SIGNADOT_ORG: ${{ secrets.SIGNADOT_ORG }}
+          SIGNADOT_API_KEY: ${{ secrets.SIGNADOT_API_KEY }}
+          IMAGE: ${{ needs.build.outputs.image }}
+        run: |
+          signadot sandbox apply -f .signadot/sandbox.yaml \
+            --set name="$SANDBOX" --set cluster="$CLUSTER" \
+            --set repo="$REPO" --set pr="$PR_NUMBER" \
+            --set namespace="$HOTROD_NAMESPACE" --set image="$IMAGE" \
+            --wait-timeout 10m
+      - name: Run Playwright and stream the Job result
+        env:
+          SIGNADOT_ORG: ${{ secrets.SIGNADOT_ORG }}
+          SIGNADOT_API_KEY: ${{ secrets.SIGNADOT_API_KEY }}
+        run: |
+          set -euo pipefail
+          set +e
+          signadot job submit -f .signadot/testing/job.yaml \
+            --set runner="$RUNNER_GROUP" --set repo="$REPO" \
+            --set sha="$PR_SHA" --set namespace="$HOTROD_NAMESPACE" \
+            --set sandbox="$SANDBOX" --attach --timeout 25m 2>&1 | tee signadot-job.log
+          cli_exit=${PIPESTATUS[0]}
+          set -e
+          # A canceled Job still exits 0, so the phase from the API decides.
+          job=$(sed -nE 's/^Job (hotrod-cr-e2e-[a-z0-9]+) .*/\1/p' signadot-job.log | head -n 1)
+          test -n "$job"
+          signadot job get "$job" -o json > signadot-job.json
+          phase=$(jq -er '.status.attempts[0].phase' signadot-job.json)
+          printf '\nSIGNADOT_JOB=%s\nJOB_PHASE=%s\n' "$job" "$phase"
+          tail -c 40000 signadot-job.log | tail -n 100
+          test "$cli_exit" -eq 0 && test "$phase" = succeeded

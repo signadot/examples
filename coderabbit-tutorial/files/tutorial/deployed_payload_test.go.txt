@@ -1,0 +1,45 @@
+package driver
+
+import (
+	"encoding/json"
+	"testing"
+
+	"github.com/signadot/hotrod/services/location"
+)
+
+// Frozen wire data from the baseline producer. It deliberately does not use
+// DispatchRequest to generate the input: both sides sharing a new DTO would
+// hide a mixed-version rollout failure.
+func TestDeployedProducerPayload(t *testing.T) {
+	const payload = `{"pickupLocation":{"id":1,"name":"Rachel's Floral Designs","coordinates":"10,20"},"dropoffLocation":{"id":123,"name":"Amazing Coffee Roasters","coordinates":"30,40"}}`
+	var request DispatchRequest
+	if err := json.Unmarshal([]byte(payload), &request); err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := json.Marshal(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var locations map[string]*location.Location
+	if err := json.Unmarshal(encoded, &locations); err != nil {
+		t.Fatal(err)
+	}
+	// Allow a migration to change the emitted names while checking that the
+	// decoded locations survive. This also works after a Go-only field rename.
+	for _, check := range []struct {
+		legacy, current string
+		id              int64
+		coordinates     string
+	}{
+		{"pickupLocation", "pickup_location", 1, "10,20"},
+		{"dropoffLocation", "dropoff_location", 123, "30,40"},
+	} {
+		got := locations[check.legacy]
+		if got == nil {
+			got = locations[check.current]
+		}
+		if got == nil || got.ID != check.id || got.Coordinates != check.coordinates {
+			t.Errorf("deployed producer field %s was not preserved: %s", check.legacy, encoded)
+		}
+	}
+}
