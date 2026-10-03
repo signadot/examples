@@ -1,0 +1,99 @@
+# Tests HotROD service changes in a Signadot sandbox before they merge.
+#
+# Repository variables (Repository settings > Pipelines > Repository variables):
+#   SIGNADOT_ORG, SIGNADOT_API_KEY (secured), SIGNADOT_CLUSTER
+#   DOCKERHUB_USERNAME, DOCKERHUB_TOKEN (secured)
+
+options:
+  runtime:
+    cloud:
+      version: "3"  # Runtime v3 supports multi-platform builds with Docker Buildx
+
+definitions:
+  caches:
+    yarn: /usr/local/share/.cache/yarn
+    gomod: /go/pkg/mod
+    gobuild: /root/.cache/go-build
+  steps:
+    - step: &frontend
+        name: Build the frontend
+        image: node:22
+        caches:
+          - yarn
+        script:
+          - cd services/frontend/react_app
+          - yarn install --frozen-lockfile
+          - yarn build --base=/web_assets/ --emptyOutDir
+        artifacts:
+          - services/frontend/web_assets/**
+
+    - step: &compile
+        name: Compile HotROD
+        image: golang:1.27.1
+        caches:
+          - gomod
+          - gobuild
+        script:
+          - for arch in amd64 arm64; do CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -o dist/linux/$arch/bin/hotrod ./cmd/hotrod; done
+        artifacts:
+          - dist/**
+
+    - step: &image
+        name: Build and push the image
+        image: atlassian/default-image:5
+        services:
+          - docker
+        script:
+          - echo "${DOCKERHUB_TOKEN}" | docker login --username "${DOCKERHUB_USERNAME}" --password-stdin
+          - IMAGE="docker.io/${DOCKERHUB_USERNAME}/hotrod:${BITBUCKET_COMMIT}"
+          - docker buildx create --name hotrod --driver docker-container --use
+          - docker buildx build --platform linux/amd64,linux/arm64 --tag "${IMAGE}" --push .
+          - echo "${IMAGE}" > image.txt
+        artifacts:
+          - image.txt
+
+    - step: &sandbox-and-test
+        name: Test in a Signadot sandbox
+        image: atlassian/default-image:5
+        clone:
+          depth: full
+        script:
+          - curl -sSLf https://raw.githubusercontent.com/signadot/cli/v1.9.0/scripts/install.sh | SIGNADOT_CLI_VERSION=v1.9.0 sh
+          - git fetch origin "+refs/heads/${BITBUCKET_PR_DESTINATION_BRANCH}:refs/remotes/origin/${BITBUCKET_PR_DESTINATION_BRANCH}"
+          - SANDBOX="hotrod-pr-${BITBUCKET_PR_ID}"
+          - SERVICES=$(.signadot/jira-agent/changed-services.sh "origin/${BITBUCKET_PR_DESTINATION_BRANCH}")
+          - if [ -z "${SERVICES}" ]; then echo "No HotROD service changed, so there is nothing to sandbox."; .signadot/jira-agent/delete-sandbox.sh "${SANDBOX}"; exit 0; fi
+          - .signadot/jira-agent/sandbox.sh "${SANDBOX}" "${SIGNADOT_CLUSTER}" "$(cat image.txt)" "${BITBUCKET_PR_ID}" ${SERVICES} > sandbox.yaml
+          - signadot sandbox apply -f sandbox.yaml --wait-timeout 5m
+          - PREVIEW=$(signadot sandbox get "${SANDBOX}" -o json | jq -r '.endpoints[] | select(.name=="frontend") | .url')
+          - .signadot/jira-agent/report.sh PENDING "${PREVIEW}" "${SANDBOX}"
+          - if .signadot/jira-agent/run-tests.sh "${SANDBOX}"; then RESULT=PASSED; else RESULT=FAILED; fi
+          - .signadot/jira-agent/report.sh "${RESULT}" "${PREVIEW}" "${SANDBOX}" "$(cat job-name.txt 2>/dev/null || true)"
+          - test "${RESULT}" = PASSED
+
+pipelines:
+  pull-requests:
+    '**':
+      - step: *frontend
+      - step: *compile
+      - step: *image
+      - step: *sandbox-and-test
+
+  custom:
+    delete-pr-sandbox:
+      - step:
+          name: Delete the pull request's sandbox
+          image: atlassian/default-image:5
+          script:
+            - curl -sSLf https://raw.githubusercontent.com/signadot/cli/v1.9.0/scripts/install.sh | SIGNADOT_CLI_VERSION=v1.9.0 sh
+            - .signadot/jira-agent/delete-sandbox.sh "hotrod-pr-${BITBUCKET_PR_ID}"
+
+triggers:
+  pullrequest-fulfilled:  # merged
+    - condition: BITBUCKET_PR_DESTINATION_BRANCH == "main"
+      pipelines:
+        - delete-pr-sandbox
+  pullrequest-rejected:  # declined
+    - condition: BITBUCKET_PR_DESTINATION_BRANCH == "main"
+      pipelines:
+        - delete-pr-sandbox
