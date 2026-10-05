@@ -29,7 +29,7 @@ definitions:
 
     - step: &compile
         name: Compile HotROD
-        image: golang:1.27.1
+        image: golang:1.27.1  # Keep compatible with go.mod at the pinned HotROD revision.
         caches:
           - gomod
           - gobuild
@@ -54,11 +54,14 @@ definitions:
 
     - step: &sandbox-and-test
         name: Test in a Signadot sandbox
+        concurrency-group: hotrod-pr-${{BITBUCKET_PR_ID}}
         image: atlassian/default-image:5
         clone:
           depth: full
         script:
           - curl -sSLf https://raw.githubusercontent.com/signadot/cli/v1.9.0/scripts/install.sh | SIGNADOT_CLI_VERSION=v1.9.0 sh
+          - git fetch origin "refs/heads/${BITBUCKET_BRANCH}"
+          - if [ "${BITBUCKET_COMMIT}" != "$(git rev-parse FETCH_HEAD)" ]; then echo "Skipping a superseded pull request commit."; exit 0; fi
           - git fetch origin "+refs/heads/${BITBUCKET_PR_DESTINATION_BRANCH}:refs/remotes/origin/${BITBUCKET_PR_DESTINATION_BRANCH}"
           - SANDBOX="hotrod-pr-${BITBUCKET_PR_ID}"
           - SERVICES=$(.signadot/jira-agent/changed-services.sh "origin/${BITBUCKET_PR_DESTINATION_BRANCH}")
@@ -83,6 +86,7 @@ pipelines:
     delete-pr-sandbox:
       - step:
           name: Delete the pull request's sandbox
+          concurrency-group: hotrod-pr-${{BITBUCKET_PR_ID}}
           image: atlassian/default-image:5
           script:
             - curl -sSLf https://raw.githubusercontent.com/signadot/cli/v1.9.0/scripts/install.sh | SIGNADOT_CLI_VERSION=v1.9.0 sh

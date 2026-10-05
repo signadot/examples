@@ -6,10 +6,16 @@ spec:
     set -euo pipefail
 
     # Check out the pull request commit with the runner's read-only repository token.
-    token=$(cat /var/run/hotrod-repo/token)
-    git clone --quiet --depth 50 --branch "@{branch}" \
-      "https://x-token-auth:${token}@bitbucket.org/@{repo}.git" hotrod
-    unset token
+    # Git asks this helper for the password; the token stays out of the URL and arguments.
+    askpass=$(mktemp)
+    trap 'rm -f "$askpass"' EXIT
+    printf '#!/bin/sh\ncat /var/run/hotrod-repo/token\n' > "$askpass"
+    chmod 700 "$askpass"
+    GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git -c credential.helper= \
+      clone --quiet --depth 50 --branch "@{branch}" \
+      "https://x-token-auth@bitbucket.org/@{repo}.git" hotrod
+    rm -f "$askpass"
+    trap - EXIT
     cd hotrod
     git checkout --quiet "@{commit}"
 

@@ -7,7 +7,8 @@ against it. The pull request report links to the preview and test results.
 
 The added test checks that the ride banner still displays the driver's ID when the arrival message
 changes. Pull requests that change only documentation, tests or test configuration skip the sandbox
-and test Job.
+and test Job. This includes changes only to `bitbucket-pipelines.yml` or `.signadot/`. Include a
+service-code change when testing pipeline changes.
 
 For setup and the Jira workflow, follow the
 [full tutorial](https://www.signadot.com/docs/tutorials/jira-coding-agent-signadot-sandboxes).
@@ -55,6 +56,9 @@ Add these under **Repository settings > Pipelines > Repository variables**, as t
 Before running the pipeline, [create a public Docker Hub repository](https://docs.docker.com/docker-hub/repos/create/)
 named `hotrod` under `DOCKERHUB_USERNAME`. The pipeline pushes
 `docker.io/<DOCKERHUB_USERNAME>/hotrod:<commit>`, and the cluster pulls it without credentials.
+Public visibility is a convenience for this HotROD demo. For a private application, use a private
+registry and configure an [image pull secret](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/)
+on the baseline workloads before creating sandboxes.
 
 ## Troubleshooting
 
@@ -65,10 +69,13 @@ named `hotrod` under `DOCKERHUB_USERNAME`. The pipeline pushes
 | No pipeline runs on the agent's pull request | Check that `bitbucket-pipelines.yml` is on `main` and that Pipelines is enabled for the repository. |
 | `docker login` fails in **Build and push the image** | Check `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`. |
 | `signadot sandbox apply` reports an authentication error | Check `SIGNADOT_ORG` and `SIGNADOT_API_KEY`, and whether the key has expired. |
-| The sandbox readiness wait times out | Run `kubectl -n hotrod get pods` and look for `ImagePullBackOff`. The Docker Hub repository must be public. |
+| The sandbox readiness wait times out | Run `kubectl -n hotrod get pods` and look for `ImagePullBackOff`. Check image visibility or the workload's image pull secret. |
 | The Job stays queued | Run `signadot jrg get hotrod-playwright` and `kubectl -n signadot-tests get pods,events`. The runner has one pod, so Jobs run one at a time. |
 | The Job fails before the tests start | Check the `hotrod-repo-read` Secret and that its repository access token has read access to this repository. |
 | The Jira Coding Agent asks for a repository but none is listed | Connect Bitbucket to the Jira space under **Development > Connections**, then start the session again. |
+
+The sandbox test and cleanup steps share a concurrency group per pull request. The test step also
+skips commits that are no longer the branch tip. This prevents an older build from overwriting a newer preview.
 
 ## Run times
 

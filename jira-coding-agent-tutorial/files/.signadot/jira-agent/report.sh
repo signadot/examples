@@ -20,7 +20,7 @@ body=$(jq -n --arg r "$result" --arg p "$preview" --arg d "$details" --arg j "$j
   data: ([{title: "Preview", type: "LINK", value: {text: "Open the preview", href: $p}}]
     + if $j == "" then [] else
         [{title: "Test run", type: "LINK",
-          value: {text: "Open the Signadot Job", href: ("https://app.signadot.com/testing/jobs/" + $j)}}]
+          value: {text: "Open the Signadot Job", href: ("https://app.signadot.com/testing/jobs/" + $j + "/overview")}}]
       end)
 }')
 
