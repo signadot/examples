@@ -1,0 +1,24 @@
+name: hotrod-playwright
+spec:
+  cluster: "@{cluster}"
+  namespace: signadot-tests
+  jobTimeout: 20m
+  image: mcr.microsoft.com/playwright:v1.45.1-jammy
+  podTemplate:
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: main
+          image: mcr.microsoft.com/playwright:v1.45.1-jammy
+          volumeMounts:
+            - name: repo-read
+              mountPath: /var/run/hotrod-repo
+              readOnly: true
+      volumes:
+        - name: repo-read
+          secret:
+            secretName: hotrod-repo-read
+            defaultMode: 0400
+  scaling:
+    manual:
+      desiredPods: 1

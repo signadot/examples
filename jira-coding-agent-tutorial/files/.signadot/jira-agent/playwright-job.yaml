@@ -1,0 +1,36 @@
+spec:
+  namePrefix: hotrod-playwright
+  runnerGroup: hotrod-playwright
+  script: |
+    #!/bin/bash
+    set -euo pipefail
+
+    # Check out the pull request commit with the runner's read-only repository token.
+    # Git asks this helper for the password; the token stays out of the URL and arguments.
+    askpass=$(mktemp)
+    trap 'rm -f "$askpass"' EXIT
+    printf '#!/bin/sh\ncat /var/run/hotrod-repo/token\n' > "$askpass"
+    chmod 700 "$askpass"
+    GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git -c credential.helper= \
+      clone --quiet --depth 50 --branch "@{branch}" \
+      "https://x-token-auth@bitbucket.org/@{repo}.git" hotrod
+    rm -f "$askpass"
+    trap - EXIT
+    cd hotrod
+    git checkout --quiet "@{commit}"
+
+    # The routing context below sets SIGNADOT_ROUTING_KEY, which playwright.config.ts
+    # sends with every request so the sandbox serves this pull request's services.
+    export HOTROD_NAMESPACE=hotrod CI=true
+    npm ci --silent
+
+    set +e
+    npx playwright test --reporter=list,html
+    status=$?
+    set -e
+    tar czf playwright-report.tgz playwright-report test-results 2>/dev/null || true
+    exit $status
+  routingContext:
+    sandbox: "@{sandbox}"
+  uploadArtifact:
+    - path: hotrod/playwright-report.tgz
