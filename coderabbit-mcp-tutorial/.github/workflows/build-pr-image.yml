@@ -1,0 +1,75 @@
+# Run manually for a trusted PR in this repository. Builds its actual head code.
+name: Build PR image
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Pull request number in this repository
+        required: true
+      service:
+        description: Changed application service
+        type: choice
+        required: true
+        options: [storefront, inventory, pricing]
+permissions:
+  contents: read
+  packages: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve current PR head
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ inputs.pr }}
+        run: |
+          set -euo pipefail
+          [[ "$PR" =~ ^[1-9][0-9]*$ ]] || { echo 'pr must be a pull request number'; exit 1; }
+          data=$(gh api "repos/$REPO/pulls/$PR")
+          [[ "$(jq -r .head.repo.full_name <<< "$data")" == "$REPO" ]] || { echo 'Use a trusted branch in this repository'; exit 1; }
+          sha=$(jq -r .head.sha <<< "$data")
+          [[ "$sha" =~ ^[a-f0-9]{40}$ ]] || { echo 'Could not resolve the pull request head commit'; exit 1; }
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ steps.pr.outputs.sha }}
+          persist-credentials: false
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Image name
+        id: image
+        env:
+          OWNER: ${{ github.repository_owner }}
+          SERVICE: ${{ inputs.service }}
+        run: echo "name=ghcr.io/${OWNER,,}/boxoffice-demo-$SERVICE" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        id: build
+        with:
+          context: .
+          file: docker/${{ inputs.service }}.Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.image.outputs.name }}:sha-${{ steps.pr.outputs.sha }}
+          labels: org.opencontainers.image.revision=${{ steps.pr.outputs.sha }}
+      - name: Record exact build identity
+        env:
+          REPO: ${{ github.repository }}
+          PR: ${{ inputs.pr }}
+          SHA: ${{ steps.pr.outputs.sha }}
+          SERVICE: ${{ inputs.service }}
+          IMAGE: ${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}
+        run: |
+          jq -n --arg repo "$REPO" --arg pr "$PR" --arg revision "$SHA" --arg service "$SERVICE" --arg image "$IMAGE" \
+            '{repo:$repo,pr:$pr,revision:$revision,service:$service,image:$image}' > build-identity.json
+          cat build-identity.json >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: build-identity
+          path: build-identity.json
