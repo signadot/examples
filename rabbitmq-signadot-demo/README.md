@@ -4,7 +4,7 @@
 
 Asynchronous microservices are hard to test: if two versions of a consumer read from the same queue, they compete for messages. Spinning up a separate broker per branch is slow and pricey.
 
-**Signadot Sandboxes** solve this with **request-level isolation**. Keep a single RabbitMQ, but route messages only to the intended version (sandbox) of your consumer using a **sandbox routing key**. Each sandboxed consumer has its own queue binding; baseline traffic remains untouched while you test safely in parallel.
+**Signadot Sandboxes** solve this with **tunable isolation**, here through **message routing**: duplicate only the consumer you changed and keep a single RabbitMQ, but route messages only to the intended version (sandbox) of your consumer using a **sandbox routing key**. Each sandboxed consumer has its own queue binding; baseline traffic remains untouched while you test safely in parallel.
 
 ### What you will accomplish:
 

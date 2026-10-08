@@ -1,6 +1,6 @@
 # Temporal Worker Sandbox Integration Example
 
-This repository demonstrates integrating Temporal workflows with Signadot sandbox routing, allowing tests of changed worker versions against a shared task queue with automatic request isolation.
+This repository demonstrates integrating Temporal workflows with Signadot sandbox routing, allowing tests of changed worker versions against a shared task queue, with each sandbox's tasks routed to its own worker version.
 
 For the guided step-by-step walkthrough, see the [full tutorial](https://www.signadot.com/docs/tutorials/testing-temporal-workers).
 
