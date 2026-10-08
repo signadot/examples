@@ -17,7 +17,7 @@
 Coding agents work best when they can *test* what they build. On a laptop, Signadot's
 [local sandboxes](https://www.signadot.com/docs/tutorials/quickstart/local-development) solve this: run one
 service locally, connect it to a shared staging cluster, and end-to-end test your change with
-request-level isolation — no full-stack replica needed. But agents increasingly don't run on laptops.
+tunable isolation: only what you changed is duplicated, so no full-stack replica is needed. But agents increasingly don't run on laptops.
 [Modal Sandboxes](https://modal.com/docs/guide/sandbox) are secure, ephemeral cloud containers made for
 running agent code — spin one up in seconds, throw it away after. The question is how code running there
 gets tested against real dependencies.
