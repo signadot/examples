@@ -1,0 +1,6 @@
+agent-skills/
+microservices-demo/
+.claude/
+.playwright-mcp/
+sbx-with-env/
+sbx-without-env/
