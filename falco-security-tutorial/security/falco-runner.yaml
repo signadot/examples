@@ -1,0 +1,12 @@
+name: falco-check
+spec:
+  cluster: "@{cluster}"
+  namespace: signadot-tests
+  image: alpine/k8s:1.31.1
+  jobTimeout: 10m
+  podTemplate:
+    spec:
+      serviceAccountName: falco-reader
+  scaling:
+    manual:
+      desiredPods: 1

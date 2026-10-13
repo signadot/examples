@@ -1,0 +1,64 @@
+spec:
+  namePrefix: falco-check
+  runnerGroup: falco-check
+  # Ties the Job to the sandbox, and re-queues it if the sandbox isn't ready.
+  routingContext:
+    sandbox: "@{sandbox}"
+  # Adds the sandbox's routing key to the plain HTTP request below, so the
+  # dispatch is handled by the sandboxed route service.
+  trafficManager:
+    injectRoutingKey: auto
+  script: |
+    #!/bin/bash
+    set -euo pipefail
+
+    # Signadot sets this to the sandbox's routing key for every Job. The operator
+    # also stamps it onto the forked pods as the signadot.com/sandbox-routing-key
+    # label, which is how the Falco rules and the filter below pick out this
+    # sandbox's alerts.
+    RK="$SIGNADOT_ROUTING_KEY"
+
+    # Only count alerts generated from here on, so a re-run after a fix doesn't
+    # pick up alerts from an earlier run of the same sandbox (the routing key is
+    # the same across runs). Falco timestamps every alert in evt.time (epoch ns).
+    START_EPOCH=$(date +%s)
+
+    echo "Exercising sandbox '@{sandbox}' (routing key: $RK)"
+
+    # Send one ride dispatch. injectRoutingKey adds the routing header, so the
+    # request flows frontend -> kafka -> driver -> the sandboxed route service.
+    curl -s -o /dev/null -w "dispatch HTTP %{http_code}\n" \
+      -X POST "@{target}/dispatch" \
+      -H "Content-Type: application/json" \
+      -d '{"SessionID":123456,"RequestID":1,"PickupLocationID":123,"DropoffLocationID":567}'
+
+    # The dispatch is handled asynchronously through Kafka, so give it a moment
+    # to reach the route service.
+    echo "Waiting for the request to reach the route service..."
+    sleep 20
+
+    # Read Falco's alerts and keep only the ones for this sandbox's pods (matched
+    # by routing key) that happened during this run.
+    echo "Reading Falco alerts for routing key '$RK'..."
+    kubectl logs -n falco -l app.kubernetes.io/name=falco -c falco \
+      --since=5m --max-log-requests=50 --prefix=false 2>/dev/null \
+      | grep '^{' \
+      | jq -c --arg rk "$RK" --argjson start "$START_EPOCH" \
+          'select(.output_fields["k8s.pod.label[signadot.com/sandbox-routing-key]"] == $rk
+                  and ((.output_fields["evt.time"] / 1000000000) | floor) >= $start)
+            | {rule, priority, output}' \
+      > /tmp/falco-alerts.jsonl || true
+
+    COUNT=$(wc -l < /tmp/falco-alerts.jsonl | tr -d ' ')
+    if [ "$COUNT" -gt 0 ]; then
+      echo
+      echo "Falco raised $COUNT alert(s) for this sandbox:"
+      jq -r '"  [\(.priority)] \(.rule)"' /tmp/falco-alerts.jsonl | sort | uniq -c
+      echo
+      echo "Details:"
+      jq -r '.output' /tmp/falco-alerts.jsonl
+      exit 1
+    fi
+    echo "No Falco alerts for this sandbox. The change is clean."
+  uploadArtifact:
+    - path: /tmp/falco-alerts.jsonl
