@@ -42,8 +42,7 @@ You need:
 - `kubectl` pointed at that cluster, plus `git`, `jq` and Go 1.21 or later. Go downloads the
   toolchain version HotROD asks for.
 
-This tutorial was tested with Signadot CLI v1.8.0, Operator 1.4.0, ZAP 2.17.0 and HotROD revision
-`b16178651580a8ba3ceb45ac7c59f4579611b0b3`.
+This tutorial was tested with Signadot CLI v1.8.0, Operator 1.4.0 and ZAP 2.17.0.
 
 ## 1. Install HotROD
 
@@ -56,19 +55,20 @@ kubectl -n hotrod apply -k 'https://github.com/signadot/hotrod/k8s/overlays/prod
 kubectl -n hotrod wait --for=condition=available deployment --all --timeout=5m
 ```
 
-## 2. Make the change
+## 2. Get the change
 
-Clone this repository and HotROD side by side, apply the change, and copy in the Signadot files:
+The change is on HotROD's `zap-location-search` branch. Clone that branch and this repository side
+by side, then copy the Signadot files into HotROD:
 
 ```bash
 git clone https://github.com/signadot/examples.git signadot-examples
-git clone https://github.com/signadot/hotrod.git
+git clone -b zap-location-search https://github.com/signadot/hotrod.git
 cd hotrod
-git apply ../signadot-examples/zap-security-tutorial/location-search.patch
 cp -R ../signadot-examples/zap-security-tutorial/security .signadot/
 ```
 
-The change adds an optional `name` filter to `GET /locations`. Here's the core of it, in
+The change adds an optional `name` filter to `GET /locations`. Here's the core of
+[the commit](https://github.com/signadot/hotrod/commit/07b84b03713ffec110f925ae35a9ef441cc8a1b4), in
 `services/location/database.go`:
 
 ```go
@@ -224,7 +224,9 @@ You can also open both reports from the Job's page in the Signadot dashboard.
 
 ## 6. Fix it and scan again
 
-Pass `name` to the database as a query parameter instead of pasting it into the SQL:
+The fix passes `name` to the database as a query parameter instead of pasting it into the SQL.
+It's [one commit](https://github.com/signadot/hotrod/commit/6a5c918c436260d0b3baa775cdd9f835788a65b2)
+on the `zap-location-search-fix` branch:
 
 ```go
 query := "SELECT id, name, coordinates FROM locations"
@@ -236,10 +238,10 @@ if name != "" {
 rows, err := d.db.Query(query, args...)
 ```
 
-Apply the fix:
+Switch to that branch:
 
 ```bash
-git apply ../signadot-examples/zap-security-tutorial/location-search-fix.patch
+git checkout zap-location-search-fix
 ```
 
 In the second terminal, stop the service with Ctrl+C and start it again:
@@ -324,7 +326,6 @@ To remove HotROD, run `kubectl delete namespace hotrod`.
 
 | What you see | What to check |
 | --- | --- |
-| `git apply` fails with `patch does not apply` | HotROD has changed since this tutorial was tested. Run `git checkout b16178651580a8ba3ceb45ac7c59f4579611b0b3`, then apply the patch again. |
 | `namespace "signadot-tests" does not exist` when creating the runner group | Run `kubectl create namespace signadot-tests` first. |
 | The Job stays queued | The runner pod is still pulling ZAP's image. Check `kubectl -n signadot-tests get pods`. |
 | `curl: Could not resolve host: location.hotrod` | Run `signadot local status`, and `signadot local connect` if it isn't connected. |
