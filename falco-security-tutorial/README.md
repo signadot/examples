@@ -31,18 +31,6 @@ flowchart LR
   end
 ```
 
-## Why the change runs in the cluster, not locally
-
-If you've done the [ZAP tutorial](https://github.com/signadot/examples/tree/main/zap-security-tutorial),
-you ran the changed service on your laptop with `signadot local connect`. That works for ZAP because
-ZAP tests what an endpoint *returns* — it sends HTTP requests and doesn't care where the service runs.
-
-Falco is different. It watches **system calls on the cluster's nodes**, so it can only see the
-behavior of pods **running in the cluster**. If the changed service ran on your laptop, the shell it
-spawns and the connection it opens would happen on your laptop, where Falco can't see them. So here
-the change runs in the cluster as an image-based fork. That's the one extra step compared to ZAP:
-you build and push an image. This tutorial uses pre-built images so you can run it without that step.
-
 ## Before you begin
 
 You need:
