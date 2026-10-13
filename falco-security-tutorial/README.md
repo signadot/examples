@@ -9,8 +9,8 @@ This tutorial runs [Falco](https://falco.org/), the open source runtime security
 single change before merge. Falco watches system calls on every node in the cluster and raises an
 alert when a container does something one of its rules describes. The changed service runs in a
 [Signadot sandbox](https://www.signadot.com/docs/concepts/sandbox); everything else it talks to
-comes from the cluster's baseline. You scope Falco's rules to the sandbox's pods, so they fire for
-your change and stay quiet for normal traffic.
+comes from the cluster's baseline. Signadot labels every sandbox pod with its routing key, so you
+can scope Falco's rules to sandbox pods: they fire for your change and stay quiet for normal traffic.
 
 You'll make a change to [HotROD](https://github.com/signadot/hotrod)'s `route` service that computes
 a "real" ETA with a small helper package, the way a developer might reach for a third-party library.
@@ -24,7 +24,7 @@ flowchart LR
   subgraph cluster[Kubernetes cluster]
     job[Falco check Job] -->|"POST /dispatch<br/>baggage: sd-routing-key=…"| fe[frontend]
     fe --> kafka[(Kafka)] --> drv[driver]
-    drv -->|requests with the key| rsb[route with your change<br/>signadot-sandbox label]
+    drv -->|requests with the key| rsb[route with your change<br/>sandbox-routing-key label]
     drv -->|requests without the key| rbase[route baseline]
     falco[Falco<br/>on every node] -. watches syscalls .-> rsb
     job -->|reads alerts for this sandbox| falco
@@ -93,30 +93,31 @@ The ETA comes out right, so the change could pass a review and its unit tests. T
 | File | What it does |
 | --- | --- |
 | `falco-values.yaml` | Helm values that install Falco and add two rules scoped to sandbox pods |
-| `sandbox.yaml` | A sandbox that forks `route` with your image, and labels the fork's pods |
+| `sandbox.yaml` | A sandbox that forks `route` with your image |
 | `falco-reader-rbac.yaml` | A service account that can read Falco's alert logs |
 | `falco-runner.yaml` | A job runner group that runs the check Job, using that service account |
 | `falco-check.yaml` | The Job: send one dispatch, then pass or fail on Falco's alerts for the sandbox |
 
 ## 3. Install Falco with sandbox-scoped rules
 
-Falco sees system calls, not HTTP headers, so the routing key doesn't apply to it. Instead, you
-label the sandbox's pods (step 4) and write rules that only match labeled pods. The rules in
-`security/falco-values.yaml` reuse macros and lists from Falco's default ruleset and fire only for
-pods that carry the `signadot-sandbox` label:
+Falco sees system calls, not HTTP headers, so the routing key doesn't apply to it the way it does to
+a scanner. Instead, you write rules that only match sandbox pods. The Signadot operator already
+labels every forked pod with `signadot.com/sandbox-routing-key`, so no extra setup is needed — the
+rules in `security/falco-values.yaml` reuse macros and lists from Falco's default ruleset and fire
+only for pods that carry that label:
 
 ```yaml
 customRules:
   signadot_rules.yaml: |-
     - macro: signadot_sandbox_pod
-      condition: (k8s.pod.label[signadot-sandbox] != "")
+      condition: (k8s.pod.label[signadot.com/sandbox-routing-key] != "")
 
     - rule: Sandbox Outbound Connection Outside Cluster
       desc: A sandboxed workload connected to an address outside the cluster.
       condition: outbound and container and signadot_sandbox_pod
       output: >
         Sandbox pod connected outside the cluster
-        (sandbox=%k8s.pod.label[signadot-sandbox] pod=%k8s.pod.name ...)
+        (routing_key=%k8s.pod.label[signadot.com/sandbox-routing-key] pod=%k8s.pod.name ...)
       priority: WARNING
       tags: [signadot, network]
 
@@ -127,7 +128,7 @@ customRules:
         and proc.name in (shell_binaries)
       output: >
         Shell spawned in sandbox pod
-        (sandbox=%k8s.pod.label[signadot-sandbox] pod=%k8s.pod.name ...)
+        (routing_key=%k8s.pod.label[signadot.com/sandbox-routing-key] pod=%k8s.pod.name ...)
       priority: WARNING
       tags: [signadot, process]
 ```
@@ -148,27 +149,19 @@ Wait until the Falco pod is `2/2 Running`:
 kubectl -n falco rollout status ds/falco
 ```
 
-Baseline pods don't carry the `signadot-sandbox` label, so these rules stay quiet for normal traffic
-and fire only for the code under test. Falco's own default rules still apply to every pod, as usual.
+Baseline pods don't carry the `signadot.com/sandbox-routing-key` label, so these rules stay quiet for
+normal traffic and fire only for the code under test. Falco's own default rules still apply to every
+pod, as usual.
 
 ## 4. Run the change in a sandbox
 
-`security/sandbox.yaml` forks the `route` Deployment with your image and adds a
-[custom patch](https://www.signadot.com/docs/reference/sandboxes/advanced/patches#customizing-kubernetes-labels-on-sandbox-pods)
-that labels the fork's pods with the sandbox name:
+`security/sandbox.yaml` forks the `route` Deployment with your image. Nothing else is needed: the
+operator labels the fork's pods with the sandbox's routing key, which the rules above already match.
 
 ```yaml
     customizations:
       images:
       - image: "@{image}"
-      patch:
-        type: strategic
-        value: |
-          spec:
-            template:
-              metadata:
-                labels:
-                  signadot-sandbox: "@{sandbox}"
 ```
 
 Create the sandbox. Set `CLUSTER` to your cluster's name from `signadot cluster list`:
@@ -181,10 +174,10 @@ signadot sandbox apply -f security/sandbox.yaml \
   --set image=signadot/hotrod:falco-route-eta
 ```
 
-Confirm the fork's pod came up with the label and your image:
+Confirm the fork's pod came up with the routing-key label and your image:
 
 ```bash
-kubectl -n hotrod get pods -l signadot-sandbox=falco-route-eta \
+kubectl -n hotrod get pods -l signadot.com/sandbox-routing-key \
   -o custom-columns=POD:.metadata.name,IMAGE:'.spec.containers[?(@.name=="hotrod")].image'
 ```
 
@@ -229,8 +222,9 @@ The first time, the pod pulls its image, which takes a minute or two. Run
 `security/falco-check.yaml` ties the Job to the sandbox and, with
 `trafficManager.injectRoutingKey: auto`, adds the sandbox's routing key to the plain HTTP request it
 sends. Its script sends one ride dispatch to the baseline `frontend`, waits for the request to flow
-through Kafka to the `route` service, and then keeps only the Falco alerts whose
-`signadot-sandbox` label matches this sandbox. If there are any, the Job fails.
+through Kafka to the `route` service, and then keeps only the Falco alerts from this run whose
+`signadot.com/sandbox-routing-key` label matches this sandbox's routing key. If there are any, the
+Job fails.
 
 ```bash
 signadot job submit -f security/falco-check.yaml \
@@ -246,17 +240,17 @@ sandboxed `route` handles the request. After about 30 seconds, the Job fails:
 Exercising sandbox 'falco-route-eta' (routing key: k6qxtz2h7df7u)
 dispatch HTTP 200
 Waiting for the request to reach the route service...
-Reading Falco alerts for sandbox 'falco-route-eta'...
+Reading Falco alerts for routing key 'k6qxtz2h7df7u'...
 
-Falco raised 4 alert(s) for sandbox 'falco-route-eta':
+Falco raised 4 alert(s) for this sandbox:
       3   [Warning] Sandbox Outbound Connection Outside Cluster
       1   [Warning] Sandbox Shell Spawned
 
 Details:
-... Shell spawned in sandbox pod (sandbox=falco-route-eta ... shell=sh parent=hotrod
+... Shell spawned in sandbox pod (routing_key=k6qxtz2h7df7u ... shell=sh parent=hotrod
     cmdline=sh -c wget -q -T 2 -O - https://example.com/traffic/v1/factor || true ...)
-... Sandbox pod connected outside the cluster (sandbox=falco-route-eta ...
-    connection=10.244.0.53:47482->104.20.23.154:443 proc=wget ...)
+... Sandbox pod connected outside the cluster (routing_key=k6qxtz2h7df7u ...
+    connection=10.244.0.62:34008->104.20.23.154:443 proc=wget ...)
 Error: exit status 1
 ```
 
@@ -294,8 +288,8 @@ This time the request still flows all the way to `route`, but nothing fires, and
 Exercising sandbox 'falco-route-eta' (routing key: k6qxtz2h7df7u)
 dispatch HTTP 200
 Waiting for the request to reach the route service...
-Reading Falco alerts for sandbox 'falco-route-eta'...
-No Falco alerts for sandbox 'falco-route-eta'. The change is clean.
+Reading Falco alerts for routing key 'k6qxtz2h7df7u'...
+No Falco alerts for this sandbox. The change is clean.
 ```
 
 The change is ready for review, and the passing check is evidence that it behaves at runtime.
@@ -337,7 +331,7 @@ To remove HotROD, run `kubectl delete namespace hotrod`.
 | What you see | What to check |
 | --- | --- |
 | The Falco pod is `CrashLoopBackOff` with a driver error | Your kernel may not support the modern eBPF driver. Check that `/sys/kernel/btf/vmlinux` exists on the node. See [Falco's driver docs](https://falco.org/docs/setup/kubernetes/). |
-| The fork pod has no `signadot-sandbox` label | On operators older than 1.4.0, add `signadot-sandbox` under **Settings → Preserved labels** in the Signadot dashboard, then re-apply the sandbox. |
+| The rules never fire, even on the vulnerable image | Confirm the fork pod carries the label: `kubectl -n hotrod get pod -l signadot.com/sandbox-routing-key`. If Falco shows `<NA>` for the label, your Falco build may not read pod labels from the container runtime; enable the [k8smeta plugin](https://github.com/falcosecurity/plugins/tree/main/plugins/k8smeta). |
 | The Job fails with `forbidden` reading Falco logs | `kubectl apply -f security/falco-reader-rbac.yaml` wasn't applied, or the runner group isn't using the `falco-reader` service account. |
 | The Job stays queued | The runner pod is still pulling its image, or the node is low on disk. Check `kubectl -n signadot-tests get pods`. |
 | The check passes on the vulnerable image | The dispatch may not have reached the sandboxed `route`. Confirm the fork pod is ready and that `location` IDs `123` and `567` exist (they're part of HotROD's seed data). |
