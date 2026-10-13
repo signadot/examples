@@ -1,0 +1,58 @@
+spec:
+  namePrefix: zap-api-scan
+  runnerGroup: zap
+  # Ties the Job to the sandbox, and re-queues it if the sandbox isn't ready.
+  routingContext:
+    sandbox: "@{sandbox}"
+  # Adds the sandbox's routing key to every plain HTTP request the Job sends.
+  # ZAP targets the baseline service address, and Signadot routes its requests
+  # to the sandboxed workload.
+  trafficManager:
+    injectRoutingKey: auto
+  script: |
+    #!/bin/bash
+    set -euo pipefail
+    mkdir -p /zap/wrk && cd /zap/wrk
+
+    # Scan only what the change touches: GET /locations and its new
+    # `name` parameter. ZAP sends attack payloads to every operation listed
+    # here, so write operations are left out.
+    cat > openapi.yaml <<'EOF'
+    openapi: 3.0.3
+    info:
+      title: HotROD location service
+      version: "1.0"
+    servers:
+      - url: @{target}
+    paths:
+      /locations:
+        get:
+          summary: List locations, optionally filtered by name
+          parameters:
+            - name: name
+              in: query
+              schema:
+                type: string
+                example: Coffee
+          responses:
+            "200":
+              description: Matching locations
+    EOF
+
+    # -I: low-risk warnings (like missing headers) don't fail the scan.
+    zap-api-scan.py -t /zap/wrk/openapi.yaml -f openapi -I \
+      -r zap-report.html -J zap-report.json
+
+    # Fail the Job if ZAP found anything High risk.
+    HIGH=$(jq '[.site[].alerts[] | select(.riskcode == "3")] | length' zap-report.json)
+    if [ "$HIGH" -gt 0 ]; then
+      echo
+      echo "ZAP found $HIGH High-risk issue(s):"
+      jq -r '.site[].alerts[] | select(.riskcode == "3")
+        | "  \(.name) [\(.pluginid)]: param \(.instances[0].param), attack \(.instances[0].attack)"' zap-report.json
+      exit 1
+    fi
+    echo "No High-risk issues found."
+  uploadArtifact:
+    - path: /zap/wrk/zap-report.html
+    - path: /zap/wrk/zap-report.json
