@@ -1,0 +1,54 @@
+spec:
+  namePrefix: falco-check
+  runnerGroup: falco-check
+  # Ties the Job to the sandbox, and re-queues it if the sandbox isn't ready.
+  routingContext:
+    sandbox: "@{sandbox}"
+  # Adds the sandbox's routing key to the plain HTTP request below, so the
+  # dispatch is handled by the sandboxed route service.
+  trafficManager:
+    injectRoutingKey: auto
+  script: |
+    #!/bin/bash
+    set -euo pipefail
+
+    SANDBOX="@{sandbox}"
+    # Signadot sets this to the sandbox's routing key for every Job.
+    echo "Exercising sandbox '$SANDBOX' (routing key: $SIGNADOT_ROUTING_KEY)"
+
+    # Send one ride dispatch. injectRoutingKey adds the routing header, so the
+    # request flows frontend -> kafka -> driver -> the sandboxed route service.
+    curl -s -o /dev/null -w "dispatch HTTP %{http_code}\n" \
+      -X POST "@{target}/dispatch" \
+      -H "Content-Type: application/json" \
+      -d '{"SessionID":123456,"RequestID":1,"PickupLocationID":123,"DropoffLocationID":567}'
+
+    # The dispatch is handled asynchronously through Kafka, so give it a moment
+    # to reach the route service.
+    echo "Waiting for the request to reach the route service..."
+    sleep 20
+
+    # Read Falco's alerts and keep only the ones for this sandbox's pods. The
+    # sandbox-scoped rules put the sandbox name in k8s.pod.label[signadot-sandbox].
+    echo "Reading Falco alerts for sandbox '$SANDBOX'..."
+    kubectl logs -n falco -l app.kubernetes.io/name=falco -c falco \
+      --since=5m --max-log-requests=50 --prefix=false 2>/dev/null \
+      | grep '^{' \
+      | jq -c --arg sb "$SANDBOX" \
+          'select(.output_fields["k8s.pod.label[signadot-sandbox]"] == $sb)
+            | {rule, priority, output}' \
+      > /tmp/falco-alerts.jsonl || true
+
+    COUNT=$(wc -l < /tmp/falco-alerts.jsonl | tr -d ' ')
+    if [ "$COUNT" -gt 0 ]; then
+      echo
+      echo "Falco raised $COUNT alert(s) for sandbox '$SANDBOX':"
+      jq -r '"  [\(.priority)] \(.rule)"' /tmp/falco-alerts.jsonl | sort | uniq -c
+      echo
+      echo "Details:"
+      jq -r '.output' /tmp/falco-alerts.jsonl
+      exit 1
+    fi
+    echo "No Falco alerts for sandbox '$SANDBOX'. The change is clean."
+  uploadArtifact:
+    - path: /tmp/falco-alerts.jsonl

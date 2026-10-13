@@ -1,0 +1,20 @@
+name: "@{sandbox}"
+spec:
+  cluster: "@{cluster}"
+  description: route service running the trafficeta change, for the Falco tutorial
+  forks:
+  - forkOf:
+      kind: Deployment
+      namespace: hotrod
+      name: route
+    customizations:
+      images:
+      - image: "@{image}"
+      patch:
+        type: strategic
+        value: |
+          spec:
+            template:
+              metadata:
+                labels:
+                  signadot-sandbox: "@{sandbox}"

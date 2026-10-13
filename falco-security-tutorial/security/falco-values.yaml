@@ -1,0 +1,40 @@
+driver:
+  kind: modern_ebpf
+
+falco:
+  json_output: true
+
+# Custom rules are mounted into /etc/falco/rules.d, which Falco loads after its
+# default rules. The rules below reuse macros and lists (outbound,
+# spawned_process, container, shell_binaries) from Falco's default ruleset, and
+# fire only for pods that carry the signadot-sandbox label.
+customRules:
+  signadot_rules.yaml: |-
+    - macro: signadot_sandbox_pod
+      condition: (k8s.pod.label[signadot-sandbox] != "")
+
+    - rule: Sandbox Outbound Connection Outside Cluster
+      desc: A sandboxed workload connected to an address outside the cluster.
+      condition: outbound and container and signadot_sandbox_pod
+      output: >
+        Sandbox pod connected outside the cluster
+        (sandbox=%k8s.pod.label[signadot-sandbox] pod=%k8s.pod.name
+        ns=%k8s.ns.name connection=%fd.name proc=%proc.name
+        cmdline=%proc.cmdline container=%container.name
+        image=%container.image.repository)
+      priority: WARNING
+      tags: [signadot, network]
+
+    - rule: Sandbox Shell Spawned
+      desc: A process in a sandboxed workload started a shell.
+      condition: >
+        spawned_process and container and signadot_sandbox_pod
+        and proc.name in (shell_binaries)
+      output: >
+        Shell spawned in sandbox pod
+        (sandbox=%k8s.pod.label[signadot-sandbox] pod=%k8s.pod.name
+        ns=%k8s.ns.name shell=%proc.name parent=%proc.pname
+        cmdline=%proc.cmdline container=%container.name
+        image=%container.image.repository)
+      priority: WARNING
+      tags: [signadot, process]
