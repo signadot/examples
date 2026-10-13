@@ -1,0 +1,13 @@
+name: location-search
+spec:
+  cluster: "@{cluster}"
+  description: location service with name search, running on my machine
+  local:
+    - name: location
+      from:
+        kind: Deployment
+        namespace: hotrod
+        name: location
+      mappings:
+        - port: 8081
+          toLocal: localhost:8081

@@ -1,0 +1,9 @@
+name: zap
+spec:
+  cluster: "@{cluster}"
+  namespace: signadot-tests
+  image: ghcr.io/zaproxy/zaproxy:stable
+  jobTimeout: 15m
+  scaling:
+    manual:
+      desiredPods: 1
