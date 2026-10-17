@@ -1,0 +1,93 @@
+# Devin organization blueprint: Signadot CLI + HotROD toolchain.
+# Paste into Settings > Environment > Blueprints > Organization blueprint.
+# Requires the Devin secret SIGNADOT_API_KEY (Settings > Secrets).
+# Docs: https://docs.devin.ai/onboard-devin/environment/blueprint-reference
+
+initialize:
+  - name: Install Go
+    uses: github.com/actions/setup-go@v5
+    with:
+      go-version: "1.27.1"
+
+  - name: Install Signadot CLI
+    run: |
+      # Installs to /usr/local/bin/signadot, which is also where the
+      # Signadot MCP server (`signadot mcp`) is launched from. Pin the
+      # version: without it the installer asks the GitHub API for the latest
+      # release, which is rate limited from Devin's shared build IPs.
+      curl -sSLf https://raw.githubusercontent.com/signadot/cli/main/scripts/install.sh \
+        | SIGNADOT_CLI_VERSION=v1.9.0 sh
+      signadot --version
+
+  - name: Configure Signadot CLI
+    run: |
+      # Edit these two values to match your Signadot org and cluster name.
+      SIGNADOT_ORG_NAME=my-org
+      SIGNADOT_CLUSTER=my-cluster
+      mkdir -p ~/.signadot
+      cat > ~/.signadot/config.yaml <<EOF
+      org: ${SIGNADOT_ORG_NAME}
+      local:
+        connections:
+        # ControlPlaneProxy tunnels through the Signadot control plane: no
+        # kubeconfig and no network path to the cluster API is needed, so this
+        # works even for a cluster running on your laptop.
+        - cluster: ${SIGNADOT_CLUSTER}
+          type: ControlPlaneProxy
+      EOF
+
+maintenance:
+  - name: Clone or update HotROD
+    run: |
+      if [ ! -d ~/repos/hotrod ]; then
+        mkdir -p ~/repos
+        git clone https://github.com/signadot/hotrod ~/repos/hotrod
+      fi
+      cd ~/repos/hotrod
+      git pull --ff-only
+      go mod download
+
+knowledge:
+  - name: signadot
+    contents: |
+      This VM can test code changes end to end against a shared Kubernetes
+      cluster with Signadot. The HotROD baseline runs in namespace `hotrod`
+      of the Signadot cluster named in ~/.signadot/config.yaml. HotROD
+      source: ~/repos/hotrod (Go; one binary, `go run ./cmd/hotrod <service>`;
+      services: frontend, location, driver, route).
+
+      Credentials: the `signadot` CLI reads SIGNADOT_API_KEY from the
+      environment (Devin secret SIGNADOT_API_KEY). Bind it to every
+      `signadot` command.
+
+      1. Connect this VM to the cluster (once per session, before creating
+         sandboxes). This also makes in-cluster service names such as
+         redis.hotrod.svc resolvable from this VM. Every Devin VM boots with
+         the same /etc/machine-id, which Signadot uses to pick the devbox, so
+         give this session its own ID first; otherwise a second concurrent
+         session fails with "409 Conflict: devbox ... is already claimed":
+           [ -s ~/.signadot/machine-id ] || tr -d - < /proc/sys/kernel/random/uuid > ~/.signadot/machine-id
+           export MACHINE_ID_FILE=~/.signadot/machine-id
+           signadot local connect --wait connect --wait-timeout 120s
+           signadot local status
+      2. Run the changed service locally. For route (gRPC, port 8083):
+           cd ~/repos/hotrod
+           go run ./cmd/hotrod route > ~/route.log 2>&1 &
+      3. Create a sandbox with the Signadot MCP `create_sandbox` tool: a
+         `local` workload mapping Deployment `route` (namespace hotrod) port
+         8083 to localhost:8083, `connection.devboxId` from `list_devboxes`
+         (this VM's devbox, the one `signadot local status` reports), plus a
+         defaultRouteGroup endpoint for http://frontend.hotrod.svc:8080.
+      4. Run HotROD's Playwright e2e suite against the sandbox as a Signadot
+         Job (runs in the cluster on runner group `playwright`):
+           cd ~/repos/hotrod
+           signadot job submit -f .signadot/testing/demo-playwright-job.yaml \
+             --set branch=main --set namespace=hotrod \
+             --set sandbox=<sandbox-name> --wait --timeout 15m
+         Inspect a run with `signadot job get <job-name>`,
+         `signadot logs --job <job-name>`, and
+         `signadot artifact download --job <job-name> hotrod/playwright-report.tar.gz`.
+
+      Never print the value of SIGNADOT_API_KEY. Do not kill processes with
+      broad patterns like `pkill -f hotrod` (that matches signadot processes
+      too); kill by port: `kill $(lsof -t -i :8083)`.
