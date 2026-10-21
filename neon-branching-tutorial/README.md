@@ -4,43 +4,48 @@ Ephemeral sandbox environments solve many problems for microservices teams. You 
 
 But here's the catch: your sandbox service still connects to the same staging database as everyone else. One developer's test writes pollute another's queries. Schema migrations break active tests. Seed data disappears mid-run. The application layer is isolated, but the data layer is not.
 
-This guide shows you how to fix that problem. You will combine Signadot Sandboxes with Neon's database branching to create true full-stack isolation. Every sandbox gets its own application fork and its own database branch. When the sandbox dies, the database branch dies with it.
+You will fix that problem by combining Signadot Sandboxes with Neon's database branching to create true full-stack isolation. Every sandbox gets its own application fork and its own database branch. When the sandbox dies, the database branch dies with it. And you will control all of this through conversational prompts in your IDE.
+
+This tutorial shows you how to enable branch-based development using an AI agent and the Signadot MCP (Model Context Protocol) server. After a one-time manual setup, you will manage isolated database environments entirely through natural language prompts in Cursor.
 
 ## What You Will Build
 
 The end-to-end system works as follows:
 
-1. A developer creates a Signadot Sandbox
-2. A Resource Plugin automatically creates a Neon database branch and exposes the connection string as an output
-3. The sandbox pod starts with a connection string pointing to the isolated branch
-4. The developer runs tests against isolated data
-5. The developer deletes the sandbox
-6. The Resource Plugin deletes the Neon branch automatically
+1. A developer asks Cursor to create a Signadot Sandbox
+2. The Signadot MCP server translates the request into API calls
+3. A Resource Plugin automatically creates a Neon database branch and exposes the connection string as an output
+4. The sandbox pod starts with a connection string pointing to the isolated branch
+5. The developer runs tests against isolated data
+6. The developer asks Cursor to delete the sandbox
+7. The Resource Plugin deletes the Neon branch automatically
 
 No shared state. No test pollution. No manual cleanup scripts.
 
 ## How It Works
 
-The architecture relies on two key technologies working together.
+The architecture relies on three key technologies working together.
 
 **Neon Database Branching**: Neon uses copy-on-write storage to create instant database branches. A branch inherits all schema and data from its parent but operates independently. Writes to a branch don't affect the parent, and branches can be created or deleted in seconds with minimal storage overhead.
 
 **Signadot Resource Plugins**: Resource Plugins extend Signadot's sandbox lifecycle with custom provisioning logic. When a sandbox starts, the plugin runs a create workflow. When the sandbox terminates, the plugin runs a delete workflow. Outputs from the create workflow (like connection strings) can be injected directly into sandbox pods.
 
+**Signadot MCP Server**: The MCP server connects Signadot to AI-powered IDEs like Cursor. It exposes sandbox management operations as tools that AI agents can invoke, allowing developers to create, inspect, and delete sandboxes using natural language.
 
 ## Prerequisites
 
 Before you begin, ensure you have:
 
 - `kubectl` and `minikube` installed
-- A [Neon account](https://neon.tech) with an API key
+- A [Neon account](https://neon.tech/) with an API key
 - The `neonctl` CLI installed and authenticated
 - A [Signadot account](https://www.signadot.com/) with the operator installed in your cluster
-- The `signadot` CLI installed and authenticated
+- The `signadot` CLI v1.4.0+ installed and authenticated
+- [Cursor IDE](https://cursor.com/agents) installed with MCP support enabled
 
-## Baseline Environment
+## Setup
 
-We'll set up a users microservice connected to a Neon database, then demonstrate how sandboxes can get isolated database branches.
+The following steps configure the integration between Signadot and Neon. You only need to complete this setup once. After that, you can manage sandboxes entirely through Cursor.
 
 ### Step 1: Clone the Example Repository
 
@@ -222,7 +227,176 @@ Apply the plugin:
 signadot resourceplugin apply -f neon-branch-plugin.yaml
 ```
 
-### Step 5: Configure the Sandbox Specification
+### Step 5: Configure Cursor with Signadot MCP
+
+Add the Signadot MCP server to Cursor by editing your `~/.cursor/mcp.json` file:
+
+```json title="~/.cursor/mcp.json"
+{
+  "mcpServers": {
+    "signadot": {
+      "command": "signadot",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+After adding the configuration, restart Cursor to activate the Signadot MCP server.
+
+To verify the installation, open Cursor's AI chat (Cmd+L or Ctrl+L) and ask it to `list available Signadot sandboxes or clusters.` The AI should use the MCP tools to interact with your Signadot environment:
+
+![Verify installation](./images/img-008.png)
+
+
+Setup is complete. You can now manage sandboxes with isolated Neon database branches using natural language prompts in Cursor.
+
+## Using Sandboxes with Cursor
+
+The following prompts demonstrate a complete cycle: checking your environment, creating a sandbox with an isolated database branch, testing data isolation, and cleaning up.
+
+### Check Environment and Clean Up
+
+Start with a clean slate. Open Cursor Chat and enter:
+
+**Prompt:**
+
+> “Check my Signadot setup. List all clusters and sandboxes, then delete any sandboxes 
+that start with "neon-" to clean up from earlier runs.”
+> 
+
+**Expected Response:**
+
+The agent calls the Signadot MCP tools to list your clusters and sandboxes. It then checks for any sandboxes matching the pattern.
+
+![List cluster and sandboxes](./images/img-009.png)
+
+### Create Sandbox with Isolated Database
+
+Now create a sandbox that provisions an isolated Neon database branch. The agent resolves the workload, constructs the sandbox specification, and applies it via the MCP tools.
+
+Ensure you add your actual `project-id` below.
+
+**Prompt:**
+
+> “Create a sandbox called "neon-agent-test" for the users-service deployment in the 
+default namespace on my test-cluster. Use the neon-branch resource plugin with 
+these parameters:
+- project-id: <your-project-id>
+- parent-branch: main
+- database-name: neondb
+
+The sandbox should override the DATABASE_URL environment variable with the 
+connection string from the resource plugin output. Give me the preview URL 
+when it's ready.”
+> 
+
+**Expected Response:**
+
+The agent resolves the workload, builds the sandbox specification, and presents it for review before creating.
+
+![Resolve workload](./images/img-010.png)
+
+![Resolve workload](./images/img-011.png)
+
+![Resolve workload](./images/img-012.png)
+
+### Verify Sandbox in Signadot Dashboard
+
+Open the [Signadot Dashboard](https://app.signadot.com/) and navigate to **Sandboxes**. You should see the `neon-agent-test` sandbox in the list with a **Ready** status.
+
+![Dashboard](./images/img-013.png)
+
+### Verify Branch in Neon Console
+
+Open the [Neon Console](https://console.neon.tech/) and navigate to your project. Under **Branches**, you should see the newly created branch alongside the `main` branch.
+
+![Neon console](./images/img-014.png)
+
+The branch name follows the pattern `sandbox<sandbox-name>` with hyphens removed. The Resource Plugin created this branch automatically when Signadot provisioned the sandbox.
+
+### Test Data Isolation
+
+Test that the sandbox has its own isolated data. The agent runs curl commands and shows you exactly what it executed.
+
+**Prompt:**
+
+> ‘Query the sandbox endpoint at https://users-service--neon-agent-test.preview.signadot.com/users 
+to list users. Then create a new test user with name "Agent Test User" and 
+email "agent@test.example". Show me the commands you're running.’
+> 
+
+**Expected Response:**
+
+The agent uses the `signadot-api-key` header with your API key and shows the exact commands.
+
+![Query sandbox](./images/img-015.png)
+
+![Query sandbox](./images/img-016.png)
+
+![Query sandbox](./images/img-017.png)
+
+### Cleanup
+
+Clean up the sandbox when you're done. The Resource Plugin automatically deletes the Neon branch.
+
+**Prompt:**
+
+> “Delete the neon-agent-test sandbox.”
+> 
+
+**Expected Response:**
+
+The agent uses the Signadot CLI to delete the sandbox and waits for full teardown.
+
+![Delete sandox](./images/img-018.png)
+
+### Verify Sandbox Removal in Signadot Dashboard
+
+Return to the [Signadot Dashboard](https://app.signadot.com/) and navigate to **Sandboxes**. The `neon-agent-test` sandbox should no longer appear in the list.
+
+### Verify Branch Removal in Neon Console
+
+Open the [Neon Console](https://console.neon.tech/) and navigate to your project's **Branches** page. The `sandboxneonagenttest` branch should be gone. Only the `main` branch remains:
+
+![Neon console](./images/img-019.png)
+
+The Resource Plugin's delete workflow ran automatically when the sandbox was deleted, removing the isolated database branch along with all test data. No manual cleanup required.
+
+### What Happens Behind the Scenes
+
+When you ask the agent to create a sandbox, several systems coordinate:
+
+1. **Cursor Agent** receives your natural language prompt
+2. **Signadot MCP Server** translates the request into Signadot API calls
+3. **Signadot Control Plane** processes the sandbox specification
+4. **Resource Plugin** runs the create workflow in your cluster
+5. **Neon API** creates the database branch
+6. **Sandbox Pod** starts with the connection string injected
+
+The same Resource Plugin that powers the agent workflow also works with the CLI. You write the plugin once and use it from any interface.
+
+### Benefits of Agent-Driven Workflows
+
+Using an AI agent to manage sandboxes offers several advantages:
+
+- **No YAML editing**: Describe what you want in plain English. The agent generates correct specifications.
+- **No context switching**: Stay in your IDE. No terminal windows or browser tabs needed.
+- **Consistent cleanup**: Agents don't forget to delete sandboxes. Ask once and it's done.
+- **Faster iteration**: Create, test, and tear down environments as fast as you can type prompts.
+
+### Other MCP-Compatible Clients
+
+While this guide focuses on Cursor, Signadot's MCP server works with other clients too:
+
+- **VS Code**: Add the configuration to `.vscode/mcp.json` in your workspace
+- **Claude Code**: Run `claude mcp add --transport stdio signadot -- signadot mcp`
+
+See the [Signadot MCP documentation](https://www.signadot.com/docs/integrations/mcp) for setup instructions for each client.
+
+## Using the Signadot CLI
+
+For scripted workflows, CI/CD pipelines, or situations where you prefer command-line tools, you can manage sandboxes directly with the Signadot CLI.
 
 The sandbox spec ties everything together. Review `users-sandbox.yaml`:
 
@@ -265,7 +439,7 @@ The key sections:
 - **forks**: Creates a copy of the `users-service` Deployment with the `DATABASE_URL` overridden. The `valueFrom.resource` field references the plugin output directly using the format `<step-name>.<output-name>`. No intermediate Kubernetes Secret is required.
 - **defaultRouteGroup**: Creates a preview URL for accessing the sandboxed service.
 
-## Using Sandboxes
+### Create a Sandbox
 
 Create a sandbox with an isolated database branch:
 
@@ -343,5 +517,7 @@ Only the `main` branch remains.
 ## Conclusion
 
 Each Signadot Sandbox now gets its own forked microservice pods and its own isolated Neon database branch. The Resource Plugin handles the entire lifecycle: creating branches on sandbox creation, exposing connection strings through built-in outputs, and cleaning them up on deletion. Test data cannot leak between sandboxes, and schema migrations in one branch cannot break tests in another.
+
+After completing the one-time setup, developers can manage sandboxes entirely through natural language prompts in Cursor. No YAML editing. No context switching. The Signadot MCP server handles translation between conversational requests and infrastructure operations.
 
 The cost efficiency makes this practical for everyday use. Neon branches use copy-on-write storage, so you only pay for data that changes. Signadot sandboxes share baseline cluster resources. Branch creation and teardown complete in seconds. Every developer gets an isolated app and database for every pull request.
