@@ -67,6 +67,7 @@ jobs:
           tags: |
             type=sha,prefix=${{ steps.branch.outputs.BRANCH }}-
             type=sha,format=short
+            type=raw,value=${{ github.sha }}
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Docker image
@@ -117,7 +118,7 @@ jobs:
             echo "::notice::To install Signadot Operator:"
             echo "::notice::1. Get cluster token from Signadot dashboard"
             echo "::notice::2. Add it as SIGNADOT_CLUSTER_TOKEN secret"
-            echo "::notice::3. Or install manually: https://www.signadot.com/docs/getting-started/installation/install-signadot-operator"
+            echo "::notice::3. Or install manually: https://www.signadot.com/docs/installation/signadot-operator"
             exit 0
           fi
           

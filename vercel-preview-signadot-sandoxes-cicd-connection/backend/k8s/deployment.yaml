@@ -12,6 +12,10 @@ spec:
       app: vercel-signadot-backend
   template:
     metadata:
+      annotations:
+        # Adds the DevMesh sidecar, which routes requests that carry a sandbox's
+        # routing key to that sandbox. Skip it if you route with Istio or another mesh.
+        sidecar.signadot.com/inject: "true"
       labels:
         app: vercel-signadot-backend
     spec:

@@ -1,0 +1,21 @@
+name: combined-features
+spec:
+  cluster: "@{cluster}"
+  description: route with ETAs in seconds, driver with SD- license plates
+  forks:
+    - forkOf:
+        kind: Deployment
+        namespace: hotrod
+        name: route
+      customizations:
+        env:
+          - name: FAST_ROUTE
+            value: "1"
+    - forkOf:
+        kind: Deployment
+        namespace: hotrod
+        name: driver
+      customizations:
+        env:
+          - name: DRIVER_ID_PREFIX
+            value: "SD-"

@@ -75,7 +75,7 @@ jobs:
         run: |
           # Verify Signadot operator is installed and ready
           # Operator should be installed manually before running this workflow
-          # See: https://www.signadot.com/docs/getting-started/installation/install-signadot-operator
+          # See: https://www.signadot.com/docs/installation/signadot-operator
           if ! kubectl get namespace signadot &>/dev/null; then
             echo "::error::Signadot namespace not found. Install operator first."
             exit 1

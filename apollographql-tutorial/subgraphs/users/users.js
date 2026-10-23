@@ -16,7 +16,7 @@ const resolvers = {
             return users;
         },
         user: (_, args, context) => {
-            return users.find(p => p.email == args.id);
+            return users.find(p => p.email == args.email);
         }
     },
     User: {

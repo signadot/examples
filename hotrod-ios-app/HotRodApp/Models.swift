@@ -172,7 +172,7 @@ class AppState: ObservableObject {
     var baseURL: String {
         // For local testing with signadot local connect
         // This uses the service DNS name that signadot local connect maps to /etc/hosts
-        return "https://frontend.hotrod:8080"
+        return "http://frontend.hotrod:8080"
     }
     
     var routingHeaders: [String: String] {

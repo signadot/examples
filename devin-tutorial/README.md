@@ -5,6 +5,9 @@ and runs the unit tests. What it can't easily do there is prove that a change to
 still works with every other service it talks to. That usually waits for a staging deploy, after
 the pull request is open.
 
+> **Step-by-step tutorial:** [Test Devin's Changes End to End with Signadot](https://www.signadot.com/docs/tutorials/devin-signadot-sandboxes?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=devin)
+> explains how this example works and walks through every step.
+
 This tutorial gives Devin the [Signadot CLI](https://www.signadot.com/docs/getting-started/installation/signadot-cli)
 and the [Signadot MCP server](https://www.signadot.com/docs/integrations/mcp) so it can close that
 loop itself. Devin changes [HotROD](https://github.com/signadot/hotrod)'s `route` service, runs the
@@ -78,7 +81,7 @@ kubectl -n hotrod wait --for=condition=available deployment --all --timeout=5m
 ```
 
 HotROD ships a Playwright suite (`playwright-tests/`) and the Signadot specs to run it. Create the
-[job runner group](https://www.signadot.com/docs/reference/jobrunnergroups/spec) that runs the
+[job runner group](https://www.signadot.com/docs/reference/job-runner-groups/spec) that runs the
 suite inside the cluster. Its namespace must exist first:
 
 ```bash
@@ -451,3 +454,10 @@ the claim lapses within about a minute. Devboxes that stay idle are removed afte
   In our tests, an HTTP request from Devin's VM to an in-cluster service took 20 to 160 ms. If
   your cluster is far from the control plane, run `route` with `ROUTE_CALC_DELAY=1ms` to remove its
   simulated 50 ms of work.
+
+## Next steps
+
+- [Test Devin's Changes End to End with Signadot](https://www.signadot.com/docs/tutorials/devin-signadot-sandboxes?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=devin): the full tutorial for this example.
+- [AI coding agent tutorials](https://www.signadot.com/docs/tutorials/ai-coding-agents?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=devin): Claude Code, Cursor, Codex, Devin and more validating their own changes.
+- New to Signadot? [Create a free account](https://www.signadot.com/signup/?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=devin) (no credit card), then try it on your own services.
+- Questions? Ask in the [Signadot community Slack](https://join.slack.com/t/signadotcommunity/shared_invite/zt-1estxm8pv-qfiaNfiFFCaW~eUlXsVoEQ).

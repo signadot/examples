@@ -229,3 +229,10 @@ The highlighted hop at the top is the only one Signadot routes for you, and it d
 does for any HTTP service. Everything below it the application routes itself, because Dapr carries the routing key
 inside an encrypted sidecar-to-sidecar message. There the application resolves the destination
 before invoking, and each worker decides for itself whether it owns an event.
+
+## Next steps
+
+- [Testing Dapr Services with Signadot Sandboxes](https://www.signadot.com/docs/tutorials/testing-dapr-services?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=dapr): the full tutorial for this example.
+- [Messaging and workflow tutorials](https://www.signadot.com/docs/tutorials/messaging-and-workflows?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=dapr): Kafka, RabbitMQ, Amazon SQS, Google Pub/Sub, Redis Streams, Temporal and Dapr.
+- New to Signadot? [Create a free account](https://www.signadot.com/signup/?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=dapr) (no credit card), then try it on your own services.
+- Questions? Ask in the [Signadot community Slack](https://join.slack.com/t/signadotcommunity/shared_invite/zt-1estxm8pv-qfiaNfiFFCaW~eUlXsVoEQ).

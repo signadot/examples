@@ -1,0 +1,13 @@
+name: driver-sd-license
+spec:
+  cluster: "@{cluster}"
+  description: driver service with SD- license plates
+  forks:
+    - forkOf:
+        kind: Deployment
+        namespace: hotrod
+        name: driver
+      customizations:
+        env:
+          - name: DRIVER_ID_PREFIX
+            value: "SD-"

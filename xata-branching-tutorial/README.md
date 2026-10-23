@@ -2,6 +2,9 @@
 
 Ephemeral environments solve the "it works on my machine" problem for application code. But what about the database? When five developers test against the same staging database, test data collides, schema migrations conflict, and debugging becomes a nightmare. The environment might be ephemeral, but the shared database state is not.
 
+> **Step-by-step tutorial:** [Xata Database Branching for Every Sandbox](https://www.signadot.com/docs/tutorials/xata-database-branching?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=xata)
+> explains how this example works and walks through every step.
+
 Xata solves this with copy-on-write database branching. Each branch inherits the full schema and data from its parent but operates in complete isolation. Writes to a branch never affect the parent. Combined with Signadot's sandbox isolation for application workloads, you get true full-stack isolation: every sandbox gets its own forked pods *and* its own database branch.
 
 This tutorial demonstrates how to automate this integration. When a Signadot Sandbox spins up, a Resource Plugin creates an isolated Xata branch. When the sandbox terminates, the branch is deleted. No manual intervention. No leftover resources.
@@ -59,7 +62,7 @@ You need:
 - A Kubernetes cluster (minikube works fine for this tutorial)
 - `kubectl` configured to access your cluster
 - A [Xata account](https://xata.io/get-access) with a database created
-- A [Signadot account](https://app.signadot.com/) with the operator installed
+- A [Signadot account](https://www.signadot.com/signup/?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=xata) with the operator installed
 - The `xata` CLI installed and authenticated
 - The `signadot` CLI installed and authenticated
 - `psql` (PostgreSQL client) for database operations
@@ -452,3 +455,10 @@ Database isolation was the missing piece in ephemeral environments. Combining Xa
 The Resource Plugin handles the entire lifecycle automatically. Create a sandbox, get a branch. Delete the sandbox, clean up the branch. No scripts to maintain. No orphaned resources.
 
 For more information, see the official [Signadot Documentation](https://www.signadot.com/docs).
+
+## Next steps
+
+- [Xata Database Branching for Every Sandbox](https://www.signadot.com/docs/tutorials/xata-database-branching?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=xata): the full tutorial for this example.
+- [Database tutorials](https://www.signadot.com/docs/tutorials/databases?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=xata): branch a database for each sandbox, and test schema changes.
+- New to Signadot? [Create a free account](https://www.signadot.com/signup/?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=xata) (no credit card), then try it on your own services.
+- Questions? Ask in the [Signadot community Slack](https://join.slack.com/t/signadotcommunity/shared_invite/zt-1estxm8pv-qfiaNfiFFCaW~eUlXsVoEQ).

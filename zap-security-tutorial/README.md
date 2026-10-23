@@ -5,6 +5,9 @@ injectable once real input reaches it, or an error page that leaks database deta
 takes a running target, and in a microservices system that usually means a shared staging
 environment, after the change is merged.
 
+> **Step-by-step tutorial:** [Run ZAP DAST Scans on Every Change Before Merge](https://www.signadot.com/docs/tutorials/zap-security-testing?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=zap)
+> explains how this example works and walks through every step.
+
 This tutorial runs [ZAP](https://www.zaproxy.org/), the open source DAST scanner, against a single
 change before merge. The changed service runs in a [Signadot sandbox](https://www.signadot.com/docs/concepts/sandbox),
 and everything else it talks to comes from the cluster's baseline. ZAP runs in the cluster as a
@@ -330,3 +333,10 @@ To remove HotROD, run `kubectl delete namespace hotrod`.
 | The Job stays queued | The runner pod is still pulling ZAP's image. Check `kubectl -n signadot-tests get pods`. |
 | `curl: Could not resolve host: location.hotrod` | Run `signadot local status`, and `signadot local connect` if it isn't connected. |
 | The scan passes before the fix, or the routed `curl` returns all five locations | Requests aren't reaching your machine. Check that `go run ./cmd/hotrod location` is running and that `signadot sandbox get location-search` shows the sandbox as ready. |
+
+## Next steps
+
+- [Run ZAP DAST Scans on Every Change Before Merge](https://www.signadot.com/docs/tutorials/zap-security-testing?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=zap): the full tutorial for this example.
+- [Security testing tutorials](https://www.signadot.com/docs/tutorials/security-testing?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=zap): ZAP and Falco against a single change before merge.
+- New to Signadot? [Create a free account](https://www.signadot.com/signup/?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=zap) (no credit card), then try it on your own services.
+- Questions? Ask in the [Signadot community Slack](https://join.slack.com/t/signadotcommunity/shared_invite/zt-1estxm8pv-qfiaNfiFFCaW~eUlXsVoEQ).

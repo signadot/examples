@@ -9,7 +9,7 @@ This sample application uses Signadot's Node SDK to create a sandbox and test th
 3. Create the `hotrod` namespace by running `kubectl create ns hotrod`.
 4. Create our all in one demo application in your local Kubernetes cluster by running `kubectl -n hotrod apply -f https://raw.githubusercontent.com/signadot/hotrod/main/k8s/all-in-one/demo.yaml`.
 5. Create a cluster in the [Signadot Dashboard](https://app.signadot.com/) and make sure to copy the token generated for it for the next step.
-6. Install signadot operator on cluster following [these instructions](https://docs.signadot.com/docs/installation#signadot-operator)
+6. Install signadot operator on cluster following [these instructions](https://www.signadot.com/docs/installation/signadot-operator)
 
 # Installation
 

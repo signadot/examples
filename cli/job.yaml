@@ -2,7 +2,7 @@
 #
 # Example yaml file containing input to the signadot cli
 # which defines a job.  More information is
-# available at https://docs.signadot.com/docs/reference/jobs
+# available at https://www.signadot.com/docs/reference/jobs
 
 spec:
   namePrefix: example-job-

@@ -69,7 +69,7 @@ jobs:
           # This step verifies the operator is running
           if ! kubectl get namespace signadot &>/dev/null; then
             echo "::error::Signadot namespace not found. Please install the Signadot Operator first."
-            echo "::notice::Installation guide: https://www.signadot.com/docs/getting-started/installation/install-signadot-operator"
+            echo "::notice::Installation guide: https://www.signadot.com/docs/installation/signadot-operator"
             exit 1
           fi
           

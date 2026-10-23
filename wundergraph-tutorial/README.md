@@ -1,5 +1,8 @@
 # Using Sandboxes with WunderGraph
 
+> **Step-by-step tutorial:** [Testing WunderGraph Federated GraphQL Schemas](https://www.signadot.com/docs/tutorials/wundergraph-schema-testing?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=wundergraph)
+> explains how this example works and walks through every step.
+
 # Introduction
 
 One of the common challenges when working with GraphQL is managing **schema evolution**, especially testing changes introduced in a subgraph of a federated API without disrupting baseline traffic.
@@ -17,7 +20,8 @@ We’ll follow the setup described in the [WunderGraph Cosmo Cloud Onboarding](h
 > - `kubectl` and `minikube` installed
 > - A WunderGraph Cosmo account
 > - The `wgc` CLI installed and authenticated
-> - A Signadot account and the operator installed in the cluster
+> - A [Signadot account](https://www.signadot.com/signup/?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=wundergraph) and the [Signadot Operator](https://www.signadot.com/docs/installation/signadot-operator) installed in the cluster
+> - `jq`
 > - The `signadot` CLI installed and authenticated
 
 ### Steps
@@ -99,10 +103,12 @@ Here’s how it all fits together:
 1. Create a fork of the `products` service using the `products_fg` image (an alternative version of the `products` service where some schema updates were introduced).
     
     ```bash
+    export CLUSTER=<cluster-name>
+
     signadot sandbox apply -f - <<EOF
     name: wundergraph-products
     spec:
-      cluster: <cluster-name>
+      cluster: ${CLUSTER}
       forks:
         - forkOf:
             kind: Deployment
@@ -116,23 +122,30 @@ Here’s how it all fits together:
               value: "4004"
     EOF
     ```
-    
 
-1. Using the resulting sandbox routing key from above (referred to as `<routing-key>`), create a WunderGraph feature subgraph and a corresponding feature flag:
+    Save the sandbox's routing key for the next step:
+
+    ```bash
+    export ROUTING_KEY=$(signadot sandbox get wundergraph-products -o json | jq -r .routingKey)
+    ```
+
+1. Using that routing key, create a WunderGraph feature subgraph and a corresponding feature flag. Run these from the Cosmo demo directory, where the `products_fg` schema lives:
     
     ```bash
-    wgc feature-subgraph create products-<routing-key> \
+    cd ~/git/third-party/wundergraph/cosmo/demo
+
+    wgc feature-subgraph create products-${ROUTING_KEY} \
      --namespace development \
      --routing-url http://products.wundergraph-demo.svc:4004/graphql \
      --subgraph products
     
-    wgc subgraph publish products-<routing-key> \
+    wgc subgraph publish products-${ROUTING_KEY} \
         --namespace development \
         --schema ./pkg/subgraphs/products_fg/subgraph/schema.graphqls
     
-    wgc feature-flag create <routing-key> \
+    wgc feature-flag create ${ROUTING_KEY} \
         --namespace development \
-        --feature-subgraphs products-<routing-key> \
+        --feature-subgraphs products-${ROUTING_KEY} \
         --enabled
     ```
     
@@ -218,10 +231,17 @@ Another option is to extend or fork the [WunderGraph Router](https://github.com/
 
 # Conclusion
 
-By combining **WunderGraph feature flags** with **Signadot Sandboxes**, you can introduce and validate schema changes in a **safe, isolated environment** without disrupting basline traffic.
+By combining **WunderGraph feature flags** with **Signadot Sandboxes**, you can introduce and validate schema changes in a **safe, isolated environment** without disrupting baseline traffic.
 
 This approach provides a clean workflow for experimenting with new fields or subgraphs, testing them end-to-end, and rolling them out with confidence.
 
 While the current setup relies on a lightweight proxy to translate routing keys into feature-flag headers, future improvements could simplify the architecture even further.
 
 Adopting this pattern helps teams move faster while maintaining reliability, making it a practical strategy for evolving federated GraphQL schemas in modern Kubernetes environments.
+
+## Next steps
+
+- [Testing WunderGraph Federated GraphQL Schemas](https://www.signadot.com/docs/tutorials/wundergraph-schema-testing?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=wundergraph): the full tutorial for this example.
+- [Pull request testing tutorials](https://www.signadot.com/docs/tutorials/pull-request-testing?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=wundergraph): Playwright, Cypress, k6 and GraphQL schema checks on every pull request.
+- New to Signadot? [Create a free account](https://www.signadot.com/signup/?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=wundergraph) (no credit card), then try it on your own services.
+- Questions? Ask in the [Signadot community Slack](https://join.slack.com/t/signadotcommunity/shared_invite/zt-1estxm8pv-qfiaNfiFFCaW~eUlXsVoEQ).

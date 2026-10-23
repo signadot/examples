@@ -108,3 +108,10 @@ If you created `signadot-tests` exclusively for this tutorial, you can also run
 
 Revoke the repository access token, the Docker Hub token and the Signadot API key you created for the
 tutorial. Delete the service account only if nothing else uses it.
+
+## Next steps
+
+- [From Jira Ticket to Tested Pull Request with Signadot](https://www.signadot.com/docs/tutorials/jira-coding-agent-signadot-sandboxes?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=jira-coding-agent): the full tutorial for this example.
+- [AI coding agent tutorials](https://www.signadot.com/docs/tutorials/ai-coding-agents?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=jira-coding-agent): Claude Code, Cursor, Codex, Devin and more validating their own changes.
+- New to Signadot? [Create a free account](https://www.signadot.com/signup/?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=jira-coding-agent) (no credit card), then try it on your own services.
+- Questions? Ask in the [Signadot community Slack](https://join.slack.com/t/signadotcommunity/shared_invite/zt-1estxm8pv-qfiaNfiFFCaW~eUlXsVoEQ).

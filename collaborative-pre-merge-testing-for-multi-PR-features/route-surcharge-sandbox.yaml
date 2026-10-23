@@ -1,6 +1,6 @@
 name: route-surcharge-feature
 spec:
-  cluster: testing-tw
+  cluster: "@{cluster}"
   labels:
     epic: EPIC-42
   forks:
@@ -10,15 +10,4 @@ spec:
         name: route
       customizations:
         images:
-          - image: asruf/hotrod:epic-42
-        # env:
-        #   - name: OTEL_EXPORTER_OTLP_ENDPOINT
-        #     value: ""
-        #   - name: OTEL_TRACES_SAMPLER
-        #     value: "off"
-        #   - name: OTEL_METRICS_EXPORTER
-        #     value: "none"
-        #   - name: OTEL_LOGS_EXPORTER
-        #     value: "none"
-        #   - name: OTEL_SDK_DISABLED
-        #     value: "true"
+          - image: "@{image}"

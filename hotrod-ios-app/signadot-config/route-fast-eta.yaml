@@ -1,0 +1,13 @@
+name: route-fast-eta
+spec:
+  cluster: "@{cluster}"
+  description: route service with ETAs in seconds
+  forks:
+    - forkOf:
+        kind: Deployment
+        namespace: hotrod
+        name: route
+      customizations:
+        env:
+          - name: FAST_ROUTE
+            value: "1"

@@ -107,3 +107,10 @@ if you tried the optional refactor.
 Revoke the keys you created for the tutorial. If you no longer need the image, delete the GHCR package
 separately. Delete the service account only if you created it for this tutorial and nothing else uses
 it.
+
+## Next steps
+
+- [Diagnose Failing Tests with Signadot and CodeRabbit](https://www.signadot.com/docs/tutorials/coderabbit-signadot-failing-tests?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=coderabbit): the full tutorial for this example.
+- [AI coding agent tutorials](https://www.signadot.com/docs/tutorials/ai-coding-agents?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=coderabbit): Claude Code, Cursor, Codex, Devin and more validating their own changes.
+- New to Signadot? [Create a free account](https://www.signadot.com/signup/?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=coderabbit) (no credit card), then try it on your own services.
+- Questions? Ask in the [Signadot community Slack](https://join.slack.com/t/signadotcommunity/shared_invite/zt-1estxm8pv-qfiaNfiFFCaW~eUlXsVoEQ).

@@ -2,6 +2,9 @@
 
 Ephemeral sandbox environments solve many problems for microservices teams. You can spin up an isolated copy of your service, test your changes, and tear it down. No conflicts with other developers. No waiting for a shared staging slot.
 
+> **Step-by-step tutorial:** [Neon Database Branching for Every Sandbox](https://www.signadot.com/docs/tutorials/neon-database-branching?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=neon)
+> explains how this example works and walks through every step.
+
 But here's the catch: your sandbox service still connects to the same staging database as everyone else. One developer's test writes pollute another's queries. Schema migrations break active tests. Seed data disappears mid-run. The application layer is isolated, but the data layer is not.
 
 This guide shows you how to fix that problem. You will combine Signadot Sandboxes with Neon's database branching to create true full-stack isolation. Every sandbox gets its own application fork and its own database branch. When the sandbox dies, the database branch dies with it.
@@ -27,7 +30,6 @@ The architecture relies on two key technologies working together.
 
 **Signadot Resource Plugins**: Resource Plugins extend Signadot's sandbox lifecycle with custom provisioning logic. When a sandbox starts, the plugin runs a create workflow. When the sandbox terminates, the plugin runs a delete workflow. Outputs from the create workflow (like connection strings) can be injected directly into sandbox pods.
 
-
 ## Prerequisites
 
 Before you begin, ensure you have:
@@ -35,7 +37,7 @@ Before you begin, ensure you have:
 - `kubectl` and `minikube` installed
 - A [Neon account](https://neon.tech) with an API key
 - The `neonctl` CLI installed and authenticated
-- A [Signadot account](https://www.signadot.com/) with the operator installed in your cluster
+- A [Signadot account](https://www.signadot.com/signup/?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=neon) with the operator installed in your cluster
 - The `signadot` CLI installed and authenticated
 
 ## Baseline Environment
@@ -345,3 +347,10 @@ Only the `main` branch remains.
 Each Signadot Sandbox now gets its own forked microservice pods and its own isolated Neon database branch. The Resource Plugin handles the entire lifecycle: creating branches on sandbox creation, exposing connection strings through built-in outputs, and cleaning them up on deletion. Test data cannot leak between sandboxes, and schema migrations in one branch cannot break tests in another.
 
 The cost efficiency makes this practical for everyday use. Neon branches use copy-on-write storage, so you only pay for data that changes. Signadot sandboxes share baseline cluster resources. Branch creation and teardown complete in seconds. Every developer gets an isolated app and database for every pull request.
+
+## Next steps
+
+- [Neon Database Branching for Every Sandbox](https://www.signadot.com/docs/tutorials/neon-database-branching?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=neon): the full tutorial for this example.
+- [Database tutorials](https://www.signadot.com/docs/tutorials/databases?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=neon): branch a database for each sandbox, and test schema changes.
+- New to Signadot? [Create a free account](https://www.signadot.com/signup/?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=neon) (no credit card), then try it on your own services.
+- Questions? Ask in the [Signadot community Slack](https://join.slack.com/t/signadotcommunity/shared_invite/zt-1estxm8pv-qfiaNfiFFCaW~eUlXsVoEQ).

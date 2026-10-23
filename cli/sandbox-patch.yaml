@@ -1,7 +1,7 @@
 #!/usr/bin/env signadot sandbox apply -f
 # 
 # Example of using a patch customization.  For more info, please see
-# https://docs.signadot.com/docs/sandbox-spec#patch
+# https://www.signadot.com/docs/reference/sandboxes/advanced/custom-patches
 #
 name: example-patch
 spec:

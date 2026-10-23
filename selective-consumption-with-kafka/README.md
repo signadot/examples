@@ -3,6 +3,9 @@
 This is a sample application to demonstrate how Signadot sandboxes can be used
 in the case of cloud-native applications with asynchronous architectures.
 
+> **Step-by-step tutorial:** [Testing Kafka Microservices in Kubernetes](https://www.signadot.com/docs/tutorials/testing-kafka-microservices?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=kafka)
+> walks through this example and explains consumer groups, selective consumption and offsets.
+
 This application is formed by three microservices, the `frontend`, the
 `producer`, and the `consumer`, one `Kafka` cluster, and one `Redis` server.
 
@@ -32,7 +35,8 @@ will pull the `frontend` API every two seconds).
 
 ## Running
 
-First, [install Signadot Operator](https://docs.signadot.com/docs/installation)
+First, [create a Signadot account](https://www.signadot.com/signup/?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=kafka) and
+[install the Signadot Operator](https://www.signadot.com/docs/installation/signadot-operator)
 if you haven't already.
 
 Second, install the provided manifests in the `k8s` directory
@@ -56,8 +60,8 @@ commands, and/or by accessing the [Signadot
 Dashboard](https://app.signadot.com/).
 
 
-Alternatively, you can install the [Signadot Browser
-Extension](https://www.signadot.com/docs/browser-extensions) and create a
+Alternatively, you can install the [Signadot Chrome
+extension](https://chromewebstore.google.com/detail/signadot/aigejiccjejdeiikegdjlofgcjhhnkim) and create a
 port-forward to the `frontend` service:
 
 ```sh
@@ -73,3 +77,30 @@ To uninstall:
 ```sh
 kubectl -n kafka-demo delete -f k8s/pieces
 ```
+
+## Build from source
+
+The manifests run the prebuilt `signadot/kafka-demo:latest` image. Each sandboxed consumer joins its
+own consumer group, named after the baseline's group with the sandbox name appended. The prebuilt
+image predates that naming, so its sandboxed consumers share one group, which only matters when you
+run more than one consumer sandbox at a time. To run the current code, build the image and point the
+Deployments at it:
+
+```sh
+export IMAGE=<your-registry>/kafka-demo:latest
+docker build --platform linux/amd64 -t $IMAGE .
+docker push $IMAGE
+for d in frontend producer consumer; do
+  kubectl -n kafka-demo set image deployment/$d "*=$IMAGE"
+done
+```
+
+On Minikube, build inside Minikube's Docker daemon instead (`eval $(minikube docker-env)`) and skip
+the push.
+
+## Next steps
+
+- [Testing Kafka Microservices in Kubernetes](https://www.signadot.com/docs/tutorials/testing-kafka-microservices?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=kafka): the full tutorial for this example.
+- [Messaging and workflow tutorials](https://www.signadot.com/docs/tutorials/messaging-and-workflows?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=kafka): the same pattern for RabbitMQ, Amazon SQS, Google Pub/Sub, Redis Streams, Temporal and Dapr.
+- New to Signadot? [Create a free account](https://www.signadot.com/signup/?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=kafka) (no credit card), then try it on your own services.
+- Questions? Ask in the [Signadot community Slack](https://join.slack.com/t/signadotcommunity/shared_invite/zt-1estxm8pv-qfiaNfiFFCaW~eUlXsVoEQ).

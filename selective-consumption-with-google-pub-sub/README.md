@@ -3,8 +3,12 @@
 This is a sample application to demonstrate how Signadot sandboxes can be used
 in the case of cloud-native applications with asynchronous architectures.
 
+> **Step-by-step tutorial:** [Test Google Pub/Sub Flows End to End](https://www.signadot.com/docs/tutorials/testing-google-pub-sub-flows?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=google-pub-sub)
+> walks through this example scenario by scenario and explains how the subscriber decides which
+> messages to process.
+
 This application is formed by three microservices, the `frontend`, the
-`publisher`, and the `subscriber`, one `Google Manage Pub/Sub Instance`, and one `Redis` server.
+`publisher`, and the `subscriber`, one Google-managed Pub/Sub topic, and one `Redis` server.
 
 The `frontend` exposes an HTTP server from where static content (HTML, images)
 can be accessed, and a minimal REST API with two different methods, one for
@@ -29,82 +33,103 @@ will pull the `frontend` API every two seconds).
 
 ![image](./docs/images/architecture.png)
 
+## Prerequisites
+
+- A GKE cluster with [Workload Identity](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity)
+  enabled, and a Google Cloud project with the Pub/Sub API enabled.
+- A [Signadot account](https://www.signadot.com/signup/?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=google-pub-sub),
+  with the [Signadot Operator](https://www.signadot.com/docs/installation/signadot-operator) v0.15.0
+  or later installed in the cluster.
+- The [Signadot CLI](https://www.signadot.com/docs/getting-started/installation/signadot-cli),
+  logged in with `signadot auth login`.
+- `kubectl`, `gcloud` logged in to the project, Docker, and a container registry the cluster can
+  pull from, such as Artifact Registry.
+
 ## Running
 
-First, install the provided manifests in the `k8s` directory
+Build the demo image and push it to your registry. The frontend, publisher and subscriber all run
+from it. Add `PLATFORM=linux/arm64` if your nodes are ARM.
 
-Go to `IAM & Admin` in the Google Cloud Console.
+```sh
+export IMAGE=<your-registry>/pubsub-demo:latest
+make build push IMAGE=$IMAGE
+```
 
-Create a new service account and grant the `Pub/Sub Admin` role.
-
-Copy the service account email address.
-
-Open `k8s/pubsub/pubsubsa.yaml` and set the `iam.gke.io/gcp-service-account` property with the service account email.
-
-Apply the changes using
+Deploy Redis and the three services into the `pubsub-demo` namespace, and point the three
+Deployments at your image:
 
 ```sh
 kubectl create ns pubsub-demo
-kubectl apply -f k8s/pubsub/pubsubsa.yaml
+kubectl -n pubsub-demo apply -f k8s/pieces
+for d in frontend publisher subscriber; do
+  kubectl -n pubsub-demo set image deployment/$d "*=$IMAGE"
+done
 ```
-Configure IAM Policy Binding
 
-`Check IAM Admin Role:` Verify that the service account has been granted the IAM Admin role.
-
-Bind Workload Identity:
+The publisher and subscriber call Pub/Sub with Google's default credentials, and the subscriber
+creates the `pubsub-demo` topic and its subscription on startup. Give them a Google service account
+that can do that, through Workload Identity on their Kubernetes service accounts, `publisher` and
+`subscriber`:
 
 ```sh
-gcloud iam service-accounts add-iam-policy-binding <service account email> \
-    --member="serviceAccount:<project id>.svc.id.goog[pubsub-demo/pubsub-ksa]" \
-    --role="roles/iam.workloadIdentityUser" \
-    --project=<project id>
-kubectl -n pubsub-demo apply -f k8s/pieces
+export PROJECT_ID=<your-project>
+export GSA=pubsub-demo@$PROJECT_ID.iam.gserviceaccount.com
+
+gcloud iam service-accounts create pubsub-demo --project=$PROJECT_ID
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:$GSA" --role=roles/pubsub.editor
+
+for ksa in publisher subscriber; do
+  gcloud iam service-accounts add-iam-policy-binding $GSA \
+    --project=$PROJECT_ID \
+    --role=roles/iam.workloadIdentityUser \
+    --member="serviceAccount:$PROJECT_ID.svc.id.goog[pubsub-demo/$ksa]"
+  kubectl -n pubsub-demo annotate serviceaccount $ksa iam.gke.io/gcp-service-account=$GSA
+done
+
+kubectl -n pubsub-demo rollout restart deployment publisher subscriber
+kubectl -n pubsub-demo wait --for=condition=available deployment --all --timeout=5m
 ```
 
-Now, That needs to connect `[cluster]` with Signadot then create some sandboxes and route groups 
-to perform some tests.
-Go to `[Signadot Dashboard]` (https://app.signadot.com/).
+Sandboxes fork these Deployments with the same service accounts, so forked publishers and
+subscribers get the same access.
 
-Login to `[Signadot Dashboard]` then Navigate to cluster section and follow the instruction which is provided
-it will connect with your k8's cluster
+Create a sandbox for the publisher, one for the subscriber, and a route group that combines them.
+Set `CLUSTER` to your cluster's name from `signadot cluster list`:
 
-Then navigate to the `Sandboxes` section, copy and past configuration in the `signadot/sandboxes/subscriber.yaml` and `signadot/sandboxes/subscriber.yaml`.
+```sh
+export CLUSTER=<your-cluster>
+signadot sandbox apply -f signadot/sandboxes/publisher.yaml --set cluster=$CLUSTER
+signadot sandbox apply -f signadot/sandboxes/subscriber.yaml --set cluster=$CLUSTER
+signadot routegroup apply -f signadot/routegroups/demo.yaml --set cluster=$CLUSTER
+```
 
-Then navigate into the `Router Groups` section and add following infomation
-
-Name: `pubsub-demo`
-
-Description: `route group containing the subscriber and publisher sandboxes together`
-
-Match:  
-
-    label name: `demo`
-
-    value: `pubsub`
-
-Endpoints:  
-
-    name: `frontend`
-
-    protocol: `http`
-    
-    url: `frontend.pubsub-demo.svc:4000`
-
-Check `K8's cluster` this will add additional two pods in the cluster 
-
-Alternatively, you can install the [Signadot Browser
-Extension](https://www.signadot.com/docs/browser-extensions) and create a
-port-forward to the `frontend` service:
+Install the [Signadot Chrome extension](https://chromewebstore.google.com/detail/signadot/aigejiccjejdeiikegdjlofgcjhhnkim)
+and port-forward the `frontend` service:
 
 ```sh
 kubectl port-forward service/frontend -n pubsub-demo 4000:4000
 ```
 
-Open a browser at http://localhost:4000/, and use the Signadot extension to set
-your routing context.
+Open a browser at http://localhost:4000/, use the Signadot extension to set your routing context,
+and send a message. The log shows which publisher and subscriber handled it. You can also open the
+preview URLs that the commands above print, which add the routing key for you.
 
 To uninstall:
 
 ```sh
-kubectl -n pubsub-demo delete -f k8s/pieces
+signadot routegroup delete pubsub-demo
+signadot sandbox delete publisher-sbx
+signadot sandbox delete subscriber-sbx
+kubectl delete ns pubsub-demo
+gcloud pubsub subscriptions list --project=$PROJECT_ID --filter="topic:pubsub-demo" --format="value(name)" \
+  | xargs -r -n1 gcloud pubsub subscriptions delete --project=$PROJECT_ID
+gcloud pubsub topics delete pubsub-demo --project=$PROJECT_ID
 ```
+
+## Next steps
+
+- [Test Google Pub/Sub Flows End to End](https://www.signadot.com/docs/tutorials/testing-google-pub-sub-flows?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=google-pub-sub): the full tutorial for this example.
+- [Messaging and workflow tutorials](https://www.signadot.com/docs/tutorials/messaging-and-workflows?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=google-pub-sub): the same pattern for Kafka, RabbitMQ, Amazon SQS, Redis Streams, Temporal and Dapr.
+- New to Signadot? [Create a free account](https://www.signadot.com/signup/?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=google-pub-sub) (no credit card), then try it on your own services.
+- Questions? Ask in the [Signadot community Slack](https://join.slack.com/t/signadotcommunity/shared_invite/zt-1estxm8pv-qfiaNfiFFCaW~eUlXsVoEQ).

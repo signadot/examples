@@ -5,6 +5,9 @@ it runs: a new dependency that opens a connection to the internet when it's firs
 that passes input to a shell, code that reads a file it shouldn't. A diff review can miss these,
 and so can the unit tests, because nobody wrote a test for behavior nobody expected.
 
+> **Step-by-step tutorial:** [Catch Risky Runtime Behavior with Falco](https://www.signadot.com/docs/tutorials/falco-runtime-security?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=falco)
+> explains how this example works and walks through every step.
+
 This tutorial runs [Falco](https://falco.org/), the open source runtime security engine, against a
 single change before merge. Falco watches system calls on every node in the cluster and raises an
 alert when a container does something one of its rules describes. The changed service runs in a
@@ -335,3 +338,10 @@ To remove HotROD, run `kubectl delete namespace hotrod`.
 | The Job fails with `forbidden` reading Falco logs | `kubectl apply -f security/falco-reader-rbac.yaml` wasn't applied, or the runner group isn't using the `falco-reader` service account. |
 | The Job stays queued | The runner pod is still pulling its image, or the node is low on disk. Check `kubectl -n signadot-tests get pods`. |
 | The check passes on the vulnerable image | The dispatch may not have reached the sandboxed `route`. Confirm the fork pod is ready and that `location` IDs `123` and `567` exist (they're part of HotROD's seed data). |
+
+## Next steps
+
+- [Catch Risky Runtime Behavior with Falco](https://www.signadot.com/docs/tutorials/falco-runtime-security?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=falco): the full tutorial for this example.
+- [Security testing tutorials](https://www.signadot.com/docs/tutorials/security-testing?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=falco): ZAP and Falco against a single change before merge.
+- New to Signadot? [Create a free account](https://www.signadot.com/signup/?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=falco) (no credit card), then try it on your own services.
+- Questions? Ask in the [Signadot community Slack](https://join.slack.com/t/signadotcommunity/shared_invite/zt-1estxm8pv-qfiaNfiFFCaW~eUlXsVoEQ).

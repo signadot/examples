@@ -5,15 +5,15 @@
 - A running minikube cluster
 - `kubectl` installed and configured for your cluster
 - Docker installed (for building the location service image)
-- A [Signadot account](https://www.signadot.com/) with the Operator installed in your cluster
-- The `signadot` CLI installed ([installation guide](https://docs.signadot.com/docs/reference/cli/overview))
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code/overview) with the [Signadot MCP server](https://docs.signadot.com/docs/integrations/mcp) configured
+- A [Signadot account](https://www.signadot.com/signup/?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=dolt) with the Operator installed in your cluster
+- The `signadot` CLI installed ([installation guide](https://www.signadot.com/docs/reference/cli/overview))
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code/overview) with the [Signadot MCP server](https://www.signadot.com/docs/integrations/mcp) configured
 
 ## Overview
 
-Ephemeral sandbox environments isolate your services, but they still share the same staging database. One developer's test writes corrupt another's query results. [Dolt](https://docs.dolthub.com/) is a MySQL-compatible database with built-in Git-style version control that solves this problem. A [Signadot Resource Plugin](https://docs.signadot.com/docs/reference/resource-plugins) creates a Dolt branch when a sandbox starts and deletes it when the sandbox is removed. Every sandbox reads from its own isolated copy of the data while the baseline stays on `main`.
+Ephemeral sandbox environments isolate your services, but they still share the same staging database. One developer's test writes corrupt another's query results. [Dolt](https://docs.dolthub.com/) is a MySQL-compatible database with built-in Git-style version control that solves this problem. A [Signadot Resource Plugin](https://www.signadot.com/docs/reference/resource-plugins) creates a Dolt branch when a sandbox starts and deletes it when the sandbox is removed. Every sandbox reads from its own isolated copy of the data while the baseline stays on `main`.
 
-The [Signadot MCP server](https://docs.signadot.com/docs/integrations/mcp) connects this infrastructure to your editor. An AI agent can create sandboxes, check their status, and test endpoints through native MCP tool calls instead of manual CLI commands. This tutorial uses Claude Code, but other MCP-compatible coding agents should work as well. See the [Signadot MCP integration guide](https://docs.signadot.com/docs/integrations/mcp) for Cursor and VS Code setup.
+The [Signadot MCP server](https://www.signadot.com/docs/integrations/mcp) connects this infrastructure to your editor. An AI agent can create sandboxes, check their status, and test endpoints through native MCP tool calls instead of manual CLI commands. This tutorial uses Claude Code, but other MCP-compatible coding agents should work as well. See the [Signadot MCP integration guide](https://www.signadot.com/docs/integrations/mcp) for Cursor and VS Code setup.
 
 ## What You Will Build
 
@@ -160,7 +160,7 @@ The script strips hyphens from the sandbox name to comply with Dolt's branch nam
 
 The baseline location service only supports reads. In this section, the AI agent will add a write endpoint, build a new image, deploy it to an isolated sandbox, and verify that test writes land on the sandbox's Dolt branch without touching `main`. The entire workflow runs through three prompts.
 
-The examples below use [Claude Code](https://docs.anthropic.com/en/docs/claude-code/overview) with the [Signadot MCP server](https://docs.signadot.com/docs/integrations/mcp).
+The examples below use [Claude Code](https://docs.anthropic.com/en/docs/claude-code/overview) with the [Signadot MCP server](https://www.signadot.com/docs/integrations/mcp).
 
 ### Prompt 1: Add the POST Endpoint
 

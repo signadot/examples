@@ -11,7 +11,7 @@
 #    --set port=8083 \
 #    --set namespace=ns1
 #
-# Further documentation is available at https://docs.signadot.com/docs/cli#sandbox-templates
+# Further documentation is available at https://www.signadot.com/docs/reference/cli/templates
 #
 name: "@{dev}-@{team}-feature-x"
 spec:
