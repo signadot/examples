@@ -5,6 +5,9 @@ Redis stream breaks that chain: nobody calls a consumer, it reads entries on its
 routing key has to travel inside each stream entry, and every consumer, baseline and sandboxed
 alike, has to decide whether an entry is meant for it.
 
+> **Step-by-step tutorial:** [Test Redis Streams Consumers with Sandboxes](https://www.signadot.com/docs/tutorials/testing-redis-streams?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=redis-streams-python)
+> explains how this example works and walks through every step.
+
 This tutorial walks through a small Python app that does that. A producer appends messages to
 the Redis stream `demo:messages`, and a consumer reads the stream and calls a notifier. You'll
 fork each of the three services into a sandbox, and watch each message reach exactly the right
@@ -293,3 +296,10 @@ Then remove the demo and disconnect:
 kubectl delete namespace redis-streams-demo
 signadot local disconnect
 ```
+
+## Next steps
+
+- [Test Redis Streams Consumers with Sandboxes](https://www.signadot.com/docs/tutorials/testing-redis-streams?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=redis-streams-python): the full tutorial for this example.
+- [Messaging and workflow tutorials](https://www.signadot.com/docs/tutorials/messaging-and-workflows?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=redis-streams-python): Kafka, RabbitMQ, Amazon SQS, Google Pub/Sub, Redis Streams, Temporal and Dapr.
+- New to Signadot? [Create a free account](https://www.signadot.com/signup/?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=redis-streams-python) (no credit card), then try it on your own services.
+- Questions? Ask in the [Signadot community Slack](https://join.slack.com/t/signadotcommunity/shared_invite/zt-1estxm8pv-qfiaNfiFFCaW~eUlXsVoEQ).

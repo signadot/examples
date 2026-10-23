@@ -20,8 +20,12 @@ command -v jq >/dev/null 2>&1     || { echo "Error: jq is not installed or not o
 
 echo "Copying subgraphs from $GRAPH@$SRC -> $GRAPH@$DST"
 
-# List subgraphs (name + url) in source variant
-mapfile -t SUBGRAPHS < <(
+# List subgraphs (name + url) in source variant.
+# A read loop instead of mapfile keeps this working on macOS's Bash 3.2.
+SUBGRAPHS=()
+while IFS= read -r line; do
+  SUBGRAPHS+=("$line")
+done < <(
   rover --format json subgraph list "$GRAPH@$SRC" \
   | jq -r '.data.subgraphs[] | [.name, (.url // "")] | @tsv'
 )

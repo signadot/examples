@@ -1,15 +1,20 @@
-name: "${name}"
+# A sandbox for one pull request. Fill in the variables with --set, for example:
+#   signadot sandbox apply -f .signadot/sandbox-template.yaml \
+#     --set name=frontend-pr-17 --set cluster=my-cluster --set pr=17 \
+#     --set repo=my-org/hotrod --set epic=EPIC-42 \
+#     --set service=frontend --set image=<your-registry>/hotrod:pr-17
+name: "@{name}"
 spec:
-  cluster: "${cluster}"
+  cluster: "@{cluster}"
   labels:
-    signadot/github-pull-request: "${signadot/github-pull-request}"
-    signadot/github-repo: "${signadot/github-repo}"
-    epic: "${epic}"
+    signadot/github-pull-request: "@{pr}"
+    signadot/github-repo: "@{repo}"
+    epic: "@{epic}"
   forks:
     - forkOf:
         kind: Deployment
         namespace: hotrod
-        name: ${service}
+        name: "@{service}"
       customizations:
         images:
-          - image: ${image} 
+          - image: "@{image}"

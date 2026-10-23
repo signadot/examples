@@ -5,7 +5,7 @@
 # connected using `signadot local connect`.
 #
 # For more information, please see 
-# https://docs.signadot.com/docs/sandboxes/sandbox-local
+# https://www.signadot.com/docs/reference/sandboxes/local
 name: "@{user}-hotrod-route"
 spec:
   cluster: "@{cluster}"

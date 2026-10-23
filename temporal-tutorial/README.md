@@ -176,3 +176,10 @@ kubectl delete namespace temporal
 ```
 
 The client submits workflows to the Temporal server; workers poll the server for tasks. Baseline and sandboxed workers poll the same queue; interceptors route each task to the correct version.
+
+## Next steps
+
+- [Test Temporal Workers in Kubernetes with Sandboxes](https://www.signadot.com/docs/tutorials/testing-temporal-workers?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=temporal): the full tutorial for this example.
+- [Messaging and workflow tutorials](https://www.signadot.com/docs/tutorials/messaging-and-workflows?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=temporal): Kafka, RabbitMQ, Amazon SQS, Google Pub/Sub, Redis Streams, Temporal and Dapr.
+- New to Signadot? [Create a free account](https://www.signadot.com/signup/?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=temporal) (no credit card), then try it on your own services.
+- Questions? Ask in the [Signadot community Slack](https://join.slack.com/t/signadotcommunity/shared_invite/zt-1estxm8pv-qfiaNfiFFCaW~eUlXsVoEQ).

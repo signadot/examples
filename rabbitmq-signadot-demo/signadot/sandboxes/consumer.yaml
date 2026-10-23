@@ -9,7 +9,16 @@ spec:
       kind: Deployment
       namespace: rabbitmq-demo
       name: consumer
-    # No custom env required; SIGNADOT_SANDBOX_* is injected automatically
+    # A fork copies the baseline's env, including QUEUE_NAME=consumer-baseline.
+    # Give the fork its own temporary queue so it doesn't compete with the baseline.
+    customizations:
+      env:
+      - name: QUEUE_NAME
+        value: consumer-v2
+      - name: QUEUE_DURABLE
+        value: "false"
+      - name: QUEUE_AUTO_DELETE
+        value: "true"
   defaultRouteGroup:
     endpoints:
     - name: publisher

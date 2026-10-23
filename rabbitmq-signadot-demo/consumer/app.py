@@ -54,9 +54,12 @@ BASELINE_NAME = os.environ.get("BASELINE_NAME", "consumer")
 class SignadotConsumer:
     def __init__(self) -> None:
         self.sandbox_routing_key: Optional[str] = os.environ.get("SIGNADOT_SANDBOX_ROUTING_KEY")
-        self.sandbox_name: str = os.environ.get("SIGNADOT_SANDBOX_NAME", "") or "Baseline"
+        self._sandbox_name_env: str = os.environ.get("SIGNADOT_SANDBOX_NAME", "")
+        self.sandbox_name: str = self._sandbox_name_env or "Baseline"
         self.is_baseline: bool = not bool(self.sandbox_routing_key)
 
+        # Baseline: keys of every sandbox or route group that forks this consumer.
+        # Sandbox: keys that route to this sandbox (its own key plus any route group it is in).
         self._active_routes: Set[str] = set()
         self._routes_lock = threading.Lock()
         self._stop_event = threading.Event()
@@ -69,9 +72,6 @@ class SignadotConsumer:
         logging.info("[%s] Initialized (is_baseline=%s)", self.sandbox_name, self.is_baseline)
 
     def _start_route_updater(self) -> None:
-        if not self.is_baseline:
-            return
-
         def update_routes() -> None:
             while not self._stop_event.is_set():
                 try:
@@ -81,6 +81,8 @@ class SignadotConsumer:
                         f"&baselineNamespace={BASELINE_NAMESPACE}"
                         f"&baselineName={BASELINE_NAME}"
                     )
+                    if not self.is_baseline:
+                        url += f"&destinationSandboxName={self._sandbox_name_env}"
                     resp = requests.get(url, timeout=5)
                     resp.raise_for_status()
                     data = resp.json()
@@ -103,9 +105,11 @@ class SignadotConsumer:
         msg_key = self._effective_routing_key()
 
         if not self.is_baseline:
-            should = (msg_key == self.sandbox_routing_key)
-            logging.info("[%s] Message routing_key=%s, my_key=%s -> process=%s",
-                         self.sandbox_name, msg_key, self.sandbox_routing_key, should)
+            with self._routes_lock:
+                my_keys = self._active_routes | {self.sandbox_routing_key}
+            should = msg_key in my_keys
+            logging.info("[%s] Message routing_key=%s, my_keys=%s -> process=%s",
+                         self.sandbox_name, msg_key, sorted(my_keys), should)
             return should
 
         if not msg_key:

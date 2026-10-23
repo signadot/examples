@@ -18,7 +18,7 @@ const consumer = kafka.consumer({ groupId: signadotConsumerGroup('test-group') }
 // sandboxed workload, otherwise, it just returns the argument.
 function signadotConsumerGroup(groupId) {
     if (sandboxName !== "") {
-        groupId += groupId
+        groupId += '-' + sandboxName
     }
     return groupId
 }

@@ -2,6 +2,9 @@
 
 **Goal:** Give full‑stack teams a hot‑reload‑style workflow where every backend change is previewable as quickly as frontend changes on Vercel.
 
+> **Step-by-step tutorial:** [Full-Stack Vercel Preview Environments](https://www.signadot.com/docs/tutorials/vercel-preview-environments?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=vercel)
+> explains how this example works and walks through every step.
+
 Frontend developers are used to **instant feedback**: save a file, and the browser updates almost immediately. Vercel previews bring a similar experience to pull requests, where every push spins up a fresh frontend URL. But the **backend usually lags behind**: changes wait for a staging deploy, reviewers test against stale APIs, and full‑stack PRs become slow to validate.
 
 This tutorial shows how to pair **Vercel Preview Deployments** with **Signadot Sandboxes** so that:
@@ -12,7 +15,7 @@ This tutorial shows how to pair **Vercel Preview Deployments** with **Signadot S
 4. Pushing more commits to the PR updates both sides, giving a **fast-feedback, hot‑reload‑like loop** for backend and frontend together.
 
 **Time required:** 45–60 minutes  
-**Repository:** https://github.com/signadot/examples/tree/main/vercel-preview-signadot-sandboxes-cicd-connection
+**Repository:** https://github.com/signadot/examples/tree/main/vercel-preview-signadot-sandoxes-cicd-connection
 
 > **Stack note:** The sample app uses a Next.js frontend and a Node/Express backend, but the workflow applies to any framework that can read build‑time environment variables and expose a stable Kubernetes deployment for Signadot to clone.
 
@@ -66,7 +69,7 @@ This tutorial shows how to pair **Vercel Preview Deployments** with **Signadot S
 |-------------|-------------|
 | GitHub repositories | Separate frontend (`next.js`) and backend (`express`) repos, or a monorepo |
 | Vercel account | Project wired to the frontend repo, API token for GitHub Actions |
-| Signadot account | Organization name, API key, access to a Kubernetes cluster with the Signadot Operator installed |
+| [Signadot account](https://www.signadot.com/signup/?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=vercel) | Organization name, API key, access to a Kubernetes cluster with the Signadot Operator installed |
 | Kubernetes cluster | AWS EKS or GKE Standard (GKE Autopilot may have restrictions; verify Operator compatibility) |
 | Container registry | Docker Hub / GHCR / GCR for pushing backend images |
 
@@ -111,15 +114,27 @@ helm upgrade --install signadot-operator signadot/operator \
 
 The backend (`backend/`) is a minimal Express server with Kubernetes manifests under `backend/k8s/`.
 
-1. Update the deployment image to point at your registry:
+1. Update the deployment image to point at your registry. The pod template's
+   `sidecar.signadot.com/inject: "true"` annotation adds the DevMesh sidecar, which sends requests
+   that carry a sandbox's routing key to that sandbox. Keep it unless you route with Istio or another
+   mesh.
 
    `backend/k8s/deployment.yaml`
 
    ```yaml
-   containers:
-     - name: vercel-signadot-backend
-       image: YOUR_REGISTRY/vercel-signadot-backend:latest
+   template:
+     metadata:
+       annotations:
+         sidecar.signadot.com/inject: "true"
+     spec:
+       containers:
+         - name: backend
+           image: YOUR_REGISTRY/vercel-signadot-backend:latest
    ```
+
+   `YOUR_REGISTRY` is a placeholder. For images of your own services, use a private repository and
+   give the cluster pull access to it, for example with an
+   [image pull secret](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/).
 
 2. Apply the manifests to your cluster:
 
@@ -128,6 +143,8 @@ The backend (`backend/`) is a minimal Express server with Kubernetes manifests u
    kubectl apply -f backend/k8s/service.yaml
    kubectl get deployment vercel-signadot-backend -n default
    ```
+
+   The pod shows `2/2` ready containers: the backend and the DevMesh sidecar.
 
 **Checkpoint: Baseline backend healthy**
 
@@ -145,7 +162,7 @@ For a local quick check (optional):
 cd backend
 npm install
 npm run dev
-curl http://localhost:8080/health
+curl http://localhost:3000/health
 ```
 
 You should see a JSON response with `status: "healthy"`.
@@ -291,12 +308,12 @@ Now that the baseline environment and app configuration are in place, wire them 
 
 File: `backend/.github/workflows/ci.yml`
 
-Purpose: build, tag, and push backend Docker images so Signadot sandboxes can pull **PR‑specific artifacts**. This workflow **does not** deploy to the cluster or install the operator; those are one‑time baseline steps from the previous section.
+Purpose: build, tag, and push backend Docker images so Signadot sandboxes can pull **PR‑specific artifacts**. On pull requests it only builds and pushes. On pushes to `main`, a second job, `deploy-to-eks`, also rolls the baseline Deployment to the new image (tagged with the full commit SHA) and installs the operator if `SIGNADOT_CLUSTER_TOKEN` is set.
 
 Highlights:
 
 - Logs into `REGISTRY` using `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN`.
-- Tags images with a sanitized branch prefix, short SHA, and `latest` on the default branch.
+- Tags images with a sanitized branch prefix, the short and full commit SHA, and `latest` on the default branch.
 - Outputs a canonical image reference that matches the registry path used in `sandbox.yaml`.
 
 ```yaml
@@ -497,3 +514,9 @@ From here you can:
 - [Vercel Preview Deployments](https://vercel.com/docs/deployments/preview-deployments)
 - [GitHub Actions Documentation](https://docs.github.com/en/actions)
 
+## Next steps
+
+- [Full-Stack Vercel Preview Environments](https://www.signadot.com/docs/tutorials/vercel-preview-environments?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=vercel): the full tutorial for this example.
+- [Preview environment tutorials](https://www.signadot.com/docs/tutorials/preview-environments?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=vercel): Vercel frontends, mobile apps and features that span several pull requests.
+- New to Signadot? [Create a free account](https://www.signadot.com/signup/?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=vercel) (no credit card), then try it on your own services.
+- Questions? Ask in the [Signadot community Slack](https://join.slack.com/t/signadotcommunity/shared_invite/zt-1estxm8pv-qfiaNfiFFCaW~eUlXsVoEQ).

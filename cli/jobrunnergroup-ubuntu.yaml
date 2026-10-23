@@ -2,7 +2,7 @@
 #
 # Example yaml file containing input to the signadot cli
 # which defines a job runner group. More information is
-# available at https://docs.signadot.com/docs/reference/job-runner-groups.
+# available at https://www.signadot.com/docs/reference/job-runner-groups.
 
 name: example-jrg
 spec:

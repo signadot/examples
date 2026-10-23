@@ -1,9 +1,18 @@
 SHELL = /bin/sh
-.PHONY: build
+.PHONY: build push
 
+
+# Build your own image and push it to a registry your cluster can pull from:
+#   make build push IMAGE=<your-registry>/pubsub-demo:latest
+# Add PLATFORM=linux/arm64 if your nodes are ARM.
+IMAGE ?= signadot/pubsub-demo:latest
+PLATFORM ?= linux/amd64
 
 build:
-	docker build -t signadot/pubsub-demo:latest .
+	docker build --platform $(PLATFORM) -t $(IMAGE) .
+
+push:
+	docker push $(IMAGE)
 
 build-multi-arch:
 	docker build -t signadot/pubsub-demo:latest-linux-amd64 \

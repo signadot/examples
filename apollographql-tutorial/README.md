@@ -1,5 +1,8 @@
 # Using Sandboxes with Apollo GraphQL
 
+> **Step-by-step tutorial:** [Testing Apollo Federation Schema Changes](https://www.signadot.com/docs/tutorials/apollo-graphql-schema-testing?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=apollo-graphql)
+> explains how this example works and walks through every step.
+
 # Introduction
 
 Introducing schema changes in a **federated GraphQL architecture** can be tricky. You need a way to safely test and validate new functionality **without disrupting baseline traffic** or impacting other developers. This is especially important in fast-moving teams where multiple changes can happen in parallel.
@@ -19,7 +22,7 @@ The demo relies on **Apollo Managed Federation** and the **Apollo Router**, but 
 > - `kubectl` and `minikube` installed
 > - An Apollo Studio account
 > - The `rover` CLI installed and authenticated
-> - A Signadot account with the operator installed in the cluster
+> - A [Signadot account](https://www.signadot.com/signup/?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=apollo-graphql) with the [Signadot Operator](https://www.signadot.com/docs/installation/signadot-operator) installed in the cluster
 > - The `signadot` CLI installed and authenticated
 
 ### Steps
@@ -219,3 +222,10 @@ To address this issue, you can introduce a **variant reconciler process**. This 
 Using **Signadot Sandboxes** with **Apollo GraphQL** provides a clean, flexible way to **test schema changes in isolation** without interfering with baseline traffic or blocking other teams. By combining **Apollo Variants** with sandbox routing, each pull request can get its own dedicated environment, enabling faster iteration and safer releases.
 
 We also explored **potential improvements**, such as reducing resource overhead by handling multiple variants in a single router, or implementing a **variant reconciler** to keep PR variants in sync with the baseline as it evolves. These enhancements can make the workflow even more efficient at scale.
+
+## Next steps
+
+- [Testing Apollo Federation Schema Changes](https://www.signadot.com/docs/tutorials/apollo-graphql-schema-testing?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=apollo-graphql): the full tutorial for this example.
+- [Pull request testing tutorials](https://www.signadot.com/docs/tutorials/pull-request-testing?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=apollo-graphql): Playwright, Cypress, k6 and GraphQL schema checks on every pull request.
+- New to Signadot? [Create a free account](https://www.signadot.com/signup/?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=apollo-graphql) (no credit card), then try it on your own services.
+- Questions? Ask in the [Signadot community Slack](https://join.slack.com/t/signadotcommunity/shared_invite/zt-1estxm8pv-qfiaNfiFFCaW~eUlXsVoEQ).
