@@ -1,0 +1,15 @@
+name: redis-streams-producer
+spec:
+  description: "producer sandbox for the Redis Streams demo"
+  cluster: "@{cluster}"
+  labels:
+    demo: redis-streams
+  forks:
+    - forkOf:
+        kind: Deployment
+        namespace: redis-streams-demo
+        name: producer
+  defaultRouteGroup:
+    endpoints:
+      - name: producer
+        target: http://producer.redis-streams-demo.svc:4000

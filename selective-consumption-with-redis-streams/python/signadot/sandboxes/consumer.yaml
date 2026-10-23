@@ -1,0 +1,20 @@
+name: redis-streams-consumer
+spec:
+  description: "consumer sandbox for the Redis Streams demo (processor v2)"
+  cluster: "@{cluster}"
+  labels:
+    demo: redis-streams
+  forks:
+    - forkOf:
+        kind: Deployment
+        namespace: redis-streams-demo
+        name: consumer
+      customizations:
+        env:
+          # The change under test: v2 uppercases message bodies.
+          - name: PROCESSOR_VERSION
+            value: v2
+  defaultRouteGroup:
+    endpoints:
+      - name: producer
+        target: http://producer.redis-streams-demo.svc:4000

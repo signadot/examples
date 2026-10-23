@@ -1,0 +1,15 @@
+name: redis-streams-notifier
+spec:
+  description: "notifier sandbox for the Redis Streams demo"
+  cluster: "@{cluster}"
+  labels:
+    demo: redis-streams
+  forks:
+    - forkOf:
+        kind: Deployment
+        namespace: redis-streams-demo
+        name: notifier
+  defaultRouteGroup:
+    endpoints:
+      - name: producer
+        target: http://producer.redis-streams-demo.svc:4000

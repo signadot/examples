@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: notifier
+  namespace: redis-streams-demo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notifier
+  namespace: redis-streams-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notifier
+  template:
+    metadata:
+      labels:
+        app: notifier
+      annotations:
+        sidecar.signadot.com/inject: "true"
+    spec:
+      serviceAccountName: notifier
+      containers:
+        - name: notifier
+          image: redis-streams-demo-python:latest
+          imagePullPolicy: IfNotPresent
+          args: ["notifier"]
+          env:
+            - name: SIGNADOT_BASELINE_NAME
+              value: notifier
+            - name: SIGNADOT_BASELINE_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          ports:
+            - containerPort: 4001
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 4001
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notifier
+  namespace: redis-streams-demo
+  labels:
+    app: notifier
+spec:
+  type: ClusterIP
+  selector:
+    app: notifier
+  ports:
+    - port: 4001
+      name: http

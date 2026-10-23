@@ -1,0 +1,12 @@
+name: redis-streams-demo
+spec:
+  cluster: "@{cluster}"
+  description: "route group containing the producer, consumer and notifier sandboxes"
+  match:
+    any:
+      - label:
+          key: demo
+          value: redis-streams
+  endpoints:
+    - name: producer
+      target: http://producer.redis-streams-demo.svc:4000
