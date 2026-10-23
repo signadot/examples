@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: consumer
+  namespace: redis-streams-demo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: consumer
+  namespace: redis-streams-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: consumer
+  template:
+    metadata:
+      labels:
+        app: consumer
+    spec:
+      serviceAccountName: consumer
+      containers:
+        - name: consumer
+          image: redis-streams-demo-python:latest
+          imagePullPolicy: IfNotPresent
+          args: ["consumer"]
+          env:
+            # Which baseline workload this is, for the Signadot Routes API.
+            - name: SIGNADOT_BASELINE_KIND
+              value: Deployment
+            - name: SIGNADOT_BASELINE_NAME
+              value: consumer
+            - name: SIGNADOT_BASELINE_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          # Ready once the consumer group exists and routing rules are loaded.
+          readinessProbe:
+            exec:
+              command: ["cat", "/tmp/ready"]
+            periodSeconds: 2
