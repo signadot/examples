@@ -1,0 +1,21 @@
+# PostDelete hook: when the PR closes, the ApplicationSet deletes the Application
+# and this Job deletes the sandbox.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hotrod-pr-{{ .Values.pr }}-cleanup
+  annotations:
+    argocd.argoproj.io/hook: PostDelete
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: signadot
+          image: signadot/signadot-cli:v1.9.0
+          command: ["/signadot", "sandbox", "delete", "hotrod-pr-{{ .Values.pr }}"]
+          envFrom:
+            - secretRef:
+                name: signadot

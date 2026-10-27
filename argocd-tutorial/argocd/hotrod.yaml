@@ -1,0 +1,21 @@
+# The baseline: HotROD from your fork's main branch, with the Signadot DevMesh sidecar.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hotrod
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/<owner>/hotrod.git
+    targetRevision: main
+    path: k8s/overlays/prod/devmesh
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: hotrod
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

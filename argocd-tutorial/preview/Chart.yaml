@@ -1,0 +1,4 @@
+apiVersion: v2
+name: hotrod-preview
+description: A Signadot sandbox and an e2e test run for one HotROD pull request
+version: 0.1.0
