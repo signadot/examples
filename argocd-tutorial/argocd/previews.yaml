@@ -67,3 +67,5 @@ spec:
       syncPolicy:
         automated:
           prune: true
+        retry:
+          limit: 0  # the default retries a failed sync 5 times; report a failing preview at once
