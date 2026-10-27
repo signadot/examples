@@ -1,4 +1,5 @@
 # Previews may only create the sandbox spec and the hook Jobs, in hotrod-previews.
+# Pod is listed so Argo CD shows the Jobs' Pods, which is where their logs come from.
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
@@ -15,6 +16,8 @@ spec:
       kind: ConfigMap
     - group: batch
       kind: Job
+    - group: ""
+      kind: Pod
 ---
 # One Application per open pull request labeled "preview".
 apiVersion: argoproj.io/v1alpha1

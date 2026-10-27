@@ -42,7 +42,7 @@ spec:
               git init -q hotrod && cd hotrod
               git fetch -q --depth 1 "{{ .Values.repo }}" "{{ .Values.headSha }}" && git checkout -q FETCH_HEAD
               npm ci --no-audit --no-fund --loglevel=error
-              npm run e2e:playwright -- --reporter=line
+              npm run e2e:playwright -- --reporter=list
           env:
             - name: HOTROD_NAMESPACE
               value: {{ .Values.namespace }}
