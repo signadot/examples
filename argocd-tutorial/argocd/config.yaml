@@ -4,9 +4,6 @@ kind: ConfigMap
 metadata:
   name: argocd-cm
   namespace: argocd
-  labels:
-    app.kubernetes.io/name: argocd-cm
-    app.kubernetes.io/part-of: argocd
 data:
   accounts.agent: apiKey
 ---
@@ -15,9 +12,6 @@ kind: ConfigMap
 metadata:
   name: argocd-rbac-cm
   namespace: argocd
-  labels:
-    app.kubernetes.io/name: argocd-rbac-cm
-    app.kubernetes.io/part-of: argocd
 data:
   policy.csv: |
     p, agent, applications, get, previews/*, allow
@@ -29,9 +23,6 @@ kind: ConfigMap
 metadata:
   name: argocd-notifications-cm
   namespace: argocd
-  labels:
-    app.kubernetes.io/name: argocd-notifications-cm
-    app.kubernetes.io/part-of: argocd
 data:
   service.webhook.github: |
     url: https://api.github.com
@@ -58,7 +49,7 @@ data:
     webhook:
       github:
         method: POST
-        path: /repos/{{call .repo.FullNameByRepoURL .app.spec.source.helm.valuesObject.repo}}/statuses/{{.app.status.operationState.syncResult.source.helm.valuesObject.headSha}}
+        path: /repos/{{call .repo.FullNameByRepoURL .app.spec.source.helm.valuesObject.repo}}/statuses/{{with .app.status.operationState.syncResult}}{{.source.helm.valuesObject.headSha}}{{else}}{{.app.spec.source.helm.valuesObject.headSha}}{{end}}
         body: |
           {"context": "argocd/preview",
            {{- if eq .app.status.operationState.phase "Succeeded"}}

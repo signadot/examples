@@ -13,6 +13,7 @@ spec:
   template:
     spec:
       restartPolicy: Never
+      automountServiceAccountToken: false
       initContainers:
         - name: routing-key
           image: signadot/signadot-cli:v1.9.0
@@ -20,8 +21,10 @@ spec:
             - sh
             - -c
             - |
-              /signadot sandbox get hotrod-pr-{{ .Values.pr }} -o json \
-                | sed -n 's/.*"routingKey": *"\([^"]*\)".*/\1/p' > /work/routing-key
+              set -e
+              json=$(/signadot sandbox get hotrod-pr-{{ .Values.pr }} -o json)
+              echo "$json" | sed -n 's/.*"routingKey": *"\([^"]*\)".*/\1/p' > /work/routing-key
+              test -s /work/routing-key  # never run the tests against the baseline by mistake
           envFrom:
             - secretRef:
                 name: signadot
@@ -30,7 +33,7 @@ spec:
               mountPath: /work
       containers:
         - name: e2e
-          image: mcr.microsoft.com/playwright:v1.45.1-jammy
+          image: mcr.microsoft.com/playwright:v1.45.1-jammy  # match @playwright/test in package-lock.json
           workingDir: /work
           command:
             - bash

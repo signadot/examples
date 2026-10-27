@@ -44,6 +44,7 @@ spec:
   template:
     spec:
       restartPolicy: Never
+      automountServiceAccountToken: false
       initContainers:
         - name: wait-for-image
           image: gcr.io/go-containerregistry/crane/debug:v0.22.1
@@ -51,8 +52,8 @@ spec:
             - sh
             - -c
             - |
-              until crane digest "{{ .Values.image }}" >/dev/null 2>&1; do
-                echo "waiting for CI to push {{ .Values.image }}"
+              until out=$(crane digest "{{ .Values.image }}" 2>&1); do
+                echo "waiting for CI to push {{ .Values.image }}: $(echo "$out" | tail -1)"
                 sleep 15
               done
       containers:

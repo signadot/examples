@@ -12,6 +12,7 @@ spec:
   template:
     spec:
       restartPolicy: Never
+      automountServiceAccountToken: false
       containers:
         - name: signadot
           image: signadot/signadot-cli:v1.9.0
