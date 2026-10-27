@@ -15,7 +15,7 @@ A change is done when its preview passes, not when it compiles.
 1. Open the PR with the label: `gh pr create --label preview`. If the change alters behavior a
    user can see, add or update a Playwright test for it.
 2. Wait for the check on your latest commit: `gh pr checks <number> --watch --interval 30`. A
-   preview takes about five minutes, most of it the image build.
+   preview takes two to three minutes, most of it the image build.
 3. If `argocd/preview` fails, find out why with the MCP server:
    - `get_application` for `hotrod-pr-<number>`: `status.operationState` has the phase and message,
      and `status.operationState.syncResult.resources` lists each hook Job and its result.

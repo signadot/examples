@@ -24,6 +24,7 @@ is the shortest path to a first sandbox.
 
 | Example | What it shows | Tutorial |
 | --- | --- | --- |
+| [argocd-tutorial](argocd-tutorial) | An Argo CD ApplicationSet giving every agent pull request a sandbox and an e2e check, which the agent reads through the Argo CD MCP server | [Test Coding Agent Pull Requests with Argo CD](https://www.signadot.com/docs/tutorials/argocd-coding-agent-pull-requests?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=root) |
 | [coderabbit-tutorial](coderabbit-tutorial) | Playwright tests in a sandbox on every pull request, with CodeRabbit explaining failures | [Diagnose Failing Tests with CodeRabbit](https://www.signadot.com/docs/tutorials/coderabbit-signadot-failing-tests?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=root) |
 | [devin-tutorial](devin-tutorial) | Devin validating its change to one microservice against the rest of the system | [Test Devin's Changes End to End](https://www.signadot.com/docs/tutorials/devin-signadot-sandboxes?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=root) |
 | [jira-coding-agent-tutorial](jira-coding-agent-tutorial) | From a Jira ticket to a pull request tested in a sandbox, with Bitbucket Pipelines | [From Jira Ticket to Tested Pull Request](https://www.signadot.com/docs/tutorials/jira-coding-agent-signadot-sandboxes?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=root) |

@@ -110,9 +110,41 @@ use when one fails.
 
 ## 6. What happens
 
-<!-- filled in from the verified run -->
+In our run, Claude Code found the notification in `services/route/server.go` and the Playwright
+test that asserts its text, changed both, and opened the PR with the `preview` label. It then
+waited on `gh pr checks --watch`:
 
-## 7. Review and clean up
+- CI pushed `ghcr.io/<owner>/hotrod:<head sha>` in about 50 seconds.
+- Argo CD created `hotrod-pr-<number>`. Its Sync hook created sandbox `hotrod-pr-<number>`, which
+  runs that image in place of `route`, and its PostSync hook ran the PR's Playwright suite with the
+  sandbox's routing key.
+- About three minutes after the push, `argocd/preview` turned green.
+
+The agent read the e2e Job's log with `get_application_workload_logs` to confirm the run tested
+its commit, and added the preview URL to the PR description.
+
+## 7. Watch the agent fix a failing preview
+
+`driver` gives each `route` call a one-second deadline (`services/route/client.go`). Act as a
+teammate and push a commit to the agent's branch that makes `route` slower than that:
+
+```bash
+perl -pi -e 's/50 \* time\.Millisecond/1500 * time.Millisecond/' pkg/config/route.go
+git commit -am "route: simulate a slower routing engine" && git push
+```
+
+It builds and passes unit tests, but in the preview no ride gets a driver and both Playwright tests
+fail. Tell the agent:
+
+> The argocd/preview check on <PR URL> has been failing since a teammate pushed a commit to your
+> branch. Find out why, fix it, and don't stop until the preview passes.
+
+In our run it read the failure through `get_application` and `get_application_workload_logs`,
+traced it to the one-second timeout, and reverted the commit. The check passed about 90 seconds
+after its push. It also explained why raising the timeout would not help: the timeout runs in
+`driver`, which the preview doesn't fork.
+
+## 8. Review and clean up
 
 Open the preview URL from the PR's `argocd/preview` check while signed in to Signadot, request a
 ride, and look for the ETA in the `route` notification.
@@ -120,7 +152,8 @@ ride, and look for the ETA in the `route` notification.
 Merge or close the PR. Within a minute the ApplicationSet deletes `hotrod-pr-<number>`, its
 PostDelete hook deletes the sandbox, and `signadot sandbox list` no longer shows it.
 
-To remove everything:
+To remove the setup, close any open `preview` PRs first so their hooks can delete their sandboxes,
+then run the following. HotROD keeps running in `hotrod`.
 
 ```bash
 kubectl delete -f argocd/
