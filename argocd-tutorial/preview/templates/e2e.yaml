@@ -48,6 +48,8 @@ spec:
               value: {{ .Values.namespace }}
             - name: CI
               value: "true"
+            - name: FORCE_COLOR  # plain text for whoever reads the logs
+              value: "0"
             - name: CYPRESS_INSTALL_BINARY  # HotROD's package.json also lists Cypress
               value: "0"
           volumeMounts:

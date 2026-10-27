@@ -43,7 +43,7 @@ data:
       send: [preview-pending]
   trigger.on-preview-completed: |
     - when: app.status.operationState?.phase in ['Succeeded', 'Failed', 'Error']
-      oncePer: app.status.operationState?.syncResult?.source?.helm?.valuesObject?.headSha
+      oncePer: app.status.operationState?.startedAt  # once per sync, even of the same commit
       send: [preview-result]
   template.preview-pending: |
     webhook:
