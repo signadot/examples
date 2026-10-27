@@ -1,0 +1,60 @@
+# An "agent" account that can only read preview Applications and their logs.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd
+data:
+  accounts.agent: apiKey
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-rbac-cm
+  namespace: argocd
+data:
+  policy.csv: |
+    p, agent, applications, get, previews/*, allow
+    p, agent, logs, get, previews/*, allow
+---
+# Report each preview as an "argocd/preview" commit status on the PR's head commit.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-notifications-cm
+  namespace: argocd
+data:
+  service.webhook.github: |
+    url: https://api.github.com
+    headers:
+      - name: Authorization
+        value: token $github-token
+  trigger.on-preview-running: |
+    - when: app.status.operationState?.phase == 'Running'
+      send: [preview-pending]
+  trigger.on-preview-completed: |
+    - when: app.status.operationState?.phase in ['Succeeded', 'Failed', 'Error']
+      oncePer: app.status.operationState?.startedAt  # once per sync, even of the same commit
+      send: [preview-result]
+  template.preview-pending: |
+    webhook:
+      github:
+        method: POST
+        path: /repos/{{call .repo.FullNameByRepoURL .app.spec.source.helm.valuesObject.repo}}/statuses/{{.app.spec.source.helm.valuesObject.headSha}}
+        body: |
+          {"context": "argocd/preview", "state": "pending",
+           "description": "Deploying the sandbox and running e2e tests",
+           "target_url": "{{(index .app.spec.info 0).value}}"}
+  template.preview-result: |
+    webhook:
+      github:
+        method: POST
+        path: /repos/{{call .repo.FullNameByRepoURL .app.spec.source.helm.valuesObject.repo}}/statuses/{{with .app.status.operationState.syncResult}}{{.source.helm.valuesObject.headSha}}{{else}}{{.app.spec.source.helm.valuesObject.headSha}}{{end}}
+        body: |
+          {"context": "argocd/preview",
+           {{- if eq .app.status.operationState.phase "Succeeded"}}
+           "state": "success", "description": "e2e tests passed in the sandbox",
+           {{- else}}
+           "state": "failure", "description": "Sync {{.app.status.operationState.phase}}: see Argo CD app {{.app.metadata.name}}",
+           {{- end}}
+           "target_url": "{{(index .app.spec.info 0).value}}"}

@@ -1,0 +1,63 @@
+# PostSync hook: run the PR's own Playwright suite against the sandbox. Only the
+# init container sees the Signadot API key; the PR's test code gets the routing key.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hotrod-pr-{{ .Values.pr }}-e2e
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 900
+  template:
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      initContainers:
+        - name: routing-key
+          image: signadot/signadot-cli:v1.9.0
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              json=$(/signadot sandbox get hotrod-pr-{{ .Values.pr }} -o json)
+              echo "$json" | sed -n 's/.*"routingKey": *"\([^"]*\)".*/\1/p' > /work/routing-key
+              test -s /work/routing-key  # never run the tests against the baseline by mistake
+          envFrom:
+            - secretRef:
+                name: signadot
+          volumeMounts:
+            - name: work
+              mountPath: /work
+      containers:
+        - name: e2e
+          image: mcr.microsoft.com/playwright:v1.45.1-jammy  # match @playwright/test in package-lock.json
+          workingDir: /work
+          command:
+            - bash
+            - -c
+            - |
+              set -e
+              export SIGNADOT_ROUTING_KEY=$(cat /work/routing-key)
+              echo "Testing {{ .Values.headSha }} in sandbox hotrod-pr-{{ .Values.pr }} (routing key $SIGNADOT_ROUTING_KEY)"
+              git init -q hotrod && cd hotrod
+              git fetch -q --depth 1 "{{ .Values.repo }}" "{{ .Values.headSha }}" && git checkout -q FETCH_HEAD
+              npm ci --no-audit --no-fund --loglevel=error
+              npm run e2e:playwright -- --reporter=list
+          env:
+            - name: HOTROD_NAMESPACE
+              value: {{ .Values.namespace }}
+            - name: CI
+              value: "true"
+            - name: FORCE_COLOR  # plain text for whoever reads the logs
+              value: "0"
+            - name: CYPRESS_INSTALL_BINARY  # HotROD's package.json also lists Cypress
+              value: "0"
+          volumeMounts:
+            - name: work
+              mountPath: /work
+      volumes:
+        - name: work
+          emptyDir: {}

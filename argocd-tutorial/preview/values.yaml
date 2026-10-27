@@ -1,0 +1,11 @@
+# Set by the ApplicationSet for each pull request.
+pr: ""
+headSha: ""
+repo: ""     # Git URL the e2e tests are cloned from
+image: ""    # the image CI built from headSha
+cluster: ""  # your cluster's name in Signadot
+
+# The baseline the sandbox forks: one Deployment per service, all running the PR's image.
+namespace: hotrod
+services:
+  - route

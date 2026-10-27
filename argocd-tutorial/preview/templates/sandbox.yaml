@@ -1,0 +1,72 @@
+# The sandbox spec. It is the Application's only tracked resource, and it changes
+# with every commit, so each push makes the Application OutOfSync and reruns the hooks.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hotrod-pr-{{ .Values.pr }}
+data:
+  sandbox.yaml: |
+    name: hotrod-pr-{{ .Values.pr }}
+    spec:
+      cluster: {{ .Values.cluster }}
+      description: HotROD pull request {{ .Values.pr }}  # immutable: keep it the same for every commit
+      # A backstop in case the PostDelete hook never runs.
+      ttl:
+        duration: 3d
+        offsetFrom: updatedAt
+      forks:
+      {{- range .Values.services }}
+      - forkOf:
+          kind: Deployment
+          namespace: {{ $.Values.namespace }}
+          name: {{ . }}
+        customizations:
+          images:
+          - image: {{ $.Values.image }}
+      {{- end }}
+      defaultRouteGroup:
+        endpoints:
+        - name: frontend
+          target: http://frontend.{{ .Values.namespace }}.svc:8080
+---
+# Sync hook: wait for CI to push the PR's image, then create or update the sandbox.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hotrod-pr-{{ .Values.pr }}-sandbox
+  annotations:
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 900
+  template:
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      initContainers:
+        - name: wait-for-image
+          image: gcr.io/go-containerregistry/crane/debug:v0.22.1
+          command:
+            - sh
+            - -c
+            - |
+              until out=$(crane digest "{{ .Values.image }}" 2>&1); do
+                echo "waiting for CI to push {{ .Values.image }}: $(echo "$out" | tail -1)"
+                sleep 15
+              done
+      containers:
+        - name: signadot
+          image: signadot/signadot-cli:v1.9.0
+          command: ["/signadot", "sandbox", "apply", "-f", "/spec/sandbox.yaml", "--wait-timeout", "5m"]
+          envFrom:
+            - secretRef:
+                name: signadot
+          volumeMounts:
+            - name: spec
+              mountPath: /spec
+      volumes:
+        - name: spec
+          configMap:
+            name: hotrod-pr-{{ .Values.pr }}

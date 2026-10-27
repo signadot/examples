@@ -1,0 +1,71 @@
+# Previews may only create the sandbox spec and the hook Jobs, in hotrod-previews.
+# Pod is listed so Argo CD shows the Jobs' Pods, which is where their logs come from.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: previews
+  namespace: argocd
+spec:
+  sourceRepos:
+    - https://github.com/signadot/examples.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: hotrod-previews
+  namespaceResourceWhitelist:
+    - group: ""
+      kind: ConfigMap
+    - group: batch
+      kind: Job
+    - group: ""
+      kind: Pod
+---
+# One Application per open pull request labeled "preview".
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: hotrod-previews
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - pullRequest:
+        github:
+          owner: <owner>
+          repo: hotrod
+          labels:
+            - preview
+          tokenRef:
+            secretName: argocd-notifications-secret
+            key: github-token
+        requeueAfterSeconds: 60  # no webhook can reach a local cluster, so poll
+  template:
+    metadata:
+      name: hotrod-pr-{{ .number }}
+      annotations:
+        notifications.argoproj.io/subscribe.on-preview-running.github: ""
+        notifications.argoproj.io/subscribe.on-preview-completed.github: ""
+    spec:
+      project: previews
+      source:
+        repoURL: https://github.com/signadot/examples.git
+        targetRevision: main
+        path: argocd-tutorial/preview
+        helm:
+          valuesObject:
+            pr: "{{ .number }}"
+            headSha: "{{ .head_sha }}"
+            repo: https://github.com/<owner>/hotrod.git
+            image: ghcr.io/<owner>/hotrod:{{ .head_sha }}
+            cluster: <cluster>
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: hotrod-previews
+      info:
+        - name: Preview
+          value: https://frontend--hotrod-pr-{{ .number }}.preview.signadot.com
+      syncPolicy:
+        automated:
+          prune: true
+        retry:
+          limit: 0  # the default retries a failed sync 5 times; report a failing preview at once
