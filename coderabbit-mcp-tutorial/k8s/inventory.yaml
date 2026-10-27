@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Service
+metadata: { name: inventory, namespace: boxoffice }
+spec:
+  selector: { app: inventory }
+  ports: [{ port: 8081, targetPort: 8081 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: inventory, namespace: boxoffice }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: inventory } }
+  template:
+    metadata:
+      labels: { app: inventory }
+      annotations:
+        # Signadot's DevMesh sidecar. It carries the routing key that sends a
+        # request to a sandbox's copy of a service instead of this one. Without
+        # it a sandbox never becomes ready.
+        sidecar.signadot.com/inject: "true"
+    spec:
+      containers:
+        - name: inventory
+          image: signadot/boxoffice-demo-inventory:baseline
+          imagePullPolicy: IfNotPresent
+          env:
+            # Holds last 24 hours in this demo, so repeated test runs reuse the same hold.
+            - { name: HOLD_SECONDS, value: "86400" }
+          ports: [{ containerPort: 8081 }]
+          readinessProbe:
+            httpGet: { path: /readyz, port: 8081 }
+            initialDelaySeconds: 3
