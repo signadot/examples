@@ -49,6 +49,7 @@ directly; see [Pull Request Testing](https://www.signadot.com/docs/tutorials/pul
 | [vercel-preview-signadot-sandoxes-cicd-connection](vercel-preview-signadot-sandoxes-cicd-connection) | A Vercel frontend preview wired to a backend sandbox from the same pull request | [Full-Stack Vercel Preview Environments](https://www.signadot.com/docs/tutorials/vercel-preview-environments?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=root) |
 | [collaborative-pre-merge-testing-for-multi-PR-features](collaborative-pre-merge-testing-for-multi-PR-features) | One preview for a feature that spans several pull requests and services | [Testing Multi-PR Features Before Merge](https://www.signadot.com/docs/tutorials/multi-pr-feature-testing?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=root) |
 | [hotrod-ios-app](hotrod-ios-app) | An iOS app sending a sandbox's routing key to preview backend changes | [Preview Backend Changes in a Mobile App](https://www.signadot.com/docs/tutorials/mobile-app-previews?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=root) |
+| [argocd-tutorial](argocd-tutorial) | An Argo CD ApplicationSet whose hooks create a sandbox for every pull request, run its Playwright suite and report a commit status | [Test Coding Agent Pull Requests with Argo CD](https://www.signadot.com/docs/tutorials/argocd-coding-agent-pull-requests?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=root) |
 
 ## Messaging and workflows
 

@@ -2,7 +2,8 @@
 
 > **Step-by-step tutorial:** [Test Coding Agent Pull Requests with Argo CD and Signadot](https://www.signadot.com/docs/tutorials/argocd-coding-agent-pull-requests?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=argocd)
 > explains how this example works. The [Argo CD integration guide](https://www.signadot.com/docs/guides/integrate-ci/argocd?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=argocd)
-> is the reference.
+> is the reference, and [ArgoCD preview environments](https://www.signadot.com/articles/argocd-preview-environments/?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=argocd)
+> compares the ApplicationSet pattern with routed previews.
 
 A coding agent opens a pull request on [HotROD](https://github.com/signadot/hotrod). An Argo CD
 ApplicationSet turns the PR into an Application whose hooks create a
@@ -134,8 +135,9 @@ use when one fails. `.claude/settings.json` denies Claude Code `kubectl`, `argoc
 so the preview is its only way to test.
 
 The first image build creates the package `ghcr.io/<owner>/hotrod`. If GitHub makes it private, the
-sandbox Job keeps logging `DENIED` after the `Preview image` run succeeds. Make the package public
-in its **Package settings**, and the preview continues on its own.
+sandbox Job keeps logging `DENIED` after the `Preview image` run succeeds. HotROD is open source, so
+make the package public in its **Package settings**, and the preview continues on its own. Keep
+images of your own services private, and give the forks and `wait-for-image` pull credentials.
 
 ## 6. What happens
 
