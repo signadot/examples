@@ -1,0 +1,6 @@
+.bundle/
+vendor/
+k8s/
+signadot/
+*.md
+*.orig

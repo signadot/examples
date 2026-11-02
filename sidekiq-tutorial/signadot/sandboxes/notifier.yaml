@@ -1,0 +1,11 @@
+name: sidekiq-notifier
+spec:
+  description: "notifier sandbox for the Sidekiq demo"
+  cluster: "@{cluster}"
+  labels:
+    demo: sidekiq
+  forks:
+    - forkOf:
+        kind: Deployment
+        namespace: sidekiq-demo
+        name: notifier

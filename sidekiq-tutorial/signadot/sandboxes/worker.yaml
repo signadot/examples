@@ -1,0 +1,16 @@
+name: sidekiq-worker
+spec:
+  description: "worker sandbox for the Sidekiq demo (processor v2)"
+  cluster: "@{cluster}"
+  labels:
+    demo: sidekiq
+  forks:
+    - forkOf:
+        kind: Deployment
+        namespace: sidekiq-demo
+        name: worker
+      customizations:
+        env:
+          # The change under test: v2 uppercases message bodies.
+          - name: PROCESSOR_VERSION
+            value: v2

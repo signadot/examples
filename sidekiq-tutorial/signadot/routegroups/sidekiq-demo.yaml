@@ -1,0 +1,9 @@
+name: sidekiq-demo
+spec:
+  cluster: "@{cluster}"
+  description: "route group containing the web, worker and notifier sandboxes"
+  match:
+    any:
+      - label:
+          key: demo
+          value: sidekiq
