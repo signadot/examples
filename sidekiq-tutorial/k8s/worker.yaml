@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: sidekiq-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      containers:
+        - name: worker
+          image: sidekiq-demo:latest
+          imagePullPolicy: IfNotPresent
+          command: ["bundle", "exec", "sidekiq", "-r", "./app/worker.rb", "-q", "default", "-q", "notifications"]
+          env:
+            - name: REDIS_URL
+              value: redis://redis:6379
+            - name: NOTIFIER_URL
+              value: http://notifier:4001
+            # Which baseline workload this is, for the Signadot Routes API.
+            - name: SIGNADOT_BASELINE_KIND
+              value: Deployment
+            - name: SIGNADOT_BASELINE_NAME
+              value: worker
+            - name: SIGNADOT_BASELINE_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace

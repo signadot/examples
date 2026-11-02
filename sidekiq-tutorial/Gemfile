@@ -1,0 +1,15 @@
+# frozen_string_literal: true
+
+source "https://rubygems.org"
+
+gem "puma", "~> 8.0"
+gem "sidekiq", "~> 8.1"
+gem "sinatra", "~> 4.2"
+
+gem "opentelemetry-instrumentation-net_http"
+gem "opentelemetry-instrumentation-sidekiq"
+gem "opentelemetry-instrumentation-sinatra"
+gem "opentelemetry-sdk", "~> 1.13"
+
+# The platform team's gem: all of the Signadot-specific code.
+gem "signadot_sidekiq", path: "signadot_sidekiq"

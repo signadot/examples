@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: sidekiq-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+      annotations:
+        # Lets Signadot route requests that carry a routing key to a sandbox.
+        sidecar.signadot.com/inject: "true"
+    spec:
+      containers:
+        - name: web
+          image: sidekiq-demo:latest
+          imagePullPolicy: IfNotPresent
+          command: ["bundle", "exec", "puma", "-p", "4000", "config/web.ru"]
+          env:
+            - name: REDIS_URL
+              value: redis://redis:6379
+          ports:
+            - containerPort: 4000
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 4000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: sidekiq-demo
+spec:
+  selector:
+    app: web
+  ports:
+    - port: 4000
+      name: http
