@@ -7,6 +7,9 @@ database's write-ahead log and has never seen the request. So the routing key ha
 with the row, come out of the database with the change, and reach the consumers, which then
 decide whether a change event is meant for them.
 
+> **Step-by-step tutorial:** [Test Debezium CDC Pipelines with Sandboxes](https://www.signadot.com/docs/tutorials/testing-debezium-cdc?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=debezium-cdc)
+> explains how this example works and walks through every step.
+
 This tutorial walks through a small Python app that does that. An `orders` service writes
 orders to Postgres, Debezium publishes each change to Kafka, and a `fulfillment` consumer reads
 the changes and calls a `notifier`. You'll fork each of the three services into a sandbox, and
@@ -367,6 +370,7 @@ signadot local disconnect
 
 ## Next steps
 
+- [Test Debezium CDC Pipelines with Sandboxes](https://www.signadot.com/docs/tutorials/testing-debezium-cdc?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=debezium-cdc): this example as a docs tutorial, with an FAQ.
 - [Messaging and workflow tutorials](https://www.signadot.com/docs/tutorials/messaging-and-workflows?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=debezium-cdc): Kafka, RabbitMQ, Amazon SQS, Google Pub/Sub, Redis Streams, Temporal and Dapr.
 - New to Signadot? [Create a free account](https://www.signadot.com/signup/?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=debezium-cdc) (no credit card), then try it on your own services.
 - Questions? Ask in the [Signadot community Slack](https://join.slack.com/t/signadotcommunity/shared_invite/zt-1estxm8pv-qfiaNfiFFCaW~eUlXsVoEQ).
