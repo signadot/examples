@@ -1,0 +1,15 @@
+name: debezium-notifier
+spec:
+  description: "notifier sandbox for the Debezium CDC demo"
+  cluster: "@{cluster}"
+  labels:
+    demo: debezium-cdc
+  forks:
+    - forkOf:
+        kind: Deployment
+        namespace: debezium-demo
+        name: notifier
+  defaultRouteGroup:
+    endpoints:
+      - name: orders
+        target: http://orders.debezium-demo.svc:4000

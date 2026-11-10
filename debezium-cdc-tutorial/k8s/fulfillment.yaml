@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fulfillment
+  namespace: debezium-demo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fulfillment
+  namespace: debezium-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fulfillment
+  template:
+    metadata:
+      labels:
+        app: fulfillment
+    spec:
+      serviceAccountName: fulfillment
+      containers:
+        - name: fulfillment
+          image: debezium-cdc-demo:latest
+          imagePullPolicy: IfNotPresent
+          args: ["fulfillment"]
+          env:
+            # Which baseline workload this is, for the Signadot Routes API.
+            - name: SIGNADOT_BASELINE_KIND
+              value: Deployment
+            - name: SIGNADOT_BASELINE_NAME
+              value: fulfillment
+            - name: SIGNADOT_BASELINE_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          # Ready once routing rules are loaded and the consumer is subscribed.
+          readinessProbe:
+            exec:
+              command: ["cat", "/tmp/ready"]
+            periodSeconds: 2

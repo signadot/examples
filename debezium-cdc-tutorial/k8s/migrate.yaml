@@ -1,0 +1,16 @@
+# Creates the schema once, before the services use it.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate
+  namespace: debezium-demo
+spec:
+  backoffLimit: 20
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: migrate
+          image: debezium-cdc-demo:latest
+          imagePullPolicy: IfNotPresent
+          args: ["migrate"]

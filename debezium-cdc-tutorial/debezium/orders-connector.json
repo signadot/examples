@@ -1,0 +1,33 @@
+{
+  "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+  "database.hostname": "postgres",
+  "database.port": "5432",
+  "database.user": "postgres",
+  "database.password": "postgres",
+  "database.dbname": "demo",
+  "topic.prefix": "demo",
+  "plugin.name": "pgoutput",
+  "publication.autocreate.mode": "filtered",
+  "table.include.list": "public.orders",
+
+  "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+  "key.converter.schemas.enable": "false",
+  "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+  "value.converter.schemas.enable": "false",
+
+  "transforms": "unwrap,context",
+
+  "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+  "transforms.unwrap.add.fields": "op",
+  "transforms.unwrap.delete.tombstone.handling.mode": "rewrite",
+
+  "transforms.context.type": "org.apache.kafka.connect.transforms.HeaderFrom$Value",
+  "transforms.context.fields": "otel_traceparent,otel_baggage",
+  "transforms.context.headers": "traceparent,baggage",
+  "transforms.context.operation": "move",
+  "transforms.context.predicate": "isTableChange",
+
+  "predicates": "isTableChange",
+  "predicates.isTableChange.type": "org.apache.kafka.connect.transforms.predicates.TopicNameMatches",
+  "predicates.isTableChange.pattern": "demo\\.public\\..*"
+}

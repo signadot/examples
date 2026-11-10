@@ -1,0 +1,20 @@
+name: debezium-fulfillment
+spec:
+  description: "fulfillment sandbox for the Debezium CDC demo (fulfillment v2)"
+  cluster: "@{cluster}"
+  labels:
+    demo: debezium-cdc
+  forks:
+    - forkOf:
+        kind: Deployment
+        namespace: debezium-demo
+        name: fulfillment
+      customizations:
+        env:
+          # The change under test: v2 uppercases item names.
+          - name: FULFILLMENT_VERSION
+            value: v2
+  defaultRouteGroup:
+    endpoints:
+      - name: orders
+        target: http://orders.debezium-demo.svc:4000
