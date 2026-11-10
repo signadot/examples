@@ -1,0 +1,12 @@
+name: debezium-demo
+spec:
+  cluster: "@{cluster}"
+  description: "route group containing the orders, fulfillment and notifier sandboxes"
+  match:
+    any:
+      - label:
+          key: demo
+          value: debezium-cdc
+  endpoints:
+    - name: orders
+      target: http://orders.debezium-demo.svc:4000

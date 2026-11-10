@@ -1,0 +1,55 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: postgres
+  namespace: debezium-demo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: debezium-demo
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      serviceAccountName: postgres
+      containers:
+        - name: postgres
+          image: postgres:17-alpine
+          # Debezium reads changes through logical replication.
+          args: ["-c", "wal_level=logical"]
+          env:
+            - name: POSTGRES_PASSWORD
+              value: postgres
+            - name: POSTGRES_DB
+              value: demo
+          ports:
+            - containerPort: 5432
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres", "-d", "demo"]
+            periodSeconds: 2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: debezium-demo
+  labels:
+    app: postgres
+spec:
+  type: ClusterIP
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      name: postgres

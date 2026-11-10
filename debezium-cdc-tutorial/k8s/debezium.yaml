@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: debezium
+  namespace: debezium-demo
+---
+# Kafka Connect with the Debezium connectors. The connector itself is
+# registered through its REST API (see debezium/orders-connector.json).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: debezium
+  namespace: debezium-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: debezium
+  template:
+    metadata:
+      labels:
+        app: debezium
+    spec:
+      serviceAccountName: debezium
+      enableServiceLinks: false
+      containers:
+        - name: debezium
+          image: quay.io/debezium/connect:3.7.1.Final
+          env:
+            - name: BOOTSTRAP_SERVERS
+              value: kafka:9092
+            - name: GROUP_ID
+              value: debezium
+            - name: CONFIG_STORAGE_TOPIC
+              value: debezium-configs
+            - name: OFFSET_STORAGE_TOPIC
+              value: debezium-offsets
+            - name: STATUS_STORAGE_TOPIC
+              value: debezium-statuses
+          ports:
+            - containerPort: 8083
+          readinessProbe:
+            httpGet:
+              path: /connectors
+              port: 8083
+            periodSeconds: 2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: debezium
+  namespace: debezium-demo
+  labels:
+    app: debezium
+spec:
+  type: ClusterIP
+  selector:
+    app: debezium
+  ports:
+    - port: 8083
+      name: http
