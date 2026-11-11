@@ -6,6 +6,9 @@ Sidekiq breaks that in two ways. Nobody calls a Sidekiq worker: it pulls jobs fr
 Sidekiq queue gives each job to exactly one worker (`BRPOP`), so there's no consumer group that
 would let every version see every job.
 
+> **Step-by-step tutorial:** [Test Sidekiq Jobs with Sandboxes](https://www.signadot.com/docs/tutorials/testing-sidekiq-jobs?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=sidekiq)
+> explains how this example works and walks through every step.
+
 This example lets baseline and sandboxed Sidekiq workers share one Redis:
 
 - Each sandboxed worker reads its own queues, such as `default@sidekiq-worker`.
@@ -437,6 +440,7 @@ tutorial was tested with Sidekiq 8.1.
 
 ## Next steps
 
+- [Test Sidekiq Jobs with Sandboxes](https://www.signadot.com/docs/tutorials/testing-sidekiq-jobs?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=sidekiq): this example as a docs tutorial, with an FAQ.
 - [Messaging and workflow tutorials](https://www.signadot.com/docs/tutorials/messaging-and-workflows?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=sidekiq): Kafka, RabbitMQ, Amazon SQS, Google Pub/Sub, Redis Streams, Temporal and Dapr.
 - New to Signadot? [Create a free account](https://www.signadot.com/signup/?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=sidekiq) (no credit card), then try it on your own services.
 - Questions? Ask in the [Signadot community Slack](https://join.slack.com/t/signadotcommunity/shared_invite/zt-1estxm8pv-qfiaNfiFFCaW~eUlXsVoEQ).
