@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Service
+metadata: { name: storefront, namespace: boxoffice }
+spec:
+  selector: { app: storefront }
+  ports: [{ port: 8080, targetPort: 8080 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: storefront, namespace: boxoffice }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: storefront } }
+  template:
+    metadata:
+      labels: { app: storefront }
+      annotations:
+        # Signadot's DevMesh sidecar. It carries the routing key that sends a
+        # request to a sandbox's copy of a service instead of this one. Without
+        # it a sandbox never becomes ready.
+        sidecar.signadot.com/inject: "true"
+    spec:
+      containers:
+        - name: storefront
+          image: signadot/boxoffice-demo-storefront:baseline
+          imagePullPolicy: IfNotPresent
+          ports: [{ containerPort: 8080 }]
+          readinessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            initialDelaySeconds: 3

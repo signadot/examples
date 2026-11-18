@@ -1,0 +1,29 @@
+# One sandbox per repository, PR and head revision (<=30 characters).
+# Compute name: node scripts/sandbox-name.cjs "$REPO" "$PR" "$REVISION"
+# IMAGE must be the complete image reference ending in @sha256:<digest>.
+# Usage: signadot sandbox apply -f signadot/pr-sandbox.yaml \
+#   --set name="$SANDBOX" --set cluster="$CLUSTER" --set service="$SERVICE" \
+#   --set image="$IMAGE" --set repo="$REPO" --set pr="$PR" --set revision="$REVISION"
+name: "@{name}"
+spec:
+  cluster: "@{cluster}"
+  description: "boxoffice @{service}: @{repo} PR @{pr} at @{revision}"
+  labels:
+    signadot/github-repo: "@{repo}"
+    signadot/github-pull-request: "@{pr}"
+    boxoffice/revision: "@{revision}"
+  ttl:
+    duration: 8h
+  forks:
+    - forkOf:
+        kind: Deployment
+        namespace: boxoffice
+        name: "@{service}"
+      customizations:
+        images:
+          - image: "@{image}"
+            container: "@{service}"
+  defaultRouteGroup:
+    endpoints:
+      - name: storefront
+        target: http://storefront.boxoffice.svc:8080
