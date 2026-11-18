@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: usage-api
+  namespace: clickhouse-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: usage-api
+  template:
+    metadata:
+      labels:
+        app: usage-api
+      annotations:
+        sidecar.signadot.com/inject: "true"
+    spec:
+      containers:
+        - name: usage-api
+          image: clickhouse-branching-demo:latest
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: clickhouse
+          env:
+            - name: CLICKHOUSE_DATABASE
+              value: analytics
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: usage-api
+  namespace: clickhouse-demo
+spec:
+  selector:
+    app: usage-api
+  ports:
+    - port: 8080
+      name: http

@@ -1,0 +1,61 @@
+# Connection settings shared by usage-api and the clickhouse-branch resource plugin.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: clickhouse
+  namespace: clickhouse-demo
+stringData:
+  CLICKHOUSE_URL: http://clickhouse.clickhouse-demo.svc:8123
+  CLICKHOUSE_USER: default
+  CLICKHOUSE_PASSWORD: demo-password
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clickhouse
+  namespace: clickhouse-demo
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: clickhouse
+  template:
+    metadata:
+      labels:
+        app: clickhouse
+    spec:
+      containers:
+        - name: clickhouse
+          image: clickhouse/clickhouse-server:26.8
+          env:
+            - name: CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: clickhouse
+                  key: CLICKHOUSE_PASSWORD
+          ports:
+            - containerPort: 8123
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: 8123
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/clickhouse
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clickhouse
+  namespace: clickhouse-demo
+spec:
+  selector:
+    app: clickhouse
+  ports:
+    - port: 8123
+      name: http
