@@ -1,0 +1,25 @@
+name: "@{name}"
+spec:
+  description: usage-api with its own branch of the analytics ClickHouse database
+  cluster: "@{cluster}"
+  labels:
+    demo: clickhouse-branching
+  resources:
+    - name: analytics
+      plugin: clickhouse-branch
+      params:
+        database: analytics
+        # "all", or how many of each table's newest partitions to attach (e.g. "1").
+        partitions: "@{partitions}"
+  forks:
+    - forkOf:
+        kind: Deployment
+        namespace: clickhouse-demo
+        name: usage-api
+      customizations:
+        env:
+          - name: CLICKHOUSE_DATABASE
+            valueFrom:
+              resource:
+                name: analytics
+                outputKey: createbranch.database

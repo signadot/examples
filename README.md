@@ -72,6 +72,7 @@ share one broker.
 
 | Example | What it shows | Tutorial |
 | --- | --- | --- |
+| [clickhouse-branching-tutorial](clickhouse-branching-tutorial) | A ClickHouse database branch for every sandbox, made by a resource plugin that hard-links the source's partitions | In the README |
 | [neon-branching-tutorial](neon-branching-tutorial) | A Neon database branch for every sandbox, created by a resource plugin | [Neon Database Branching](https://www.signadot.com/docs/tutorials/neon-database-branching?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=root) |
 | [xata-branching-tutorial](xata-branching-tutorial) | A Xata database branch for every sandbox, created by a resource plugin | [Xata Database Branching](https://www.signadot.com/docs/tutorials/xata-database-branching?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=root) |
 
