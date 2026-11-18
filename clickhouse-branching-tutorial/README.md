@@ -42,25 +42,28 @@ breaks other people's work:
 ClickHouse has no `CREATE DATABASE ... BRANCH` command, but MergeTree tables make a cheap branch
 possible: a table's data lives in immutable parts. Inserts, merges and mutations write new parts
 and never change existing ones. So two tables can share the same part files, and a write to
-either one only adds new parts to that table. The plugin
-([`signadot/clickhouse-branch-plugin.yaml`](signadot/clickhouse-branch-plugin.yaml)) runs three
-steps over ClickHouse's HTTP interface:
+either one only adds new parts to that table. This tutorial uses the `clickhouse-branch`
+resource plugin from [signadot/plugins](https://github.com/signadot/plugins/tree/main/clickhouse),
+whose create step
+([`create-branch.sh`](https://github.com/signadot/plugins/blob/main/clickhouse/plugin/create-branch.sh))
+runs three steps over ClickHouse's HTTP interface:
 
 ```sh
 # 1. A fresh database for the branch, on the same server as the source.
-ch "CREATE DATABASE $BRANCH"
+ch "CREATE DATABASE $BRANCH COMMENT 'Signadot sandbox branch'"
 
 # 2. Each MergeTree table: copy the schema, then attach the newest partitions.
-ch "CREATE TABLE $BRANCH.$t AS $SOURCE.$t"
-ch "ALTER TABLE $BRANCH.$t ATTACH PARTITION ID '$p' FROM $SOURCE.$t"
+ch "CREATE TABLE $BRANCH.$t AS $SOURCE_DATABASE.$t"
+ch "ALTER TABLE $BRANCH.$t ATTACH PARTITION ID '$p' FROM $SOURCE_DATABASE.$t"
 
 # 3. Materialized views, rewritten to read and write the branch's tables.
 ch "SELECT create_table_query FROM system.tables
-    WHERE database = '$SOURCE' AND engine = 'MaterializedView' FORMAT TSVRaw" |
-  sed "s/ $SOURCE\./ $BRANCH./g" | while IFS= read -r ddl; do ch "$ddl"; done
+    WHERE database = '$SOURCE_DATABASE' AND engine = 'MaterializedView' FORMAT TSVRaw" |
+  sed "s/ $SOURCE_DATABASE\./ $BRANCH./g" | while IFS= read -r ddl; do ch "$ddl"; done
 ```
 
-The plugin's output is the branch's name, and the sandbox spec
+The plugin only replaces or drops databases that carry that comment, so a database that happens
+to share a branch's name is left alone. Its output is the branch's name, and the sandbox spec
 ([`signadot/usage-api-sandbox.yaml`](signadot/usage-api-sandbox.yaml)) passes it to the forked
 service as `CLICKHOUSE_DATABASE`. The app ([`app.py`](app.py)) has no Signadot code: it reads
 whatever database that variable names.
@@ -134,12 +137,22 @@ curl -s $API/usage/acme | jq -c '.database, .days[-1]'
 
 ## 3. Install the resource plugin
 
-```bash
-signadot resourceplugin apply -f signadot/clickhouse-branch-plugin.yaml
-```
+The `clickhouse-branch` plugin lives in
+[signadot/plugins](https://github.com/signadot/plugins/tree/main/clickhouse). It runs in the
+`signadot` namespace and reads the ClickHouse user and password from a Secret named
+`clickhouse-credentials` there. Create the Secret, clone the plugins repository next to this one,
+point the plugin at this tutorial's ClickHouse, and install it:
 
-The plugin runs in the `clickhouse-demo` namespace and reads its connection settings from the
-same `clickhouse` Secret as the app.
+```bash
+kubectl -n signadot create secret generic clickhouse-credentials \
+  --from-literal=username=default --from-literal=password=demo-password
+
+git clone https://github.com/signadot/plugins.git ../../signadot-plugins
+cd ../../signadot-plugins/clickhouse
+sed -i.orig "s|http://clickhouse.default.svc:8123|http://clickhouse.clickhouse-demo.svc:8123|" plugin.yaml
+signadot resourceplugin apply -f plugin.yaml
+cd -
+```
 
 ## 4. Create a sandbox with its own branch
 
@@ -294,8 +307,9 @@ the branch through `CLICKHOUSE_DATABASE`.
 
 It copies MergeTree-family tables, with their data, and materialized views. Materialized views
 must write to a table named with `TO`, which is ClickHouse's recommended form. Views,
-dictionaries and other engines are not copied; add them to the plugin's create step if your
-service needs them.
+dictionaries and other engines are not copied. The plugin's
+[README](https://github.com/signadot/plugins/tree/main/clickhouse#limitations) lists its
+limitations.
 
 ### Does it work on a ClickHouse cluster?
 
@@ -304,21 +318,24 @@ own replication path for each branch's tables, which we have not tested.
 
 ### How do I use this with my own service?
 
-Point the `clickhouse` Secret at your ClickHouse server, set the sandbox's `database` parameter to
-the database your service uses, and give your fork's database setting the plugin's
-`createbranch.database` output. In CI, also set the fork's image to the pull request's image.
+Install the plugin with your ClickHouse server's URL and credentials, as its
+[README](https://github.com/signadot/plugins/tree/main/clickhouse#installation) describes. Then
+set the sandbox's `database` parameter to the database your service uses, and give your fork's
+database setting the plugin's `createbranch.database` output. In CI, also set the fork's image
+to the pull request's image.
 
 ## Clean up
 
 ```bash
 signadot resourceplugin delete clickhouse-branch
+kubectl -n signadot delete secret clickhouse-credentials
 kubectl delete namespace clickhouse-demo
 ```
 
 ## Next steps
 
-- [ClickHouse branch plugin](https://github.com/signadot/plugins/tree/main/clickhouse): a reusable version of this example's plugin, with install steps for your own ClickHouse server.
+- [ClickHouse branch plugin](https://github.com/signadot/plugins/tree/main/clickhouse): the plugin's parameters, outputs, limitations and install steps for your own ClickHouse server.
 - [Database tutorials](https://www.signadot.com/docs/tutorials/databases?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=clickhouse): more ways to give each sandbox its own database, and to test schema changes.
-- [Resource plugins](https://www.signadot.com/docs/reference/resource-plugins?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=clickhouse): the spec this example's plugin uses.
+- [Resource plugins](https://www.signadot.com/docs/reference/resource-plugins?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=clickhouse): the spec that resource plugins follow.
 - New to Signadot? [Create a free account](https://www.signadot.com/signup/?utm_source=github&utm_medium=readme&utm_campaign=examples&utm_content=clickhouse) (no credit card), then try it on your own services.
 - Questions? Ask in the [Signadot community Slack](https://join.slack.com/t/signadotcommunity/shared_invite/zt-1estxm8pv-qfiaNfiFFCaW~eUlXsVoEQ).
