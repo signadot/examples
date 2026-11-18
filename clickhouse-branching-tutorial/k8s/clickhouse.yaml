@@ -1,4 +1,4 @@
-# Connection settings shared by usage-api and the clickhouse-branch resource plugin.
+# Connection settings for usage-api.
 apiVersion: v1
 kind: Secret
 metadata:
