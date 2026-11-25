@@ -12,6 +12,7 @@ import argparse
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -28,6 +29,18 @@ import uuid
 
 class VerificationError(RuntimeError):
     pass
+
+
+def _load_naming_rule():
+    """The adapter's own app-ID naming rule, loaded without its HTTP dependencies."""
+    path = Path(__file__).resolve().parents[1] / "app" / "signadot" / "appid.py"
+    spec = importlib.util.spec_from_file_location("appid", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.fork_app_id
+
+
+fork_app_id = _load_naming_rule()
 
 
 def require(condition: bool, message: str) -> None:
@@ -106,32 +119,30 @@ class Kubernetes:
 
 
 def scenarios_from_config(config: dict, namespace: str, name: str) -> list[dict]:
+    """Find the tutorial's five contexts in the console's live list and compute expectations.
+
+    The console lists every routing key the Routes API carries for this namespace, so
+    other sandboxes may appear too; they are ignored here. Expected app IDs are computed
+    independently from the naming rule, then compared with what the console reports.
+    """
     require(config.get("namespace") == namespace, "Frontend configuration names the wrong namespace")
-    workloads = {entry.get("baseline", {}).get("name"): entry for entry in config.get("workloads", [])}
-    registry = {}
-    suffixes = {"frontend": "-frontend", "checkout": "-checkout", "order-processor": "-processor"}
-    for role in ("frontend", "checkout", "order-processor"):
-        require(role in workloads, f"Missing {role} workload in frontend configuration")
-        workload = workloads[role]
-        require(workload["baseline"].get("namespace") == namespace,
-                f"Configured {role} workload belongs to a different namespace")
-        base = workload.get("baselineAppID")
-        forks = workload.get("sandboxes", {})
-        desired = name + suffixes[role]
-        if desired in forks:
-            sandbox = desired
-        else:
-            require(len(forks) == 1, f"Cannot identify {role} sandbox for {name!r}")
-            sandbox = next(iter(forks))
-        fork = forks[sandbox]
-        require(isinstance(base, str) and bool(base), f"Missing {role} baseline app ID")
-        require(isinstance(fork, str) and bool(fork) and fork != base,
-                f"Invalid or non-unique {role} fork app ID")
-        registry[role] = {"baseline": base, "fork": fork, "sandbox": sandbox}
-    contexts = {entry.get("id"): entry for entry in config.get("contexts", [])}
+    workloads = {"frontend": "frontend", "checkout": "checkout", "processor": "order-processor"}
+    sandboxes = {role: f"{name}-{role}" for role in workloads}
+    baseline_ids = {workload: workload for workload in workloads.values()}
+    fork_ids = {role: fork_app_id(sandboxes[role], "Deployment", namespace, workload)
+                for role, workload in workloads.items()}
+    wanted = {"baseline": {}, **{role: {workloads[role]: sandboxes[role]} for role in workloads},
+              "combined": {workloads[role]: sandboxes[role] for role in workloads}}
+    contexts = {}
+    for entry in config.get("contexts", []):
+        for context, forks in wanted.items():
+            if entry.get("sandboxes") == forks:
+                require(context not in contexts, f"More than one console context forks {forks or 'nothing'}")
+                contexts[context] = entry
     ordered = ("baseline", "frontend", "checkout", "processor", "combined")
     require(set(contexts) == set(ordered),
-            "Expected exactly baseline, frontend, checkout, processor and combined contexts")
+            "Expected baseline, frontend, checkout, processor and combined contexts; found "
+            + ", ".join(sorted(contexts)))
     keys = [contexts[role].get("routingKey") for role in ("frontend", "checkout", "processor", "combined")]
     require(all(isinstance(key, str) and bool(key) for key in keys) and len(set(keys)) == 4,
             "Sandbox and RouteGroup routing keys must be present and distinct")
@@ -141,18 +152,23 @@ def scenarios_from_config(config: dict, namespace: str, name: str) -> list[dict]
         console_fork = context in ("frontend", "combined")
         checkout_fork = context in ("checkout", "combined")
         processor_fork = context in ("processor", "combined")
-        result.append({
+        scenario = {
             "id": context, "routing_key": contexts[context].get("routingKey") or "",
             # The console fork is selected by Signadot's own routing, not by the
             # adapter, so it is asserted from the Pod that served the request.
-            "console_app_id": registry["frontend"]["fork" if console_fork else "baseline"],
-            "checkout_app_id": registry["checkout"]["fork" if checkout_fork else "baseline"],
-            "processor_app_id": registry["order-processor"]["fork" if processor_fork else "baseline"],
-            "checkout_sandbox": registry["checkout"]["sandbox"] if checkout_fork else "",
-            "processor_sandbox": registry["order-processor"]["sandbox"] if processor_fork else "",
+            "console_app_id": fork_ids["frontend"] if console_fork else baseline_ids["frontend"],
+            "checkout_app_id": fork_ids["checkout"] if checkout_fork else baseline_ids["checkout"],
+            "processor_app_id": fork_ids["processor"] if processor_fork else baseline_ids["order-processor"],
+            "checkout_sandbox": sandboxes["checkout"] if checkout_fork else "",
+            "processor_sandbox": sandboxes["processor"] if processor_fork else "",
             "fulfillment": "priority" if processor_fork else "standard",
             "discount_percent": 10 if checkout_fork else 0,
-        })
+        }
+        reported = contexts[context].get("appIDs", {})
+        require(reported == {"frontend": scenario["console_app_id"], "checkout": scenario["checkout_app_id"],
+                             "order-processor": scenario["processor_app_id"]},
+                f"{context}: the console's app IDs disagree with the naming rule: {reported}")
+        result.append(scenario)
     return result
 
 
@@ -319,6 +335,10 @@ def check_routes(state: dict, scenarios: list[dict], *, required_roles: tuple[st
             expected = scenario["checkout_sandbox" if role == "checkout" else "processor_sandbox"]
             require((owners.get(key) or "") == expected,
                     f"{state.get('app_id')}: {scenario['id']} routing has not converged for {role}")
+            if expected:
+                app_id = scenario["checkout_app_id" if role == "checkout" else "processor_app_id"]
+                require((snapshot.get("appIDs") or {}).get(key) == app_id,
+                        f"{state.get('app_id')}: {scenario['id']} resolves {role} to the wrong app ID")
 
 
 class Probe:

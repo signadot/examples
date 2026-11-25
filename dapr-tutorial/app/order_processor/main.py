@@ -10,7 +10,7 @@ from fastapi import FastAPI, Query, Request
 from pydantic import ValidationError
 from redis.exceptions import RedisError
 
-from common.config import Settings, read_config
+from common.config import Settings
 from common.dapr import DaprClient
 from common.models import OrderInput
 from common.service import add_diagnostics, close_clients, install_errors, request_context
@@ -27,7 +27,7 @@ class Consumer:
     def __init__(self, settings, cache, store):
         self.settings, self.cache, self.store = settings, cache, store
         self.guard = SubscriptionGuard(settings.workload, app_id=settings.app_id, sandbox=settings.sandbox,
-                                       registry=lambda: read_config(settings)[1], rules=cache.rules)
+                                       app_ids=settings.app_ids, rules=cache.rules)
         self.counts = Counter()  # Diagnostic only; records and attempts live in Redis.
 
     def reply(self, action, status, event, key=None, **details):

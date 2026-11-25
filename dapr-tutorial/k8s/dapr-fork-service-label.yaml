@@ -1,0 +1,56 @@
+# Lets Dapr's injector give each sandbox fork its own sidecar.
+#
+# A fork runs under its own Dapr app ID, so the Dapr operator creates an
+# `<app-id>-dapr` Service for it, selecting the fork's Pods. The Signadot
+# Operator's fork validation treats any Service that selects a fork's Pods as a
+# baseline Service and rejects the fork (InvalidCustomization), unless the
+# Service carries one of Signadot's own labels.
+#
+# This policy adds that label, copied from the Service's own selector, to the
+# Services Dapr creates for forks. It matches only Services Dapr created
+# (dapr.io/enabled=true) whose selector carries signadot.com/forked-workload-id.
+# Baseline Pods never carry that label, so these Services can only ever select
+# a fork. Dapr rewrites its Service on every change to the fork's Deployment;
+# the policy runs on each write, so the label stays.
+#
+# Cluster-scoped, so it needs cluster-admin to apply. Requires Kubernetes 1.36
+# or later, where MutatingAdmissionPolicy is generally available. Remove it
+# only after deleting the tutorial's sandboxes: a running fork is rejected the
+# next time Dapr updates its Service without the label.
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingAdmissionPolicy
+metadata:
+  name: dapr-fork-service-label
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["services"]
+    objectSelector:
+      matchLabels:
+        dapr.io/enabled: "true"
+  matchConditions:
+    - name: selects-a-signadot-fork
+      expression: >-
+        has(object.spec.selector) &&
+        'signadot.com/forked-workload-id' in object.spec.selector
+  failurePolicy: Fail
+  reinvocationPolicy: IfNeeded
+  mutations:
+    - patchType: ApplyConfiguration
+      applyConfiguration:
+        expression: >-
+          Object{
+            metadata: Object.metadata{
+              labels: {"signadot.com/forked-workload-id": object.spec.selector["signadot.com/forked-workload-id"]}
+            }
+          }
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingAdmissionPolicyBinding
+metadata:
+  name: dapr-fork-service-label
+spec:
+  policyName: dapr-fork-service-label

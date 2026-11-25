@@ -1,11 +1,11 @@
 name: dapr-demo-combined
 spec:
   cluster: minikube
-  description: Managed by dapr-tutorial; owner=28e6d409-be1e-48a7-b636-7c29f750aee2
+  description: Managed by dapr-tutorial; owner=d28972fc-d669-4804-bf82-0bab39ef538c
   endpoints:
   - name: console
     target: http://frontend.dapr-demo.svc:8080
   match:
     label:
       key: tutorial.signadot.com/owner
-      value: 28e6d409-be1e-48a7-b636-7c29f750aee2
+      value: d28972fc-d669-4804-bf82-0bab39ef538c

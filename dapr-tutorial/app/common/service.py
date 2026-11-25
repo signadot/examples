@@ -7,7 +7,6 @@ import httpx
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from common.config import read_config
 from signadot.routes_api import Workload
 from signadot.routing import RoutingError, routing_headers
 
@@ -74,14 +73,17 @@ def add_diagnostics(app, settings, routes, dapr, *, cache=None, store=None):
     routing_state = {}
 
     async def diagnose(include_records=False, refresh_routes=True):
-        result = {**settings.identity, "configContexts": [], "routes": {}, "errors": []}
+        result = {**settings.identity, "routes": {}, "errors": []}
         app_ids = None
         try:
-            document, app_ids = read_config(settings)
-            result["configContexts"] = document["contexts"]
-            if settings.baseline_name in settings.routed_workloads:
-                if app_ids.target(settings.workload, settings.sandbox or None) != settings.app_id:
-                    raise RoutingError("Pod app ID disagrees with configured workload identity")
+            app_ids = settings.app_ids
+            # Every Pod, baseline or fork, must run under the app ID the naming rule
+            # gives it. A fork that does not is unreachable: callers compute the rule's
+            # answer and invoke that.
+            expected = app_ids.target(settings.workload, settings.sandbox or None)
+            if expected != settings.app_id:
+                raise RoutingError(f"Pod app ID {settings.app_id!r} disagrees with the naming rule, "
+                                   f"which expects {expected!r}")
         except RoutingError as exc:
             result["errors"].append(str(exc))
         names = settings.routed_workloads
@@ -89,13 +91,12 @@ def add_diagnostics(app, settings, routes, dapr, *, cache=None, store=None):
         result["routes"] = dict(zip(names, states))
         if app_ids is not None:
             for name, state in result["routes"].items():
+                workload = Workload("Deployment", settings.namespace, name)
                 try:
-                    workload = Workload("Deployment", settings.namespace, name)
-                    for owner in state["owners"].values():
-                        app_ids.target(workload, owner)
-                    if name == settings.baseline_name:
-                        if app_ids.target(workload, settings.sandbox or None) != settings.app_id:
-                            raise RoutingError("Pod app ID disagrees with configured workload identity")
+                    # Report the app ID each owning sandbox resolves to, so a reader can
+                    # see the whole decision: key -> sandbox -> app ID.
+                    state["appIDs"] = {key: app_ids.target(workload, owner)
+                                       for key, owner in state["owners"].items()}
                 except RoutingError as exc:
                     state["usable"] = False
                     state["lastError"] = str(exc)

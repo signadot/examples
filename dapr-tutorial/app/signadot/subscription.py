@@ -2,8 +2,8 @@
 
 Use only with independent broker deliveries per logical subscriber group.
 A nonowner can acknowledge its copy; it must not acknowledge another group's
-only copy on a competing queue. The registry and owners callbacks are supplied
-by the application so configuration reload and snapshot freshness stay explicit.
+only copy on a competing queue. The rules callback is supplied by the
+application so snapshot freshness stays explicit.
 """
 from collections.abc import Callable
 
@@ -13,11 +13,17 @@ from signadot.routing import RoutingError
 
 class SubscriptionGuard:
     def __init__(self, workload: Workload, *, app_id: str, sandbox: str,
-                 registry: Callable[[], AppIDs], rules: Callable[[], Rules]):
+                 app_ids: AppIDs, rules: Callable[[], Rules]):
+        # A fork created with an app ID that breaks the naming rule would consume
+        # under one identity while callers invoke another. Refuse to start rather
+        # than consume under a name nobody can reach.
+        expected = app_ids.target(workload, sandbox or None)
+        if expected != app_id:
+            raise RoutingError(f"worker app ID {app_id!r} disagrees with the naming rule, "
+                               f"which expects {expected!r} for this workload and sandbox")
         self.workload = workload
         self.app_id = app_id
         self.sandbox = sandbox
-        self.registry = registry
         self.rules = rules
 
     def owns(self, key: str | None) -> bool:
@@ -25,22 +31,13 @@ class SubscriptionGuard:
 
         A key the map carries but that does not fork this workload selects
         baseline. A key the map does not carry at all is a routing error, as is
-        an unavailable map or an unregistered selected destination, so callers
-        retry instead of silently acknowledging every copy. Letting an unknown
-        key mean baseline would let one incomplete snapshot hand the baseline
-        group another group's only message. An unkeyed message needs no
-        Routes API snapshot.
+        an unavailable map, so callers retry instead of silently acknowledging
+        every copy. Letting an unknown key mean baseline would let one incomplete
+        snapshot hand the baseline group another group's only message. An
+        unkeyed message needs no Routes API snapshot.
         """
-        app_ids = self.registry()
-        if app_ids.target(self.workload, self.sandbox or None) != self.app_id:
-            raise RoutingError("worker app ID disagrees with its configured workload identity")
         owner = self.rules().owner_for(key) if key is not None else ""
-        if owner == self.sandbox:
-            return True
-        # Deliberately no registry lookup for the *other* group's sandbox. Whether
-        # someone else owns this message does not depend on this Pod knowing their
-        # Dapr app ID, and requiring it turned a correct "not mine" into a retry
-        # loop that dead-lettered a healthy message whenever a sandbox created
-        # after this Pod's ConfigMap was rendered appeared in the route map. The
-        # owner receives its own copy in its own consumer group regardless.
-        return False
+        # Ownership is a comparison of sandbox names. This worker never needs to know
+        # another group's app ID: the owner receives its own copy in its own consumer
+        # group regardless.
+        return owner == self.sandbox

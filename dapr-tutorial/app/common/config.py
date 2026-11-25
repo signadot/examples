@@ -1,11 +1,12 @@
-"""Runtime settings and the bootstrap's ConfigMap-backed native-ID registry."""
-from dataclasses import dataclass
-import json
-import os
-from pathlib import Path
+"""Runtime settings, including the baseline app IDs this Pod invokes.
 
-from signadot.routes_api import AppIDs, Workload, unique_json_fields
-from signadot.routing import RoutingError, routing_key
+Only baselines are configured. A fork's app ID comes from the naming rule in
+signadot.appid, so creating or deleting a sandbox changes nothing here.
+"""
+from dataclasses import dataclass
+import os
+
+from signadot.routes_api import AppIDs, Workload
 
 
 @dataclass(frozen=True)
@@ -15,7 +16,6 @@ class Settings:
     namespace: str
     sandbox: str = ""
     pod: str = "local"
-    config_path: str = "/etc/tutorial/config.json"
     routes_url: str = "http://routeserver.signadot.svc:7778"
     dapr_url: str = "http://127.0.0.1:3500"
     redis_url: str = "redis://redis:6379/0"
@@ -26,6 +26,9 @@ class Settings:
     frontend_name: str = "frontend"
     checkout_name: str = "checkout"
     processor_name: str = "order-processor"
+    frontend_app_id: str = "frontend"
+    checkout_app_id: str = "checkout"
+    processor_app_id: str = "order-processor"
     console_variant: str = "baseline"
     routes_refresh: float = 2.0
     routes_max_age: float = 15.0
@@ -38,7 +41,6 @@ class Settings:
             namespace=os.environ.get("BASELINE_NAMESPACE", "dapr-tutorial"),
             sandbox=os.environ.get("SIGNADOT_SANDBOX_NAME", ""),
             pod=os.environ.get("HOSTNAME", "local"),
-            config_path=os.environ.get("TUTORIAL_CONFIG", cls.config_path),
             routes_url=os.environ.get("ROUTESERVER_ADDR", cls.routes_url),
             dapr_url=os.environ.get("DAPR_URL", "http://127.0.0.1:" + os.environ.get("DAPR_HTTP_PORT", "3500")),
             redis_url=os.environ.get("REDIS_URL", cls.redis_url),
@@ -49,6 +51,9 @@ class Settings:
             frontend_name=os.environ.get("FRONTEND_BASELINE_NAME", "frontend"),
             checkout_name=os.environ.get("CHECKOUT_BASELINE_NAME", "checkout"),
             processor_name=os.environ.get("PROCESSOR_BASELINE_NAME", "order-processor"),
+            frontend_app_id=os.environ.get("FRONTEND_APP_ID", "frontend"),
+            checkout_app_id=os.environ.get("CHECKOUT_APP_ID", "checkout"),
+            processor_app_id=os.environ.get("PROCESSOR_APP_ID", "order-processor"),
             console_variant=os.environ.get("CONSOLE_VARIANT", "baseline"),
             routes_refresh=float(os.environ.get("ROUTES_REFRESH_SECONDS", "2")),
             routes_max_age=float(os.environ.get("ROUTES_MAX_AGE_SECONDS", "15")),
@@ -57,6 +62,19 @@ class Settings:
     @property
     def workload(self):
         return Workload("Deployment", self.namespace, self.baseline_name)
+
+    @property
+    def app_ids(self):
+        """Baseline app IDs for every workload in the tutorial, keyed by workload.
+
+        The console is included so the order desk can show which app ID served each
+        hop. Nothing invokes the console, so routing never asks for it.
+        """
+        def workload(name):
+            return Workload("Deployment", self.namespace, name)
+        return AppIDs({workload(self.frontend_name): self.frontend_app_id,
+                       workload(self.checkout_name): self.checkout_app_id,
+                       workload(self.processor_name): self.processor_app_id})
 
     @property
     def identity(self):
@@ -69,7 +87,7 @@ class Settings:
 
         The console is deliberately absent: a browser reaches it over ordinary
         HTTP, so Signadot's own routing selects the console fork and no
-        application needs an app-ID mapping for it.
+        application resolves an app ID for it.
         """
         return (self.checkout_name, self.processor_name)
 
@@ -77,30 +95,3 @@ class Settings:
     def dead_letter_topic(self):
         return os.environ.get("DEAD_LETTER_TOPIC", "orders-dlq-" + self.app_id)
 
-
-def read_config(settings):
-    # Read on demand: Kubernetes projects ConfigMap updates atomically. No subPath mount.
-    try:
-        document = json.loads(Path(settings.config_path).read_text(), object_pairs_hook=unique_json_fields)
-    except (OSError, ValueError) as exc:
-        raise RoutingError(f"tutorial config is unavailable or invalid: {exc}") from exc
-    ids = AppIDs(document)
-    if document.get("namespace") != settings.namespace:
-        raise RoutingError("tutorial config namespace disagrees with this Pod")
-    for name in settings.routed_workloads:
-        ids.target(Workload("Deployment", settings.namespace, name))
-    contexts = document.get("contexts")
-    if not isinstance(contexts, list):
-        raise RoutingError("tutorial config requires a contexts array")
-    seen = set()
-    for context in contexts:
-        if (not isinstance(context, dict) or not isinstance(context.get("id"), str)
-            or not context["id"] or not isinstance(context.get("label"), str)
-            or not context["label"] or context["id"] in seen or "routingKey" not in context):
-            raise RoutingError("tutorial context requires unique id, label and routingKey")
-        key = context["routingKey"]
-        if key is not None:
-            if not isinstance(key, str) or routing_key({"baggage": "sd-routing-key=" + key}) != key:
-                raise RoutingError("tutorial context has an invalid routingKey")
-        seen.add(context["id"])
-    return document, ids

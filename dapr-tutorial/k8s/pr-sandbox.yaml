@@ -1,0 +1,41 @@
+# A sandbox for a change to checkout, as a CI job or a coding agent would create it.
+# Everything in it is known before the cluster is touched: the image the job built,
+# and the fork's Dapr app ID, which the naming rule computes from the sandbox name.
+#
+#   SANDBOX=pr-123-checkout
+#   APP_ID=$(python3 app/signadot/appid.py --sandbox "$SANDBOX" --namespace dapr-demo --name checkout)
+#   signadot sandbox apply -f k8s/pr-sandbox.yaml \
+#     --set sandbox="$SANDBOX" --set appID="$APP_ID" --set namespace=dapr-demo \
+#     --set cluster=<your cluster> --set image=<the image the job built>
+#
+# Dapr's injector gives the fork its sidecar, and the admission rule in
+# dapr-fork-service-label.yaml must be installed on the cluster.
+name: "@{sandbox}"
+spec:
+  cluster: "@{cluster}"
+  description: Fork of checkout for one change
+  defaultRouteGroup:
+    endpoints:
+      - name: console
+        target: "http://frontend.@{namespace}.svc:8080"
+  forks:
+    - forkOf:
+        kind: Deployment
+        namespace: "@{namespace}"
+        name: checkout
+      customizations:
+        patch:
+          type: strategic
+          value: |
+            spec:
+              template:
+                metadata:
+                  annotations:
+                    dapr.io/app-id: "@{appID}"
+                spec:
+                  containers:
+                    - name: app
+                      image: "@{image}"
+                      env:
+                        - name: DISCOUNT_PERCENT
+                          value: "25"

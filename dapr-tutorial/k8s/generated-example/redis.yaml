@@ -2,7 +2,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   labels:
-    tutorial.signadot.com/owner: 28e6d409-be1e-48a7-b636-7c29f750aee2
+    tutorial.signadot.com/owner: d28972fc-d669-4804-bf82-0bab39ef538c
   name: redis-data
   namespace: dapr-demo
 spec:
@@ -16,7 +16,7 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    tutorial.signadot.com/owner: 28e6d409-be1e-48a7-b636-7c29f750aee2
+    tutorial.signadot.com/owner: d28972fc-d669-4804-bf82-0bab39ef538c
   name: redis
   namespace: dapr-demo
 spec:
@@ -30,7 +30,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    tutorial.signadot.com/owner: 28e6d409-be1e-48a7-b636-7c29f750aee2
+    tutorial.signadot.com/owner: d28972fc-d669-4804-bf82-0bab39ef538c
   name: redis
   namespace: dapr-demo
 spec:
@@ -44,7 +44,7 @@ spec:
     metadata:
       labels:
         app: redis
-        tutorial.signadot.com/owner: 28e6d409-be1e-48a7-b636-7c29f750aee2
+        tutorial.signadot.com/owner: d28972fc-d669-4804-bf82-0bab39ef538c
     spec:
       containers:
       - args:
