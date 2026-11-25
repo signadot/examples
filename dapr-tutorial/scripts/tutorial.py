@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""Provision the Dapr tutorial in one explicitly selected local Minikube cluster.
+"""Provision the Dapr tutorial in one explicitly selected local cluster.
 
-Only Python's standard library is required. Commands never invoke a shell, read
-Kubernetes Secrets, change kubeconfig, or modify installed control planes. The
-local state directory is the ownership receipt: keep it until `down` succeeds.
+Minikube is the documented target; Docker Desktop's Kubernetes also works. Only
+Python's standard library is required. Commands never invoke a shell, read
+Kubernetes Secrets, change kubeconfig, or modify installed control planes or
+cluster-wide policy: the admission rule in k8s/dapr-fork-service-label.yaml is a
+prerequisite that `doctor` checks for. The local state directory is the
+ownership receipt: keep it until `down` succeeds.
 """
 from __future__ import annotations
 
@@ -11,6 +14,7 @@ import argparse
 import copy
 from contextlib import contextmanager
 import datetime as dt
+import importlib.util
 import json
 from pathlib import Path
 import re
@@ -26,14 +30,37 @@ except ImportError:  # Native Windows lacks POSIX receipt locking.
     fcntl = None
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _load_naming_rule():
+    """Load the app-ID naming rule from the adapter itself, so both always agree.
+
+    appid.py is standard library only; loading the file directly avoids importing
+    the rest of the adapter package and its HTTP dependencies.
+    """
+    spec = importlib.util.spec_from_file_location("appid", ROOT / "app" / "signadot" / "appid.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.fork_app_id
+
+
+fork_app_id = _load_naming_rule()
 OWNER = "tutorial.signadot.com/owner"
 APP_IDS = ("frontend", "checkout", "order-processor")
 # Every forkable role. The console is forked like any other workload; ordinary
 # Signadot routing reaches it, because a browser calls it over plain HTTP.
 ROLES = {"frontend": "frontend", "checkout": "checkout", "processor": "order-processor"}
-# Only roles that are addressed by native Dapr invocation need the internal gRPC
-# port on their Service and a `<app-id>-dapr` alias. Nothing invokes the console.
+# Only roles that are addressed by native Dapr invocation need to be reachable as
+# `<app-id>-dapr`. Nothing invokes the console.
 INVOCATION_ROLES = ("checkout", "processor")
+# A fork only sets `dapr.io/app-id`. Dapr's injector gives it a current daprd under
+# that app ID, and Dapr's operator creates its `<app-id>-dapr` Service. The
+# cluster-wide admission rule labels that Service with the fork's own
+# forked-workload-id, so the Signadot Operator does not mistake it for a baseline
+# Service. See k8s/dapr-fork-service-label.yaml.
+ADMISSION_POLICY = "dapr-fork-service-label"
+FORK_LABEL = "signadot.com/forked-workload-id"
+MIN_KUBERNETES = (1, 36)
 # One environment override per role makes each fork observably different.
 CUSTOMIZATIONS = {"frontend": {"name": "CONSOLE_VARIANT", "value": "sandbox"},
                   "checkout": {"name": "DISCOUNT_PERCENT", "value": "10"},
@@ -135,58 +162,14 @@ def contains_desired(actual, desired):
     return actual == desired
 
 
-def clone_sidecar(pod, app_id):
-    """Copy current injected daprd and its projected identity, never Pod tokens.
-
-    The Dapr trust anchor is a public CA certificate. Secret references or other
-    mounts are refused because blindly copying them obscures the fork's identity.
-    The Kubernetes service-account mount is recreated by admission, when needed.
-    """
-    candidates = [c for c in pod["spec"]["containers"] if c["name"] == "daprd"]
-    if len(candidates) != 1:
-        raise TutorialError("Expected exactly one injected daprd container")
-    sidecar = copy.deepcopy(candidates[0])
-    args = sidecar.get("args", [])
-    if "--enable-mtls" not in args or "--app-id" not in args:
-        raise TutorialError("Injected Dapr sidecar must use mTLS and an explicit app ID")
-    args[args.index("--app-id") + 1] = app_id
-    if any("secretKeyRef" in e.get("valueFrom", {}) for e in sidecar.get("env", [])):
-        raise TutorialError("Injected daprd references a Secret; this recipe needs explicit adaptation")
-    if sidecar.get("envFrom"):
-        raise TutorialError("Injected daprd envFrom is not supported by this recipe")
-    allowed_env = {"NAMESPACE", "DAPR_TRUST_ANCHORS", "POD_NAME", "DAPR_CONTROLPLANE_NAMESPACE",
-                   "DAPR_CONTROLPLANE_TRUST_DOMAIN", "DAPR_SENTRY_LOCAL_IDENTITY"}
-    if any(e["name"] not in allowed_env for e in sidecar.get("env", [])):
-        raise TutorialError("Injected daprd has an unfamiliar environment variable; inspect before copying")
-    mounts = [v for v in sidecar.get("volumeMounts", []) if not v["name"].startswith("kube-api-access-")]
-    volumes = {v["name"]: v for v in pod["spec"].get("volumes", [])}
-    copied = []
-    for mount in mounts:
-        volume = volumes.get(mount["name"], {})
-        sources = volume.get("projected", {}).get("sources", [])
-        if not sources or any(set(source) != {"serviceAccountToken"} for source in sources):
-            raise TutorialError(f"daprd mount {mount['name']} is not a projected service-account identity")
-        if any(not source["serviceAccountToken"].get("audience") for source in sources):
-            raise TutorialError("daprd identity projection lacks an explicit audience")
-        copied.append(copy.deepcopy(volume))
-    if not copied:
-        raise TutorialError("Injected daprd has no projected identity volume")
-    sidecar["volumeMounts"] = mounts
-    for key in ("terminationMessagePath", "terminationMessagePolicy"):
-        sidecar.pop(key, None)
-    return sidecar, copied
+def sandbox_name(name, role):
+    return f"{name}-{role}"
 
 
-def configuration(namespace, name, keys=None):
-    keys = keys or {}
-    return {"namespace": namespace, "workloads": [
-        {"baseline": {"kind": "Deployment", "namespace": namespace, "name": baseline},
-         "baselineAppID": baseline, "sandboxes": {f"{name}-{role}": f"{name}-{role}"}}
-        for role, baseline in ROLES.items()],
-        "contexts": [{"id": context, "label": label, "routingKey": keys.get(context)}
-                     for context, label in (("baseline", "Baseline"), ("frontend", "Console sandbox"),
-                                            ("checkout", "Checkout sandbox"),
-                                            ("processor", "Processor sandbox"), ("combined", "Combined RouteGroup"))]}
+def fork_app_ids(name, namespace):
+    """The app ID each role's fork runs under, from the same rule callers apply."""
+    return {role: fork_app_id(sandbox_name(name, role), "Deployment", namespace, baseline)
+            for role, baseline in ROLES.items()}
 
 
 def metadata(name, namespace, owner, **extra):
@@ -214,16 +197,17 @@ def redis_manifests(namespace, owner):
                           "volumes": [{"name": "data", "persistentVolumeClaim": {"claimName": "redis-data"}}]}}}}]
 
 
-def dapr_manifests(namespace, owner, name):
-    scopes = list(APP_IDS) + [f"{name}-{role}" for role in ROLES]
+def dapr_manifests(namespace, owner):
+    # No `scopes`: a scope list names app IDs up front, and a sandbox created later by a
+    # pull request or an agent would be missing from it. The namespace is the boundary.
     return [{"apiVersion": "dapr.io/v1alpha1", "kind": "Component",
-             "metadata": metadata("pubsub", namespace, owner), "scopes": scopes,
+             "metadata": metadata("pubsub", namespace, owner),
              "spec": {"type": "pubsub.redis", "version": "v1", "metadata": [
                  {"name": "redisHost", "value": "redis:6379"}, {"name": "redisPassword", "value": ""},
                  {"name": "consumerID", "value": "{appID}"},
                  {"name": "processingTimeout", "value": "10s"}, {"name": "redeliverInterval", "value": "1s"}]}},
             {"apiVersion": "dapr.io/v1alpha1", "kind": "Resiliency",
-             "metadata": metadata("pubsub-retries", namespace, owner), "scopes": scopes,
+             "metadata": metadata("pubsub-retries", namespace, owner),
              "spec": {"policies": {"retries": {"inbound": {"policy": "constant", "duration": "1s", "maxRetries": 3}}},
                       "targets": {"components": {"pubsub": {"inbound": {"retry": "inbound"}}}}}}]
 
@@ -236,10 +220,14 @@ def application_manifests(namespace, owner, image, service_account="default"):
         annotations = {"dapr.io/enabled": "true", "dapr.io/app-id": role, "dapr.io/app-port": "8080",
                        "dapr.io/sidecar-svc-annotations": "routing.signadot.com/ignore=true",
                        "sidecar.signadot.com/inject": "true"}
-        env = {"TUTORIAL_CONFIG": "/etc/tutorial/config.json", "BASELINE_NAME": role,
+        # The baseline app IDs are the only app IDs any service is configured with.
+        # Forks get theirs from the naming rule, so a new sandbox needs no change here.
+        env = {"BASELINE_NAME": role,
                "BASELINE_NAMESPACE": namespace, "FRONTEND_BASELINE_NAME": "frontend",
                "CHECKOUT_BASELINE_NAME": "checkout",
-               "PROCESSOR_BASELINE_NAME": "order-processor", "REDIS_URL": "redis://redis:6379/0",
+               "PROCESSOR_BASELINE_NAME": "order-processor", "FRONTEND_APP_ID": "frontend",
+               "CHECKOUT_APP_ID": "checkout", "PROCESSOR_APP_ID": "order-processor",
+               "REDIS_URL": "redis://redis:6379/0",
                "PUBSUB_NAME": "pubsub", "ORDERS_TOPIC": "orders", "DISCOUNT_PERCENT": "0",
                "FULFILLMENT_MODE": "standard", "CONSOLE_VARIANT": "baseline"}
         app = {"name": "app", "image": image, "imagePullPolicy": "IfNotPresent",
@@ -248,33 +236,33 @@ def application_manifests(namespace, owner, image, service_account="default"):
                "env": [{"name": k, "value": v} for k, v in env.items()] + [{"name": "DAPR_APP_ID", "valueFrom": {
                    "fieldRef": {"fieldPath": "metadata.annotations['dapr.io/app-id']"}}}],
                "readinessProbe": {"httpGet": {"path": "/readyz", "port": 8080},
-                                  "periodSeconds": 10, "timeoutSeconds": 10, "failureThreshold": 3},
-               "volumeMounts": [{"name": "tutorial-config", "mountPath": "/etc/tutorial", "readOnly": True}]}
+                                  "periodSeconds": 10, "timeoutSeconds": 10, "failureThreshold": 3}}
         result.append({"apiVersion": "apps/v1", "kind": "Deployment", "metadata": metadata(role, namespace, owner),
                        "spec": {"replicas": 1, "selector": {"matchLabels": {"app": role}}, "template": {
                            "metadata": {"labels": {"app": role, OWNER: owner}, "annotations": annotations},
-                           "spec": {"serviceAccountName": service_account, "containers": [app],
-                                    "volumes": [{"name": "tutorial-config", "configMap": {"name": "tutorial-config"}}]}}}})
+                           "spec": {"serviceAccountName": service_account, "containers": [app]}}}})
         ports = [{"name": "http", "port": 8080, "targetPort": 8080}]
-        if role != "frontend":
-            ports.append({"name": "dapr-internal", "port": 50002, "targetPort": 50002})
         result.append({"apiVersion": "v1", "kind": "Service", "metadata": metadata(role, namespace, owner),
                        "spec": {"selector": {"app": role}, "ports": ports}})
     return result
 
 
-def sandbox_manifest(name, role, namespace, owner, cluster, pod):
-    sandbox_name = f"{name}-{role}"
-    sidecar, volumes = clone_sidecar(pod, sandbox_name)
-    apps = [c for c in pod["spec"]["containers"] if c["name"] == "app"]
-    if len(apps) != 1 or not apps[0].get("image"):
-        raise TutorialError("Expected one baseline app container with an explicit image")
-    customization = CUSTOMIZATIONS[role]
-    patch = {"spec": {"template": {
-        "metadata": {"annotations": {"dapr.io/enabled": "false", "dapr.io/app-id": sandbox_name}},
-        "spec": {"serviceAccountName": pod["spec"].get("serviceAccountName", "default"),
-                 "containers": [sidecar, {"name": "app", "image": apps[0]["image"], "env": [customization]}], "volumes": volumes}}}}
-    return {"name": sandbox_name, "spec": {"cluster": cluster,
+def sandbox_manifest(name, role, namespace, owner, cluster, image):
+    """The sandbox spec for one role's fork: pure data, nothing read from the cluster.
+
+    The image, one environment override, and the app ID from the naming rule. A CI
+    job or an agent can produce the same spec with the Signadot CLI alone; see
+    k8s/pr-sandbox.yaml.
+    """
+    sandbox = sandbox_name(name, role)
+    app_id = fork_app_id(sandbox, "Deployment", namespace, ROLES[role])
+    # dapr.io/enabled stays "true" from the baseline. Dapr's injector gives the fork a
+    # current daprd under the new app ID, and Dapr's operator creates its
+    # `<app-id>-dapr` Service, selecting only this fork's Pods.
+    patch = {"spec": {"template": {"metadata": {"annotations": {"dapr.io/app-id": app_id}},
+                                   "spec": {"containers": [{"name": "app", "image": image,
+                                                            "env": [CUSTOMIZATIONS[role]]}]}}}}
+    return {"name": sandbox, "spec": {"cluster": cluster,
         "description": "Dapr tutorial fork with native mTLS and unique app identity",
         "labels": {OWNER: owner},
         "defaultRouteGroup": {"endpoints": preview_endpoints(namespace)},
@@ -282,29 +270,32 @@ def sandbox_manifest(name, role, namespace, owner, cluster, pod):
             "customizations": {"patch": {"type": "strategic", "value": json.dumps(patch)}}}]}}
 
 
-def native_alias(items, sandbox, app_id, baseline, namespace, owner):
-    """Find a fork by operator provenance, never by a manually invented selector."""
+def dapr_service(items, sandbox, app_id, baseline):
+    """Confirm the `<app-id>-dapr` Service Dapr created serves exactly this fork."""
     key = sandbox["routingKey"]
-    def belongs(item):
-        meta = item["metadata"]
-        return (meta.get("labels", {}).get("signadot.com/sandbox-routing-key") == key
-                and meta.get("annotations", {}).get("signadot.com/workload-name") == baseline
-                and any(ref["kind"] == "ForkedWorkload" and ref["apiVersion"].startswith("signadot.com/")
-                        for ref in meta.get("ownerReferences", [])))
-    deployments = [i for i in items if i["kind"] == "Deployment" and belongs(i)]
-    services = [i for i in items if i["kind"] == "Service" and belongs(i)
-                and i["metadata"].get("labels", {}).get("signadot.com/baseline-service") == baseline
-                and any(p["port"] == 50002 for p in i["spec"]["ports"])]
-    if len(deployments) != 1 or len(services) != 1:
-        raise TutorialError(f"Expected one current fork Deployment and native-port Service for {sandbox['name']}")
-    dep, svc = deployments[0], services[0]
+    deployments = [i for i in items if i["kind"] == "Deployment"
+                   and i["metadata"].get("labels", {}).get("signadot.com/sandbox-routing-key") == key
+                   and i["metadata"].get("annotations", {}).get("signadot.com/workload-name") == baseline]
+    if len(deployments) != 1:
+        raise TutorialError(f"Expected one current fork Deployment for {sandbox['name']}")
+    dep = deployments[0]
     if dep["spec"]["template"]["metadata"]["annotations"].get("dapr.io/app-id") != app_id:
         raise TutorialError(f"Fork {dep['metadata']['name']} has an unexpected Dapr app ID")
-    return {"apiVersion": "v1", "kind": "Service", "metadata": metadata(app_id + "-dapr", namespace, owner,
-        annotations={"routing.signadot.com/ignore": "true"}, ownerReferences=[{
-            "apiVersion": "apps/v1", "kind": "Deployment", "name": dep["metadata"]["name"], "uid": dep["metadata"]["uid"]}]),
-        "spec": {"type": "ExternalName", "externalName": f"{svc['metadata']['name']}.{namespace}.svc.cluster.local",
-                 "ports": [{"name": "dapr-internal", "port": 50002, "protocol": "TCP"}]}}
+    services = [i for i in items if i["kind"] == "Service" and i["metadata"]["name"] == app_id + "-dapr"]
+    if len(services) != 1:
+        raise TutorialError(f"Dapr has not created {app_id}-dapr yet")
+    svc = services[0]
+    if not any(ref.get("kind") == "Deployment" and ref.get("uid") == dep["metadata"]["uid"]
+               for ref in svc["metadata"].get("ownerReferences", [])):
+        raise TutorialError(f"{app_id}-dapr is not owned by fork Deployment {dep['metadata']['name']}")
+    selector = svc["spec"].get("selector") or {}
+    if selector != dep["spec"]["selector"].get("matchLabels"):
+        raise TutorialError(f"{app_id}-dapr does not select exactly the fork's Pods")
+    if svc["metadata"].get("labels", {}).get(FORK_LABEL) != selector.get(FORK_LABEL):
+        raise TutorialError(f"{app_id}-dapr lacks the {FORK_LABEL} label the admission rule adds; "
+                            f"check that k8s/dapr-fork-service-label.yaml is applied, then run reconcile")
+    return {"name": svc["metadata"]["name"], "deployment": dep["metadata"]["name"],
+            "selector": selector}
 
 
 def pod_ready(pod, containers):
@@ -440,10 +431,20 @@ class Tutorial:
             return
         self.run(["signadot", kind, "apply", "-f", str(path), "--wait=false", "-o", "json"])
 
+    def docker_desktop(self):
+        return self.args.context == "docker-desktop"
+
     def check_local(self):
-        for tool in ("kubectl", "minikube", "signadot"):
+        tools = ("kubectl", "signadot") if self.docker_desktop() else ("kubectl", "minikube", "signadot")
+        for tool in tools:
             if not shutil.which(tool):
                 raise TutorialError(f"Install {tool} before running the tutorial")
+        if self.docker_desktop():
+            nodes = self.get("nodes", namespaced=False)["items"]
+            names = [n["metadata"]["name"] for n in nodes]
+            if not names or any(n != "docker-desktop" and not n.startswith("desktop-") for n in names):
+                raise TutorialError("kubectl context docker-desktop does not point at Docker Desktop's cluster")
+            return
         local = json.loads(self.run(["minikube", "status", "-p", self.args.context, "-o", "json"]))
         if any(local.get(k) != "Running" for k in ("Host", "Kubelet", "APIServer")):
             raise TutorialError("The explicitly selected Minikube profile is not running")
@@ -491,11 +492,11 @@ class Tutorial:
         """Ask authorization about concrete lifecycle/verification actions; grant nothing."""
         checks = [(verb, "namespaces" + ("/" + self.args.namespace if verb != "create" else ""), None)
                   for verb in ("get", "create", "delete")]
-        for resource in ("deployments.apps", "services", "configmaps", "persistentvolumeclaims",
+        for resource in ("deployments.apps", "services", "persistentvolumeclaims",
                          "components.dapr.io", "resiliencies.dapr.io"):
             checks.extend((verb, resource, None) for verb in ("get", "create", "patch"))
         checks.extend(("list", resource, None) for resource in ("deployments.apps", "replicasets.apps", "services", "pods"))
-        checks.append(("get", "pods", None))
+        checks.extend([("get", "pods", None), ("delete", "pods", None)])
         # Both verbs cover the WebSocket handshake and the create authorization
         # used for streaming connections, including the SPDY fallback.
         checks.extend((verb, "pods", subresource) for subresource in ("exec", "portforward") for verb in ("get", "create"))
@@ -520,14 +521,52 @@ class Tutorial:
         return {"namespace": self.args.namespace, "checks": confirmed,
                 "verification": "Authorization checks only; admission policies and actual operations may still reject requests."}
 
+    def admission_preflight(self):
+        """Kubernetes 1.36 or later, with the admission rule that lets Dapr inject forks."""
+        server = json.loads(self.kube("version", "-o", "json"))["serverVersion"]
+        version = (int(server["major"]), int(re.match(r"\d+", server["minor"]).group()))
+        if version < MIN_KUBERNETES:
+            raise TutorialError(f"Kubernetes {version[0]}.{version[1]} is too old. This tutorial needs 1.36 or later, "
+                                "where MutatingAdmissionPolicy is generally available.")
+        group = "admissionregistration.k8s.io"
+        policy = self.get("mutatingadmissionpolicies." + group, ADMISSION_POLICY, False)
+        binding = self.get("mutatingadmissionpolicybindings." + group, ADMISSION_POLICY, False)
+        if not policy or not binding or binding.get("spec", {}).get("policyName") != ADMISSION_POLICY:
+            raise TutorialError(f"The admission rule {ADMISSION_POLICY} is not installed. It lets Dapr's injector "
+                                "give each fork its own sidecar. Apply it once per cluster with: "
+                                f"kubectl --context {self.args.context} apply -f k8s/dapr-fork-service-label.yaml")
+        return {"kubernetes": f"{version[0]}.{version[1]}", "policy": ADMISSION_POLICY,
+                "label": FORK_LABEL}
+
+    def repair_fork_services(self):
+        """Restart a fork whose Dapr Service lacks the rule's label, so Dapr rewrites it.
+
+        Dapr rewrites its Service only when the fork's Deployment changes. If the rule
+        was missing at that moment, the Service lost its label and Signadot rejects the
+        fork until the next rewrite. Restarting the fork's Pod triggers one.
+        """
+        keys = {s["routingKey"] for s in (self.account_object("sandbox", sandbox_name(self.args.name, role))
+                                          for role in ROLES) if s and s.get("routingKey")}
+        for svc in self.get("services")["items"]:
+            meta, selector = svc["metadata"], svc["spec"].get("selector") or {}
+            labels = meta.get("labels", {})
+            if (labels.get("dapr.io/enabled") == "true" and FORK_LABEL in selector and FORK_LABEL not in labels
+                    and selector.get("signadot.com/sandbox-routing-key") in keys):
+                self.log(f"{meta['name']} lacks its {FORK_LABEL} label; restarting the fork's Pod so Dapr rewrites it")
+                pods = ",".join(f"{k}={v}" for k, v in sorted(selector.items()))
+                self.kube("delete", "pods", "-n", self.args.namespace, "-l", pods, "--wait=false")
+
     def doctor(self):
         self.check_local()
         storage = self.storage_preflight()
         permissions = self.permission_preflight()
-        versions = {"minikube": self.run(["minikube", "version", "--short"]).strip(),
+        admission = self.admission_preflight()
+        versions = {"localCluster": "docker-desktop" if self.docker_desktop()
+                    else self.run(["minikube", "version", "--short"]).strip(),
                     "signadotCLI": self.run(["signadot", "--version"]).strip(),
                     "kubernetes": json.loads(self.kube("version", "-o", "json")), "capturedAt": stamp(),
-                    "preflight": {"storage": storage, "kubernetesPermissions": permissions}}
+                    "preflight": {"storage": storage, "kubernetesPermissions": permissions,
+                                  "admissionRule": admission}}
         clusters = json.loads(self.run(["signadot", "cluster", "list", "-o", "json"]))
         selected = [c for c in clusters if c["name"] == self.args.cluster]
         if len(selected) != 1 or not selected[0].get("operator", {}).get("version"):
@@ -600,13 +639,9 @@ class Tutorial:
                     self.kube("rollout", "restart", "deployment/" + role, "-n", self.args.namespace)
         return selected if len(selected) == len(APP_IDS) else None
 
-    def configmap(self, config):
-        return {"apiVersion": "v1", "kind": "ConfigMap", "metadata": metadata("tutorial-config", self.args.namespace, self.owner),
-                "data": {"config.json": json.dumps(config)}}
-
     def up(self):
         if not self.args.image:
-            raise TutorialError("up requires --image, built and loaded into the selected Minikube profile")
+            raise TutorialError("up requires --image, built and loaded into the selected local cluster")
         self.doctor()
         self.namespace(create=True)
         self.save(phase="redis", image=self.args.image)
@@ -614,15 +649,14 @@ class Tutorial:
         self.wait("Redis persistence and readiness", lambda: any(
             pod_ready(p, ["redis"]) for p in self.get("pods")["items"] if p["metadata"].get("labels", {}).get("app") == "redis"))
         self.save(phase="baselines")
-        self.apply(dapr_manifests(self.args.namespace, self.owner, self.args.name), "dapr.json")
-        config = self.state.get("config") or configuration(self.args.namespace, self.args.name)
-        self.apply([self.configmap(config)], "config.json")
-        self.apply(application_manifests(self.args.namespace, self.owner, self.args.image, self.args.service_account), "applications.json")
-        pods = self.wait("baseline apps, Dapr mTLS sidecars and DevMesh injection", self.baseline_pods)
+        self.apply(dapr_manifests(self.args.namespace, self.owner), "dapr.json")
+        self.apply(application_manifests(self.args.namespace, self.owner, self.args.image,
+                                         self.args.service_account), "applications.json")
+        self.wait("baseline apps, Dapr mTLS sidecars and DevMesh injection", self.baseline_pods)
         self.save(phase="sandboxes")
-        for role, baseline in ROLES.items():
+        for role in ROLES:
             self.apply_account("sandbox", sandbox_manifest(self.args.name, role, self.args.namespace,
-                               self.owner, self.args.cluster, pods[baseline]))
+                               self.owner, self.args.cluster, self.args.image))
         self.apply_account("routegroup", {"name": f"{self.args.name}-combined", "spec": {
             "cluster": self.args.cluster, "description": f"Managed by dapr-tutorial; owner={self.owner}",
             "match": {"label": {"key": OWNER, "value": self.owner}},
@@ -633,7 +667,9 @@ class Tutorial:
         self.check_local()
         if self.state is None or not self.namespace():
             raise TutorialError("No owned tutorial namespace; run up first")
+        self.admission_preflight()
         self.save(phase="reconciling")
+        self.repair_fork_services()
         def ready_sandboxes():
             found = {role: self.account_object("sandbox", f"{self.args.name}-{role}") for role in ROLES}
             if all(s and s.get("status", {}).get("ready") and s.get("routingKey")
@@ -641,12 +677,12 @@ class Tutorial:
                 return found
             return None
         sandboxes = self.wait("Signadot sandboxes and their console preview URLs", ready_sandboxes)
-        def aliases_ready():
+        app_ids = fork_app_ids(self.args.name, self.args.namespace)
+        def dapr_services_ready():
             items = self.get("deployments,services")["items"]
-            return [native_alias(items, sandboxes[role], f"{self.args.name}-{role}", ROLES[role],
-                                 self.args.namespace, self.owner) for role in INVOCATION_ROLES]
-        aliases = self.wait("operator-owned native Services", aliases_ready)
-        self.apply(aliases, "native-aliases.json")
+            return [dapr_service(items, sandboxes[role], app_ids[role], ROLES[role])
+                    for role in INVOCATION_ROLES]
+        native = self.wait("Dapr's own Services for the forks", dapr_services_ready)
         def routegroup_ready():
             rg = self.account_object("routegroup", f"{self.args.name}-combined")
             expected = {s["name"] for s in sandboxes.values()}
@@ -655,17 +691,11 @@ class Tutorial:
                 return rg
             return None
         rg = self.wait("RouteGroup membership and console preview URL", routegroup_ready)
-        config = configuration(self.args.namespace, self.args.name,
-                               {**{role: s["routingKey"] for role, s in sandboxes.items()}, "combined": rg["routingKey"]})
-        self.apply([self.configmap(config)], "config.json")
-        write_json(self.directory / "config.json", config)
-        self.save(config=config,
-                  sandboxes={r: {"name": s["name"], "routingKey": s["routingKey"],
+        self.save(sandboxes={r: {"name": s["name"], "routingKey": s["routingKey"], "forkAppID": app_ids[r],
                                  "previewEndpoints": endpoint_urls(s)} for r, s in sandboxes.items()},
                   routegroup={"name": rg["name"], "routingKey": rg["routingKey"],
                               "previewEndpoints": endpoint_urls(rg)},
-                  aliases=[{"name": a["metadata"]["name"], "target": a["spec"]["externalName"],
-                            "deployment": a["metadata"]["ownerReferences"][0]["name"]} for a in aliases])
+                  daprServices=native)
         self.wait("baseline and fork application readiness", self.all_pods)
         self.wait("application routing convergence", self.routing_converged)
         self.save(phase="ready")
@@ -682,12 +712,12 @@ class Tutorial:
                 next((c.get("image") for c in p["spec"]["containers"] if c["name"] == "app"), None) == self.state["image"]
                 for p in selected):
                 return None
-        return [p for p in pods if p["metadata"].get("annotations", {}).get("dapr.io/app-id")
-                in set(APP_IDS) | {f"{self.args.name}-{r}" for r in ROLES}]
+        expected = set(APP_IDS) | set(fork_app_ids(self.args.name, self.args.namespace).values())
+        return [p for p in pods if p["metadata"].get("annotations", {}).get("dapr.io/app-id") in expected]
 
     def routing_converged(self):
-        # This hook checks the application's public state, including ConfigMap
-        # projection, rather than assuming the Signadot Ready flag implies routes.
+        # This hook checks the application's public state rather than assuming the
+        # Signadot Ready flag implies routes.
         observations = []
         for pod in self.all_pods() or []:
             result = self.kube("exec", "-n", self.args.namespace, pod["metadata"]["name"], "-c", "app", "--", "python", "-c",
@@ -699,16 +729,22 @@ class Tutorial:
         return len(observations) == len(APP_IDS) + len(ROLES) and self.validate_routing(observations)
 
     def validate_routing(self, observations):
-        config = self.state["config"]
-        keys = {c["id"]: c["routingKey"] for c in config["contexts"]}
+        keys = {role: s["routingKey"] for role, s in self.state["sandboxes"].items()}
+        group = self.state["routegroup"]["routingKey"]
+        app_ids = fork_app_ids(self.args.name, self.args.namespace)
         for observation in observations:
             state = observation["state"]
-            if state.get("ready") is not True or state.get("configContexts") != config["contexts"]:
+            if state.get("ready") is not True:
                 return False
             for role in INVOCATION_ROLES:
                 snapshot = state.get("routes", {}).get(ROLES[role], {})
-                expected = {keys[role]: f"{self.args.name}-{role}", keys["combined"]: f"{self.args.name}-{role}"}
-                if not snapshot.get("usable") or snapshot.get("owners") != expected:
+                sandbox = sandbox_name(self.args.name, role)
+                owners, ids = snapshot.get("owners") or {}, snapshot.get("appIDs") or {}
+                # Check only this tutorial's keys: other sandboxes (a pull request's, an
+                # agent's) may fork the same workloads at the same time.
+                if (not snapshot.get("usable")
+                        or any(owners.get(key) != sandbox for key in (keys[role], group))
+                        or any(ids.get(key) != app_ids[role] for key in (keys[role], group))):
                     return False
         return bool(observations)
 
@@ -756,11 +792,12 @@ class Tutorial:
 
 def parser():
     cli = argparse.ArgumentParser(description=__doc__)
-    cli.add_argument("--context", required=True, help="Explicit local Minikube kubeconfig context and profile")
-    cli.add_argument("--cluster", required=True, help="Signadot cluster name for this same Minikube installation")
+    cli.add_argument("--context", required=True,
+                     help="Explicit local kubeconfig context: a Minikube profile, or docker-desktop")
+    cli.add_argument("--cluster", required=True, help="Signadot cluster name for this same local installation")
     cli.add_argument("--name", default="sd-dapr-tutorial", help="Globally unique Signadot name prefix (at most 20 characters)")
     cli.add_argument("--namespace", help="Application namespace; defaults to --name")
-    cli.add_argument("--image", help="Application image already loaded in the selected Minikube profile")
+    cli.add_argument("--image", help="Application image already loaded into the selected local cluster")
     cli.add_argument("--service-account", default="default", help="Existing namespaced service account to use")
     cli.add_argument("--timeout", type=int, default=300, help="Maximum seconds per convergence phase")
     cli.add_argument("--state-dir", type=Path, default=ROOT / ".state", help="Parent directory for ownership receipts and evidence")

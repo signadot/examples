@@ -1,9 +1,10 @@
 """Small, custom Routes API adapter for native Dapr IDs and event ownership.
 
-Adapted from the locally verified solution-native/adapter.py. Routing keys are
-opaque. Only an explicit workload + destination-sandbox registry selects an ID.
+Routing keys are opaque. The Routes API names the sandbox that owns a key, and
+the naming rule in signadot.appid turns that sandbox into the fork's Dapr app ID.
 A local snapshot TTL bounds reuse; it cannot prove Routes Server convergence.
 """
+from collections.abc import Mapping
 from dataclasses import dataclass, asdict
 import asyncio
 import hashlib
@@ -14,6 +15,7 @@ import time
 
 import httpx
 
+from signadot.appid import fork_app_id, is_fork_app_id, valid_app_id
 from signadot.routing import RoutingError, routing_key
 
 
@@ -34,59 +36,61 @@ class Workload:
 
 
 class AppIDs:
-    def __init__(self, document):
-        if not isinstance(document, dict) or not isinstance(document.get("workloads"), list):
-            raise RoutingError("tutorial config requires a workloads array")
-        self.targets = {}
+    """Baseline app IDs, plus the naming rule that gives every fork its own.
+
+    Only the baselines are configuration, and they change when a service is renamed,
+    not when someone opens a pull request. A fork's app ID is computed from the
+    sandbox name the Routes API reports (see signadot.appid), so a sandbox created
+    after this process started is reachable without any change here.
+    """
+
+    def __init__(self, baselines: Mapping[Workload, str]):
+        if not isinstance(baselines, Mapping) or not baselines:
+            raise RoutingError("AppIDs requires at least one baseline workload")
+        self.baselines = {}
         identities = set()
-        for entry in document["workloads"]:
-            if not isinstance(entry, dict):
-                raise RoutingError("workload mapping must be an object")
-            workload = Workload.parse(entry.get("baseline"))
-            baseline = self.validate_id(entry.get("baselineAppID"))
-            sandboxes = entry.get("sandboxes", {})
-            if not isinstance(sandboxes, dict):
-                raise RoutingError("sandboxes must map names to native app IDs")
-            checked = {}
-            for sandbox, app_id in sandboxes.items():
-                if not isinstance(sandbox, str) or not sandbox.strip():
-                    raise RoutingError("sandbox name must be nonempty")
-                checked[sandbox] = self.validate_id(app_id)
-            if workload in self.targets:
-                raise RoutingError("duplicate baseline workload in mapping")
-            for app_id in [baseline, *checked.values()]:
-                identity = (workload.namespace, app_id)
-                if identity in identities:
-                    raise RoutingError("app ID reused by independent workloads in one namespace")
-                identities.add(identity)
-            self.targets[workload] = baseline, checked
+        for workload, app_id in baselines.items():
+            if not isinstance(workload, Workload):
+                raise RoutingError("AppIDs keys must be Workload values")
+            app_id = self.validate_id(app_id)
+            if is_fork_app_id(app_id):
+                raise RoutingError(f"baseline app ID {app_id!r} uses the prefix reserved for sandbox forks")
+            identity = (workload.namespace, app_id)
+            if identity in identities:
+                raise RoutingError("app ID reused by independent workloads in one namespace")
+            identities.add(identity)
+            self.baselines[workload] = app_id
         # Every invocation this client emits is /v1.0/invoke/<app-id>/method, with no
         # namespace qualifier, and Dapr resolves an unqualified app ID in the *caller's*
         # namespace (direct_messaging.go: `return targetAppID, d.namespace, nil`). The
-        # uniqueness check above is namespace-scoped, so a registry could otherwise
+        # uniqueness check above is namespace-scoped, so a mapping could otherwise
         # carry two workloads in different namespaces sharing one native app ID and look
         # correct while both calls landed in the caller's namespace. Refuse that shape at
         # construction instead of emitting a call that cannot express it. Cross-namespace
         # support would require `app-id.namespace` targets, which validate_id forbids.
-        namespaces = {workload.namespace for workload in self.targets}
+        namespaces = {workload.namespace for workload in self.baselines}
         if len(namespaces) > 1:
             raise RoutingError(
-                "native invocation is single-namespace: the registry maps workloads in "
+                "native invocation is single-namespace: the baselines are in "
                 + ", ".join(sorted(namespaces))
                 + ", but an unqualified Dapr app ID always resolves in the caller's namespace")
 
     @staticmethod
     def validate_id(value):
-        if not isinstance(value, str) or not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,56}[a-z0-9])?", value):
+        if not valid_app_id(value):
             raise RoutingError("native app ID must be a DNS label of at most 58 characters (plus -dapr)")
         return value
 
     def target(self, workload, sandbox=None):
+        """The app ID to invoke: the baseline's, or the named sandbox's fork."""
+        if workload not in self.baselines:
+            raise RoutingError("destination workload has no baseline app ID configured")
+        if sandbox is None:
+            return self.baselines[workload]
         try:
-            baseline, sandboxes = self.targets[workload]
-            return baseline if sandbox is None else sandboxes[sandbox]
-        except KeyError as exc:
-            raise RoutingError("destination has no explicit native app-ID mapping") from exc
+            return fork_app_id(sandbox, workload.kind, workload.namespace, workload.name)
+        except ValueError as exc:
+            raise RoutingError(f"cannot name the fork's app ID: {exc}") from exc
 
 
 def unique_json_fields(pairs):
@@ -352,11 +356,13 @@ class RoutesClient:
             raise RoutingError("route timing values must be positive and finite")
         key = routing_key(headers)
         if key is None:
-            # No key has a deterministic baseline destination, validated against
-            # the local registry without depending on route-server availability.
+            # No key has a deterministic baseline destination, resolved without
+            # depending on route-server availability.
             return Resolution(app_ids.target(workload), None, None, time.monotonic() + max_age)
         snapshot = await self.snapshot(workload, refresh_seconds=refresh_seconds, max_age=max_age)
         valid_until = snapshot.require_fresh(max_age)
+        # The map says which sandbox owns the key; the naming rule says which app ID
+        # that sandbox's fork runs under. No lookup table sits between the two.
         sandbox = snapshot.rules.owner_for(key) or None
         return Resolution(app_ids.target(workload, sandbox), sandbox, key, valid_until)
 

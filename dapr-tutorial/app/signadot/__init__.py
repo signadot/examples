@@ -5,6 +5,8 @@ Three pieces, usable independently:
 * ``SignadotDaprClient`` — invoke a logical workload and let Signadot's routing
   rules choose the native Dapr app ID, and publish CloudEvents that carry the
   routing context forward.
+* ``fork_app_id`` — the naming rule that turns a sandbox name into the app ID
+  its fork runs under. Whatever creates a sandbox applies the same rule.
 * ``SubscriptionGuard`` — decide whether *this* subscriber owns a message before
   its business handler interprets the payload.
 * ``RoutesClient`` / ``RouteCache`` — the Routes API adapter underneath both.
@@ -20,6 +22,7 @@ handle routing context, target selection and ownership, and never inspect or
 require a particular request or event body.
 """
 
+from signadot.appid import FORK_PREFIX, fork_app_id
 from signadot.dapr import SignadotDaprClient, cloud_event, validate_cloud_event
 from signadot.routes_api import (
     AppIDs,
@@ -41,6 +44,7 @@ from signadot.subscription import SubscriptionGuard
 
 __all__ = [
     "AppIDs",
+    "FORK_PREFIX",
     "Resolution",
     "RouteCache",
     "RoutesClient",
@@ -51,6 +55,7 @@ __all__ = [
     "SubscriptionGuard",
     "Workload",
     "cloud_event",
+    "fork_app_id",
     "parse_rules",
     "routing_headers",
     "routing_key",

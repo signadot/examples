@@ -4,7 +4,7 @@ The caller supplies workload identities, event identity, and business payloads.
 Injected RoutesClient and DaprClient instances retain their existing lifecycle;
 this wrapper neither creates nor closes clients and adds no background tasks.
 """
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from typing import Any
 
 from signadot.routes_api import AppIDs, Workload
@@ -44,18 +44,17 @@ def cloud_event(*, event_id: str, source: str, event_type: str, data: Any,
 class SignadotDaprClient:
     """Compose routing and native Dapr calls without application-specific policy."""
 
-    def __init__(self, routes, dapr, registry: Callable[[], AppIDs], *,
+    def __init__(self, routes, dapr, app_ids: AppIDs, *,
                  max_age=15.0, refresh_seconds=2.0):
-        self.routes, self.dapr, self.registry = routes, dapr, registry
+        self.routes, self.dapr, self.app_ids = routes, dapr, app_ids
         self.max_age, self.refresh_seconds = max_age, refresh_seconds
 
     async def invoke(self, workload: Workload, path: str, *, headers: Mapping[str, str],
                      verb="GET", json=None):
-        # Reject malformed context before reading configuration or using the network.
+        # Reject malformed context before using the network.
         context = routing_headers(headers)
-        app_ids = self.registry()
         resolution = await self.routes.resolve(
-            workload, context, app_ids, max_age=self.max_age,
+            workload, context, self.app_ids, max_age=self.max_age,
             refresh_seconds=self.refresh_seconds)
         return await self.dapr.invoke(resolution, path, headers=context, verb=verb, json=json)
 

@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    tutorial.signadot.com/owner: 28e6d409-be1e-48a7-b636-7c29f750aee2
+    tutorial.signadot.com/owner: d28972fc-d669-4804-bf82-0bab39ef538c
   name: frontend
   namespace: dapr-demo
 spec:
@@ -20,7 +20,7 @@ spec:
         sidecar.signadot.com/inject: 'true'
       labels:
         app: frontend
-        tutorial.signadot.com/owner: 28e6d409-be1e-48a7-b636-7c29f750aee2
+        tutorial.signadot.com/owner: d28972fc-d669-4804-bf82-0bab39ef538c
     spec:
       containers:
       - command:
@@ -31,8 +31,6 @@ spec:
         - --port
         - '8080'
         env:
-        - name: TUTORIAL_CONFIG
-          value: /etc/tutorial/config.json
         - name: BASELINE_NAME
           value: frontend
         - name: BASELINE_NAMESPACE
@@ -42,6 +40,12 @@ spec:
         - name: CHECKOUT_BASELINE_NAME
           value: checkout
         - name: PROCESSOR_BASELINE_NAME
+          value: order-processor
+        - name: FRONTEND_APP_ID
+          value: frontend
+        - name: CHECKOUT_APP_ID
+          value: checkout
+        - name: PROCESSOR_APP_ID
           value: order-processor
         - name: REDIS_URL
           value: redis://redis:6379/0
@@ -72,21 +76,13 @@ spec:
             port: 8080
           periodSeconds: 10
           timeoutSeconds: 10
-        volumeMounts:
-        - mountPath: /etc/tutorial
-          name: tutorial-config
-          readOnly: true
       serviceAccountName: default
-      volumes:
-      - configMap:
-          name: tutorial-config
-        name: tutorial-config
 ---
 apiVersion: v1
 kind: Service
 metadata:
   labels:
-    tutorial.signadot.com/owner: 28e6d409-be1e-48a7-b636-7c29f750aee2
+    tutorial.signadot.com/owner: d28972fc-d669-4804-bf82-0bab39ef538c
   name: frontend
   namespace: dapr-demo
 spec:
@@ -101,7 +97,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    tutorial.signadot.com/owner: 28e6d409-be1e-48a7-b636-7c29f750aee2
+    tutorial.signadot.com/owner: d28972fc-d669-4804-bf82-0bab39ef538c
   name: checkout
   namespace: dapr-demo
 spec:
@@ -119,7 +115,7 @@ spec:
         sidecar.signadot.com/inject: 'true'
       labels:
         app: checkout
-        tutorial.signadot.com/owner: 28e6d409-be1e-48a7-b636-7c29f750aee2
+        tutorial.signadot.com/owner: d28972fc-d669-4804-bf82-0bab39ef538c
     spec:
       containers:
       - command:
@@ -130,8 +126,6 @@ spec:
         - --port
         - '8080'
         env:
-        - name: TUTORIAL_CONFIG
-          value: /etc/tutorial/config.json
         - name: BASELINE_NAME
           value: checkout
         - name: BASELINE_NAMESPACE
@@ -141,6 +135,12 @@ spec:
         - name: CHECKOUT_BASELINE_NAME
           value: checkout
         - name: PROCESSOR_BASELINE_NAME
+          value: order-processor
+        - name: FRONTEND_APP_ID
+          value: frontend
+        - name: CHECKOUT_APP_ID
+          value: checkout
+        - name: PROCESSOR_APP_ID
           value: order-processor
         - name: REDIS_URL
           value: redis://redis:6379/0
@@ -171,21 +171,13 @@ spec:
             port: 8080
           periodSeconds: 10
           timeoutSeconds: 10
-        volumeMounts:
-        - mountPath: /etc/tutorial
-          name: tutorial-config
-          readOnly: true
       serviceAccountName: default
-      volumes:
-      - configMap:
-          name: tutorial-config
-        name: tutorial-config
 ---
 apiVersion: v1
 kind: Service
 metadata:
   labels:
-    tutorial.signadot.com/owner: 28e6d409-be1e-48a7-b636-7c29f750aee2
+    tutorial.signadot.com/owner: d28972fc-d669-4804-bf82-0bab39ef538c
   name: checkout
   namespace: dapr-demo
 spec:
@@ -193,9 +185,6 @@ spec:
   - name: http
     port: 8080
     targetPort: 8080
-  - name: dapr-internal
-    port: 50002
-    targetPort: 50002
   selector:
     app: checkout
 ---
@@ -203,7 +192,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    tutorial.signadot.com/owner: 28e6d409-be1e-48a7-b636-7c29f750aee2
+    tutorial.signadot.com/owner: d28972fc-d669-4804-bf82-0bab39ef538c
   name: order-processor
   namespace: dapr-demo
 spec:
@@ -221,7 +210,7 @@ spec:
         sidecar.signadot.com/inject: 'true'
       labels:
         app: order-processor
-        tutorial.signadot.com/owner: 28e6d409-be1e-48a7-b636-7c29f750aee2
+        tutorial.signadot.com/owner: d28972fc-d669-4804-bf82-0bab39ef538c
     spec:
       containers:
       - command:
@@ -232,8 +221,6 @@ spec:
         - --port
         - '8080'
         env:
-        - name: TUTORIAL_CONFIG
-          value: /etc/tutorial/config.json
         - name: BASELINE_NAME
           value: order-processor
         - name: BASELINE_NAMESPACE
@@ -243,6 +230,12 @@ spec:
         - name: CHECKOUT_BASELINE_NAME
           value: checkout
         - name: PROCESSOR_BASELINE_NAME
+          value: order-processor
+        - name: FRONTEND_APP_ID
+          value: frontend
+        - name: CHECKOUT_APP_ID
+          value: checkout
+        - name: PROCESSOR_APP_ID
           value: order-processor
         - name: REDIS_URL
           value: redis://redis:6379/0
@@ -273,21 +266,13 @@ spec:
             port: 8080
           periodSeconds: 10
           timeoutSeconds: 10
-        volumeMounts:
-        - mountPath: /etc/tutorial
-          name: tutorial-config
-          readOnly: true
       serviceAccountName: default
-      volumes:
-      - configMap:
-          name: tutorial-config
-        name: tutorial-config
 ---
 apiVersion: v1
 kind: Service
 metadata:
   labels:
-    tutorial.signadot.com/owner: 28e6d409-be1e-48a7-b636-7c29f750aee2
+    tutorial.signadot.com/owner: d28972fc-d669-4804-bf82-0bab39ef538c
   name: order-processor
   namespace: dapr-demo
 spec:
@@ -295,8 +280,5 @@ spec:
   - name: http
     port: 8080
     targetPort: 8080
-  - name: dapr-internal
-    port: 50002
-    targetPort: 50002
   selector:
     app: order-processor

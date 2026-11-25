@@ -4,7 +4,7 @@ import uuid
 
 from fastapi import FastAPI, Request
 
-from common.config import Settings, read_config
+from common.config import Settings
 from common.dapr import DaprClient
 from common.models import OrderInput
 from common.service import add_diagnostics, client_lifespan, install_errors, request_context
@@ -20,7 +20,7 @@ def create_app(settings=None, *, routes=None, dapr=None):
     if not 0 <= settings.discount_percent <= 100:
         raise ValueError("DISCOUNT_PERCENT must be between 0 and 100")
     routes, dapr = routes or RoutesClient(settings.routes_url), dapr or DaprClient(settings.dapr_url)
-    integration = SignadotDaprClient(routes, dapr, lambda: read_config(settings)[1],
+    integration = SignadotDaprClient(routes, dapr, settings.app_ids,
                                      max_age=settings.routes_max_age,
                                      refresh_seconds=settings.routes_refresh)
     app = FastAPI(title="Checkout", lifespan=client_lifespan(routes, dapr))

@@ -11,14 +11,22 @@ For the guided step-by-step walkthrough, see the
 
 ### Prerequisites
 
-- A local **Minikube** profile with the
-  [Signadot Operator installed](https://www.signadot.com/docs/getting-started/installation). This
-  example opts its own workloads into DevMesh; nothing extra to install.
+- A local **Minikube** profile on **Kubernetes 1.36 or later**, with the
+  [Signadot Operator installed](https://www.signadot.com/docs/getting-started/installation). Docker
+  Desktop's Kubernetes works too (`--context docker-desktop`, no image load step). This example opts
+  its own workloads into DevMesh; nothing extra to install.
 - **Dapr 1.18** with mTLS enabled, and a default persistent-volume storage class
 - The [Signadot CLI](https://www.signadot.com/docs/reference/cli) installed and authenticated
 - `kubectl`, Docker, `minikube`, and Python 3.12
+- **The admission rule** in `k8s/dapr-fork-service-label.yaml`, applied once per cluster by someone
+  with cluster-admin (see [Fork sidecars](#fork-sidecars)):
 
-This example does not install or alter either control plane.
+  ```bash
+  kubectl --context minikube apply -f k8s/dapr-fork-service-label.yaml
+  ```
+
+This example does not install or alter either control plane, and `doctor` checks that the rule is
+in place before anything is created.
 
 ### Deploy
 
@@ -75,9 +83,11 @@ watching checkout and the worker.
    can read it. The caller asks the Routes API which sandbox owns the key, then invokes that
    workload's own Dapr app ID before the request leaves.
 
-3. **Fork identity**: each invoked fork runs its own `daprd` with a unique app ID behind a
-   selector-free `<app-id>-dapr` alias on port 50002, so the sidecar-to-sidecar hop keeps its own
-   SPIFFE identity and mTLS.
+3. **Fork identity**: each fork runs under an app ID computed by a naming rule from its sandbox name
+   and workload. The caller applies the same rule to the sandbox name the Routes API returns, so
+   there is no registry of sandboxes to keep in sync. Dapr's injector gives the fork its own `daprd`,
+   so the sidecar-to-sidecar hop keeps its own SPIFFE identity and mTLS, and Dapr's operator creates
+   the fork's `<app-id>-dapr` Service.
 
 4. **Checkout to worker**: no routing at all. `consumerID: "{appID}"` gives every app ID its own
    consumer group, so each worker receives every message and decides whether it owns the routing
@@ -97,27 +107,62 @@ For the detailed mechanism and code walkthroughs, see the
 | **frontend** | Order console and browser entry point, routed by Signadot |
 | **checkout** | Prices an order and publishes a CloudEvent, invoked by app ID |
 | **order-processor** | Subscribes to `orders`, decides ownership, records the effect |
-| **app/signadot/** | The reusable adapter: Routes API client, app-ID registry, invocation wrapper, subscription guard |
+| **app/signadot/** | The reusable adapter: Routes API client, app-ID naming rule, invocation wrapper, subscription guard |
 | **scripts/tutorial.py** | Lifecycle: `doctor`, `up`, `reconcile`, `status`, `down` |
 | **scripts/verify.py** | Live acceptance checks against a deployed namespace |
-| **k8s/generated-example/** | A real run's manifests, exported verbatim |
+| **k8s/dapr-fork-service-label.yaml** | The cluster-wide admission rule that lets Dapr's injector serve forks |
+| **k8s/pr-sandbox.yaml** | A sandbox template for CI jobs and agents: Signadot CLI only, no kubectl |
+| **k8s/generated-example/** | A real run's manifests, as `up` generated them |
 
 ## Platform vs. Application Code
 
-- **Platform layer** (`app/signadot/`): Routes API client with a polling cache, app-ID registry,
+- **Platform layer** (`app/signadot/`): Routes API client with a polling cache, app-ID naming rule,
   invocation wrapper, subscription guard. No pricing, fulfillment or Redis logic. Implemented once
   by the platform team. `from signadot import ...` is the stable surface.
 - **Application code** (`app/checkout/`, `app/order_processor/`, `app/frontend/`): ordinary Dapr
   HTTP code. The integration points are `SignadotDaprClient.invoke` and `SubscriptionGuard.owns`.
 
-Manifests are generated rather than checked in, because a fork's Dapr sidecar can only be built
-from values the running injector holds. `k8s/generated-example/` has the verbatim output of a real
-passing run so you can read it without deploying.
+`k8s/generated-example/` has the manifests of a real passing run so you can read them without
+deploying. Only the Signadot cluster name and the image tag were changed, to the `minikube` and
+`dapr-signadot-tutorial:local` these instructions use. They are a record, not something to apply:
+the namespace and ownership labels in them are that run's.
 
-Those files are a record, not something to apply. The sandbox specs in them carry a
-`DAPR_TRUST_ANCHORS` value, which is the public root CA certificate of the throwaway cluster that
-produced them. No private key is generated, read or written anywhere in this example, and yours will
-differ: the generator reads the current value from your own running injector.
+## Fork sidecars
+
+A fork needs its own Dapr app ID, because two Deployments sharing one would fight over the same
+`<app-id>-dapr` Service. So each sandbox spec sets only `dapr.io/app-id`, and Dapr does the rest:
+its injector adds a current `daprd`, and its operator creates the fork's `<app-id>-dapr` Service.
+
+That Service selects the fork's Pods, and the Signadot Operator's fork validation treats any Service
+that selects a fork's Pods as a baseline Service, so it rejects the fork with `InvalidCustomization`.
+The admission rule in `k8s/dapr-fork-service-label.yaml` prevents that. It labels each Service Dapr
+creates for a fork with the fork's own `signadot.com/forked-workload-id`, copied from the Service's
+selector, and the validation skips Services carrying that label. Baseline Pods never carry it, so a
+labeled Service can only ever select a fork.
+
+- It needs **Kubernetes 1.36 or later**, where `MutatingAdmissionPolicy` is generally available,
+  and cluster-admin to apply.
+- Remove it only after deleting your sandboxes. Dapr rewrites its Service whenever the fork's
+  Deployment changes, and without the rule a running fork is rejected at the next rewrite.
+- If that happened, re-apply the rule, then restart the affected fork's Pod so Dapr rewrites its
+  Service with the label. For the tutorial's own sandboxes, `reconcile` does that for you; for one
+  you created yourself, such as from `k8s/pr-sandbox.yaml`, delete its fork Pod.
+
+## Create a sandbox from CI or an agent
+
+Nothing in a fork's spec has to be read from the cluster, so a CI job or a coding agent can create
+one with the Signadot CLI alone. `k8s/pr-sandbox.yaml` forks checkout for one change:
+
+```bash
+SANDBOX=pr-123-checkout
+APP_ID=$(python3 app/signadot/appid.py --sandbox "$SANDBOX" --namespace dapr-demo --name checkout)
+signadot sandbox apply -f k8s/pr-sandbox.yaml \
+  --set sandbox="$SANDBOX" --set appID="$APP_ID" --set namespace=dapr-demo \
+  --set cluster=minikube --set image=dapr-signadot-tutorial:local
+```
+
+Its key reaches the fork as soon as the Routes API carries it, the order console lists it on
+reload, and deleting the sandbox removes the fork and its Dapr Service.
 
 ## Using the adapter in your own services
 
@@ -125,15 +170,17 @@ differ: the generator reads the current value from your own running injector.
 so it ports to any language with an HTTP client and JSON. `from signadot import ...` is the stable
 surface; nothing under it carries pricing, fulfillment or Redis logic.
 
-Wrap your Dapr client once at startup. The registry callback returns the current map of baseline
-workloads to Dapr app IDs, re-read per call so a sandbox appearing or going away needs no restart:
+Wrap your Dapr client once at startup. `AppIDs` holds the baseline app IDs, which change when you
+rename a service, not when someone opens a pull request:
 
 ```python
-from signadot import SignadotDaprClient, Workload
+from signadot import AppIDs, SignadotDaprClient, Workload
 
-integration = SignadotDaprClient(routes, dapr, registry, max_age=60, refresh_seconds=5)
+checkout = Workload("Deployment", namespace, "checkout")
+app_ids = AppIDs({checkout: "checkout"})
+integration = SignadotDaprClient(routes, dapr, app_ids, max_age=60, refresh_seconds=5)
 
-response = await integration.invoke(Workload("Deployment", namespace, "checkout"), "/api/price",
+response = await integration.invoke(checkout, "/api/price",
                                     headers=incoming_headers, verb="POST", json=order)
 ```
 
@@ -145,19 +192,30 @@ from signadot import AppIDs, RouteCache, RoutesClient, RoutingError, Subscriptio
 from signadot import cloud_event, routing_headers, routing_key, validate_cloud_event
 ```
 
-The registry is one JSON document. `sandboxes` maps a Signadot sandbox name to the native Dapr app
-ID that sandbox's fork runs under:
+### The app-ID naming rule
 
-```json
-{
-  "namespace": "dapr-demo",
-  "workloads": [
-    {"baseline": {"kind": "Deployment", "namespace": "dapr-demo", "name": "checkout"},
-     "baselineAppID": "checkout",
-     "sandboxes": {"dapr-demo-checkout": "dapr-demo-checkout"}}
-  ]
-}
+A fork's app ID is never configured. `fork_app_id` computes it from the sandbox name and the forked
+workload, and both sides apply it: whatever creates the sandbox writes the result into the fork's
+`dapr.io/app-id` annotation, and a caller applies it to the sandbox name the Routes API returns for
+a routing key.
+
+```text
+sbx-<sandbox>-<workload>-<8 hex digits of sha256(kind/namespace/name/sandbox)>
+sbx-pr-123-checkout-checkout-b7b3ec67
 ```
+
+The `sbx-` prefix is reserved, so a fork can never take a baseline's app ID. The readable part is
+truncated so the whole ID stays within Dapr's 58 characters, and the digest keeps truncated or
+ambiguous names apart. `app/signadot/appid.py` uses only the standard library, so a CI job or an
+agent creating a sandbox can run it directly:
+
+```bash
+python3 app/signadot/appid.py --sandbox pr-123-checkout --namespace dapr-demo --name checkout
+```
+
+A sandbox created after the callers started is reachable as soon as the Routes API carries its key,
+with nothing to update or restart. The order console lists its routing contexts from the Routes API
+too, so a new sandbox appears there on reload.
 
 The [full tutorial](https://www.signadot.com/docs/tutorials/testing-dapr-services) walks through the
 same code with the reasoning behind each step.
@@ -190,9 +248,15 @@ python3 scripts/tutorial.py \
 ```
 
 `down` deletes the RouteGroup and sandboxes, then the namespace including the Redis volume, and
-refuses to touch resources it does not own. Use `reconcile` after the operator recreates a fork's
-Deployment: it re-reads the live sandboxes and repairs the ExternalName aliases and the routing-key
-ConfigMap, and is a no-op when nothing has drifted.
+refuses to touch resources it does not own. It leaves the admission rule in place; once no sandbox
+on the cluster relies on it, remove it with:
+
+```bash
+kubectl --context minikube delete -f k8s/dapr-fork-service-label.yaml
+```
+
+`reconcile` re-reads the tutorial's sandboxes, restarts any of their forks whose Dapr Service lost
+its label, and waits for routing to converge again. It is a no-op when nothing has drifted.
 
 ## Architecture
 

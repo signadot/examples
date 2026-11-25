@@ -10,36 +10,13 @@ spec:
   - customizations:
       patch:
         type: strategic
-        value: '{"spec": {"template": {"metadata": {"annotations": {"dapr.io/enabled": "false", "dapr.io/app-id":
-          "dapr-demo-processor"}}, "spec": {"serviceAccountName": "default", "containers": [{"args": ["/daprd",
-          "--dapr-http-port", "3500", "--dapr-grpc-port", "50001", "--dapr-internal-grpc-port", "50002",
-          "--dapr-listen-addresses", "[::1],127.0.0.1", "--dapr-public-port", "3501", "--app-id", "dapr-demo-processor",
-          "--app-protocol", "http", "--log-level", "info", "--dapr-graceful-shutdown-seconds", "-1", "--mode",
-          "kubernetes", "--control-plane-address", "dapr-api.dapr-system.svc.cluster.local:443", "--sentry-address",
-          "dapr-sentry.dapr-system.svc.cluster.local:443", "--app-port", "8080", "--enable-metrics", "--metrics-port",
-          "9090", "--placement-host-address", "dapr-placement-server.dapr-system.svc.cluster.local:50005",
-          "--enable-mtls", "--scheduler-host-address", "dapr-scheduler-server-a.dapr-system.svc.cluster.local:443"],
-          "env": [{"name": "NAMESPACE", "value": "dapr-demo"}, {"name": "DAPR_TRUST_ANCHORS", "value":
-          "-----BEGIN CERTIFICATE-----\nMIIBLzCB4qADAgECAhBIzKmdtESfGWz8PlGkoiIbMAUGAytlcDAYMRYwFAYDVQQK\nEw1jbHVzdGVyLmxvY2FsMB4XDTI2MDkxMDIxMTI1MFoXDTI3MDkxMDIxMjc1MFow\nGDEWMBQGA1UEChMNY2x1c3Rlci5sb2NhbDAqMAUGAytlcAMhAONkn7TAkI2gJ+U7\nCRS6N+SwvXmfLzfmkSbB1BqMJN9go0IwQDAOBgNVHQ8BAf8EBAMCAoQwDwYDVR0T\nAQH/BAUwAwEB/zAdBgNVHQ4EFgQUjzUXccF41i1p1aqcf9Z9xod8B00wBQYDK2Vw\nA0EA2Eb3v8L8sfSGs3s90X4fMWnPkdpAv0fnrcswxj7sFESV1Rkkw730hyvzftOe\nnIOwpf3uzAZ/1N0MggO3yLV8AQ==\n-----END
-          CERTIFICATE-----\n"}, {"name": "POD_NAME", "valueFrom": {"fieldRef": {"apiVersion": "v1", "fieldPath":
-          "metadata.name"}}}, {"name": "DAPR_CONTROLPLANE_NAMESPACE", "value": "dapr-system"}, {"name":
-          "DAPR_CONTROLPLANE_TRUST_DOMAIN", "value": "cluster.local"}], "image": "ghcr.io/dapr/daprd:1.18.3",
-          "imagePullPolicy": "IfNotPresent", "livenessProbe": {"failureThreshold": 5, "initialDelaySeconds":
-          180, "periodSeconds": 10, "successThreshold": 1, "tcpSocket": {"port": 3501}, "timeoutSeconds":
-          3}, "name": "daprd", "ports": [{"containerPort": 3500, "name": "dapr-http", "protocol": "TCP"},
-          {"containerPort": 50001, "name": "dapr-grpc", "protocol": "TCP"}, {"containerPort": 50002, "name":
-          "dapr-internal", "protocol": "TCP"}, {"containerPort": 9090, "name": "dapr-metrics", "protocol":
-          "TCP"}], "readinessProbe": {"failureThreshold": 5, "httpGet": {"path": "/v1.0/healthz", "port":
-          3501, "scheme": "HTTP"}, "initialDelaySeconds": 1, "periodSeconds": 1, "successThreshold": 1,
-          "timeoutSeconds": 1}, "resources": {}, "securityContext": {"allowPrivilegeEscalation": false,
-          "readOnlyRootFilesystem": true, "runAsNonRoot": true}, "volumeMounts": [{"mountPath": "/var/run/secrets/dapr.io/sentrytoken",
-          "name": "dapr-identity-token", "readOnly": true}]}, {"name": "app", "image": "dapr-signadot-tutorial:local",
-          "env": [{"name": "FULFILLMENT_MODE", "value": "priority"}]}], "volumes": [{"name": "dapr-identity-token",
-          "projected": {"defaultMode": 420, "sources": [{"serviceAccountToken": {"audience": "spiffe://cluster.local/ns/dapr-system/dapr-sentry",
-          "expirationSeconds": 7200, "path": "token"}}]}}]}}}}'
+        value: '{"spec": {"template": {"metadata": {"annotations": {"dapr.io/app-id":
+          "sbx-dapr-demo-processor-order-processor-b3530172"}}, "spec": {"containers":
+          [{"name": "app", "image": "dapr-signadot-tutorial:local", "env": [{"name":
+          "FULFILLMENT_MODE", "value": "priority"}]}]}}}}'
     forkOf:
       kind: Deployment
       name: order-processor
       namespace: dapr-demo
   labels:
-    tutorial.signadot.com/owner: 28e6d409-be1e-48a7-b636-7c29f750aee2
+    tutorial.signadot.com/owner: d28972fc-d669-4804-bf82-0bab39ef538c
