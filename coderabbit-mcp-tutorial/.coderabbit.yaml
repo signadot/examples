@@ -1,0 +1,9 @@
+# Lets reviews use MCP connections and show review details. The Signadot connection,
+# its scope and its prompt guidance are set in the CodeRabbit UI, as the tutorial shows.
+knowledge_base:
+  mcp:
+    usage: enabled
+reviews:
+  review_details: true
+  auto_review:
+    enabled: true
